@@ -37,11 +37,28 @@ export function MapPage() {
     loadPhase,
   } = useCameraStore();
   const bounds = useMapStore(s => s.bounds);
+  const center = useMapStore(s => s.center);
+  const zoom = useMapStore(s => s.zoom);
   const appMode = useAppModeStore(s => s.appMode);
   const setAppMode = useAppModeStore(s => s.setAppMode);
   const updateTimelineSettings = useAppModeStore(s => s.updateTimelineSettings);
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+
+  // Seed map viewport from URL params synchronously on first render, before MapLibreView mounts
+  useState(() => {
+    const lat = parseFloat(searchParams.get('lat') ?? '');
+    const lng = parseFloat(searchParams.get('lng') ?? '');
+    if (isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      const z = parseFloat(searchParams.get('zoom') ?? '');
+      useMapStore.setState({
+        center: [lat, lng],
+        ...(isFinite(z) && z >= 0 && z <= 22 && { zoom: z }),
+      });
+    }
+  });
+
+  const viewportSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isExplorePath = location.pathname === '/explore';
   const isTimelinePath = location.pathname === '/timeline';
   const isAnalysisPath = location.pathname === '/analysis';
@@ -107,18 +124,33 @@ export function MapPage() {
   // Update URL when mode changes
   const handleSetAppMode = useCallback((mode: AppMode) => {
     setAppMode(mode);
-    if (mode === 'map') {
-      setSearchParams({}, { replace: true });
-    } else if (mode === 'route') {
-      setSearchParams({ mode: 'route' }, { replace: true });
-    } else if (mode === 'explore') {
-      setSearchParams({ mode: 'explore' }, { replace: true });
-    } else if (mode === 'density') {
-      setSearchParams({ mode: 'density' }, { replace: true });
-    } else if (mode === 'network') {
-      setSearchParams({ mode: 'network' }, { replace: true });
-    }
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (mode === 'map') {
+        next.delete('mode');
+      } else {
+        next.set('mode', mode);
+      }
+      return next;
+    }, { replace: true });
   }, [setAppMode, setSearchParams]);
+
+  // Debounced URL sync: write lat/lng/zoom to search params after map movement settles
+  useEffect(() => {
+    if (viewportSyncRef.current) clearTimeout(viewportSyncRef.current);
+    viewportSyncRef.current = setTimeout(() => {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.set('lat', center[0].toFixed(4));
+        next.set('lng', center[1].toFixed(4));
+        next.set('zoom', zoom.toFixed(1));
+        return next;
+      }, { replace: true });
+    }, 500);
+    return () => {
+      if (viewportSyncRef.current) clearTimeout(viewportSyncRef.current);
+    };
+  }, [center, zoom, setSearchParams]);
 
   // Mobile menu state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
