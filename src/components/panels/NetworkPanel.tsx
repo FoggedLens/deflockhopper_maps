@@ -51,8 +51,14 @@ export function NetworkPanel() {
         }
       >
         {snapPoint === 'full' && (
-          <div className="p-4">
+          <div className="p-4 pb-8">
             <NetworkPanelContent />
+            <div className="mt-6 pt-4 border-t border-dark-700/50">
+              <p className="text-[10px] text-dark-500 text-center">
+                Maps by{' '}
+                <a href="https://openroadlabs.org" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">OpenRoad Labs LLC</a>
+              </p>
+            </div>
           </div>
         )}
       </BottomSheet>
@@ -82,6 +88,14 @@ export function NetworkPanel() {
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-6">
           <NetworkPanelContent />
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 px-6 py-3 border-t border-dark-700/50 bg-dark-800/50">
+          <p className="text-[10px] text-dark-500 text-center">
+            Maps by{' '}
+            <a href="https://openroadlabs.org" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">OpenRoad Labs LLC</a>
+          </p>
         </div>
       </div>
 

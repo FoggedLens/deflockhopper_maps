@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useCameraStore, useRouteStore } from '../../store';
+import { useRouteStore } from '../../store';
 import { BottomSheet, type SnapPoint } from '../common/BottomSheet';
 import { RoutePanelContent } from './RoutePanelContent';
 import { MobileRoutePreview } from './MobileRoutePreview';
@@ -12,7 +12,6 @@ export function RoutePanel() {
   const [hasAnimated, setHasAnimated] = useState(false);
   const [didAutoExpand, setDidAutoExpand] = useState(false);
 
-  const cameraCount = useCameraStore(s => s.cameras.length);
   const { normalRoute, avoidanceRoute } = useRouteStore();
   const hasRoutes = !!(normalRoute && avoidanceRoute);
 
@@ -87,10 +86,10 @@ export function RoutePanel() {
 
             {/* Footer */}
             <div className="mt-6 pt-4 border-t border-dark-700/50">
-              <div className="flex items-center justify-between text-sm text-dark-400">
-                <span>Data from OpenStreetMap</span>
-                <span className="text-dark-300 font-medium">{cameraCount.toLocaleString()} US cameras</span>
-              </div>
+              <p className="text-[10px] text-dark-500 text-center">
+                Maps by{' '}
+                <a href="https://openroadlabs.org" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">OpenRoad Labs LLC</a>
+              </p>
             </div>
           </div>
         )}
@@ -113,13 +112,11 @@ export function RoutePanel() {
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-6 py-4 border-t border-dark-700/50 bg-dark-800/50">
-          <div className="flex items-center justify-between text-sm text-dark-400">
-            <span>Data from OpenStreetMap</span>
-            <div className="flex items-center gap-3">
-              <span className="text-dark-300 font-medium">{cameraCount.toLocaleString()} US cameras</span>
-            </div>
-          </div>
+        <div className="flex-shrink-0 px-6 py-3 border-t border-dark-700/50 bg-dark-800/50">
+          <p className="text-[10px] text-dark-500 text-center">
+            Maps by{' '}
+            <a href="https://openroadlabs.org" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">OpenRoad Labs LLC</a>
+          </p>
         </div>
       </div>
 

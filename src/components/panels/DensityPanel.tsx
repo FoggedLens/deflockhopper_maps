@@ -102,6 +102,12 @@ export function DensityPanel() {
               Compare ALPR surveillance intensity by state or county. Data from <a href="https://deflock.me" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">DeFlock</a> &amp; <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">OSM</a> contributors. Switch between Per Capita and Per Road Mile metrics, toggle 2D/3D views, and customize colors below. Tap any region on the map to reveal its statistics.
             </p>
             {panelContent}
+            <div className="mt-6 pt-4 border-t border-dark-700/50">
+              <p className="text-[10px] text-dark-500 text-center">
+                Maps by{' '}
+                <a href="https://openroadlabs.org" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">OpenRoad Labs LLC</a>
+              </p>
+            </div>
           </div>
         )}
       </BottomSheet>
@@ -128,10 +134,11 @@ export function DensityPanel() {
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-6 py-4 border-t border-dark-700/50 bg-dark-800/50">
-          <div className="flex items-center justify-between text-sm text-dark-400">
-            <span>Data from OpenStreetMap + Census</span>
-          </div>
+        <div className="flex-shrink-0 px-6 py-3 border-t border-dark-700/50 bg-dark-800/50">
+          <p className="text-[10px] text-dark-500 text-center">
+            Maps by{' '}
+            <a href="https://openroadlabs.org" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">OpenRoad Labs LLC</a>
+          </p>
         </div>
       </div>
 

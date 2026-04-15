@@ -101,7 +101,7 @@ export function MapLoadingScreen({
       </header>
 
       {/* Main loading content */}
-      <div className="flex-1 flex items-center justify-center relative">
+      <div className="flex-1 flex items-center justify-center relative pb-14 lg:pb-16">
         {/* Animated background - subtle grid pattern */}
         <div
           className="absolute inset-0 opacity-5"
@@ -125,16 +125,16 @@ export function MapLoadingScreen({
         {error ? (
           // Error state
           <div className="relative z-10 flex flex-col items-center gap-6 px-6 max-w-md text-center">
-            <div className="flex items-center gap-3 opacity-50">
+            <div className="flex items-center gap-2 lg:gap-3 opacity-50">
               <img
                 src="/deflock-icon.png"
                 alt="DeFlock Icon"
-                className="h-16 lg:h-20 w-auto object-contain"
+                className="h-12 lg:h-20 w-auto object-contain"
               />
               <img
                 src="/deflock-logo.svg"
                 alt="DeFlock"
-                className="h-16 lg:h-20 w-auto object-contain"
+                className="h-12 lg:h-20 w-auto object-contain"
               />
             </div>
             <div>
@@ -157,18 +157,18 @@ export function MapLoadingScreen({
           </div>
         ) : (
           // Loading state
-          <div className="relative z-10 flex flex-col items-center gap-8 px-6">
+          <div className="relative z-10 flex flex-col items-center gap-6 lg:gap-8 px-6">
             {/* Logo */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 lg:gap-3">
               <img
                 src="/deflock-icon.png"
                 alt="DeFlock Icon"
-                className="h-20 lg:h-24 w-auto object-contain"
+                className="h-12 lg:h-24 w-auto object-contain"
               />
               <img
                 src="/deflock-logo.svg"
                 alt="DeFlock"
-                className="h-20 lg:h-24 w-auto object-contain"
+                className="h-12 lg:h-24 w-auto object-contain"
               />
             </div>
 

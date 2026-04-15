@@ -91,10 +91,10 @@ export function ExplorePanel() {
             )}
 
             <div className="mt-6 pt-4 border-t border-dark-700/50">
-              <div className="flex items-center justify-between text-sm text-dark-400">
-                <span>Data from OpenStreetMap</span>
-                <span className="text-dark-300 font-medium">{cameraCount.toLocaleString()} US cameras</span>
-              </div>
+              <p className="text-[10px] text-dark-500 text-center">
+                Maps by{' '}
+                <a href="https://openroadlabs.org" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">OpenRoad Labs LLC</a>
+              </p>
             </div>
           </div>
         )}
@@ -130,11 +130,11 @@ export function ExplorePanel() {
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-6 py-4 border-t border-dark-700/50 bg-dark-800/50">
-          <div className="flex items-center justify-between text-sm text-dark-400">
-            <span>Data from OpenStreetMap</span>
-            <span className="text-dark-300 font-medium">{cameraCount.toLocaleString()} US cameras</span>
-          </div>
+        <div className="flex-shrink-0 px-6 py-3 border-t border-dark-700/50 bg-dark-800/50">
+          <p className="text-[10px] text-dark-500 text-center">
+            Maps by{' '}
+            <a href="https://openroadlabs.org" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">OpenRoad Labs LLC</a>
+          </p>
         </div>
       </div>
 
