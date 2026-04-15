@@ -20,9 +20,14 @@ npm run preview   # Preview production build
 ### Tech Stack
 - React 18 + TypeScript + Vite
 - Zustand for state management
-- MapLibre GL for maps
+- MapLibre GL + react-map-gl for maps
+- Deck.gl for advanced visualization layers
 - Tailwind CSS for styling
+- Framer Motion for animations
+- Turf.js for geospatial processing
+- Protomaps for vector tile basemaps
 - FlockHopper Routing API (`api.dontgetflocked.com`) for routing
+- Cloudflare Workers for data API (`data.dontgetflocked.com`)
 
 ### Key Data Flow
 
@@ -44,10 +49,16 @@ The map has 4 modes, selectable via the header tabs:
 |------|---------|
 | `src/services/apiClient.ts` | API client — calls FlockHopper routing API |
 | `src/services/routingConfig.ts` | Visualization constants for camera cones on map |
+| `src/services/cameraDataService.ts` | Camera data fetching and processing |
+| `src/services/boundaryDataService.ts` | Boundary geometry data loading |
+| `src/services/densityDataService.ts` | Density visualization data loading |
 | `src/store/cameraStore.ts` | Camera data management + spatial grid indexing |
 | `src/store/routeStore.ts` | Route calculation state and UI state |
+| `src/store/mapModeStore.ts` | Map style/mode management |
 | `src/pages/MapPage.tsx` | Main application page container |
 | `src/components/map/MapLibreContainer.tsx` | Map rendering, camera markers, route layers |
+| `src/components/panels/MapPanel.tsx` | Main panel container component |
+| `src/components/panels/TabbedPanel.tsx` | Tab navigation for mode panels |
 
 ### State Management Pattern
 
@@ -56,6 +67,7 @@ Zustand stores expose both state and actions. Key stores:
 - `routeStore`: Route calculation, active route display, UI state
 - `customRouteStore`: Multi-leg waypoint routing
 - `mapStore`: Map bounds/viewport
+- `mapModeStore`: Map style and base layer mode
 - `appModeStore`: Current app mode, visualization settings
 - `densityStore`: Density visualization data
 - `networkStore`: Sharing network data
@@ -65,16 +77,23 @@ Zustand stores expose both state and actions. Key stores:
 ```
 src/
 ├── components/
-│   ├── common/     # ErrorBoundary, LoadingSpinner, BottomSheet, Seo
+│   ├── common/     # ErrorBoundary, LoadingSpinner, BottomSheet, Seo, LegacyMapLink
 │   ├── inputs/     # AddressSearch autocomplete
 │   ├── map/        # MapLibreContainer, MapSearch, CameraStats, MapLoadingScreen
-│   ├── panels/     # RoutePanel, ExplorePanel, DensityPanel, NetworkPanel
-│   └── ui/         # Shadcn components (button, slider, switch)
+│   │   └── layers/ # CameraMarkerLayers, DensityLayers, DotDensityLayers,
+│   │               # HeatmapLayers, NetworkLayers, BoundaryOverlayLayers
+│   ├── panels/     # MapPanel, TabbedPanel, RoutePanel, ExplorePanel,
+│   │               # DensityPanel, NetworkPanel, CustomRoutePanel,
+│   │               # MobileTabDrawer, MobileRoutePreview, RouteComparison
+│   └── ui/         # Shadcn components (button, input)
+├── lib/            # Utility helpers (cn)
 ├── modes/          # Visualization modes (heatmap, timeline, dots, density)
 ├── pages/          # MapPage, NotFound
-├── services/       # apiClient, geocodingService, gpxService, routingConfig
+├── services/       # apiClient, cameraDataService, boundaryDataService,
+│                   # densityDataService, geocodingService, gpxService,
+│                   # zipCodeService, routingConfig, performanceLogger
 ├── store/          # Zustand stores
-├── types/          # TypeScript definitions
+├── types/          # TypeScript definitions (camera, density, route, map)
 └── utils/          # geo, polyline, formatting
 ```
 
@@ -82,7 +101,9 @@ src/
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `VITE_API_URL` | FlockHopper API URL | `https://api.dontgetflocked.com` |
+| `VITE_API_URL` | FlockHopper routing API URL | `https://api.dontgetflocked.com` |
+| `VITE_TILES_URL` | Protomaps vector tile server URL | `https://tiles.dontgetflocked.com` |
+| `VITE_DATA_API_URL` | Cloudflare Worker data API URL | `https://data.dontgetflocked.com` |
 | `VITE_LOCATIONIQ_KEY` | LocationIQ geocoding API key | (optional) |
 | `VITE_PERF_LOGGING` | Enable performance logging | `false` |
 
@@ -92,16 +113,20 @@ src/
 The spatial grid (0.5° cells) is critical for performance. Always use `getCamerasInBounds()` or `getCamerasInBoundsFromGrid()` rather than filtering the full camera array.
 
 ### Map Rendering
-`MapLibreContainer.tsx` handles GeoJSON sources for clustered camera markers, direction cone visualization, route line rendering, and pulse animations.
+`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraMarkerLayers, DensityLayers, DotDensityLayers, HeatmapLayers, NetworkLayers, and BoundaryOverlayLayers.
 
 ### Code Splitting
-Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, state, deck-vendor. MapPage uses React lazy loading with Suspense.
+Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, state, deck-vendor. MapPage uses React lazy loading with Suspense. Path alias `@/` maps to `src/`.
 
 ## Data Sources
 
-- **Camera Data**: Fetched via camera data service
-- **ZIP Codes**: `/public/zipcodes-us.json` - Local lookup, no API needed
-- **Map Tiles**: OpenStreetMap raster tiles
+- **Camera Data**: `/public/cameras-us.json.gz` — fetched and decompressed via `cameraDataService`
+- **ZIP Codes**: `/public/zipcodes-us.json` — local lookup, no API needed
+- **Map Tiles**: Protomaps vector tiles via `VITE_TILES_URL`
 - **Geocoding**: Photon (OSM-based) with LocationIQ fallback
-- **Density Data**: GeoJSON files in `/public/` (states, counties, tracts)
-- **Network Data**: JSON files in `/public/` (adjacency, nodes)
+- **Density Data**: GeoJSON files in `/public/geo/` (states-metrics, counties-metrics)
+- **Network Data**: `/public/sharing-network-adjacency.json` and `/public/sharing-network-nodes.geojson`
+
+## Deployment
+
+Hosted on Cloudflare Pages. `_headers` and `_redirects` files in `/public/` configure caching and routing. The `worker/` directory contains a Cloudflare Worker that serves the data API (`data.dontgetflocked.com`).

@@ -103,6 +103,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/timeline" element={<MapPage />} />
               <Route path="/analysis" element={<MapPage />} />
               <Route path="/network" element={<MapPage />} />
+              <Route path="/route" element={<MapPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

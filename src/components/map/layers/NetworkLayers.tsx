@@ -195,18 +195,24 @@ export function NetworkLayers() {
   // Fly to US overview with 3D pitch on mount.
   // Deferred by one frame so the deck.gl overlay is fully initialised and
   // any prior pitch animation (e.g. from DensityLayers cleanup) has settled.
+  // Skip the flyTo if URL had viewport params (share link) — just set the pitch.
   useEffect(() => {
     if (!mapgl) return;
     const map = mapgl.getMap();
+    const hasViewport = new URLSearchParams(window.location.search).has('lat');
 
     const raf = requestAnimationFrame(() => {
-      map.flyTo({
-        center: [-98.5, 39.0],
-        zoom: 4,
-        pitch: 45,
-        bearing: 0,
-        duration: 1500,
-      });
+      if (hasViewport) {
+        map.easeTo({ pitch: 45, duration: 800 });
+      } else {
+        map.flyTo({
+          center: [-98.5, 39.0],
+          zoom: 4,
+          pitch: 45,
+          bearing: 0,
+          duration: 1500,
+        });
+      }
     });
 
     // Reset pitch when leaving network mode

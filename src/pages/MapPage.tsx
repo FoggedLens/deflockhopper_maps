@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useSearchParams, useLocation } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { MapLibreView, MapSearch, CameraStats, MapLoadingScreen, type MapLibreViewHandle } from '@/components/map';
 import { RoutePanel } from '@/components/panels';
 import { ExplorePanel } from '@/components/panels/ExplorePanel';
@@ -10,7 +10,8 @@ import { MobileTabDrawer } from '@/components/panels/MobileTabDrawer';
 import { NetworkLegendBar } from '@/components/map/NetworkLegendBar';
 import { DensityLegendBar } from '@/components/map/DensityLegendBar';
 import { NetworkAgencyCount } from '@/components/map/NetworkAgencyCount';
-import { Seo, LegacyMapLink } from '@/components/common';
+import { Seo, LegacyMapLink, ShareButton } from '@/components/common';
+import { parseViewportFromURL } from '@/utils/urlParams';
 import { useCameraStore, useMapStore, useAppModeStore } from '@/store';
 import { MapStyleControl } from '@/components/map/MapStyleControl';
 import { TimelineBar } from '@/modes/timeline/TimelineBar';
@@ -42,6 +43,7 @@ export function MapPage() {
   const updateTimelineSettings = useAppModeStore(s => s.updateTimelineSettings);
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const isExplorePath = location.pathname === '/explore';
   const isTimelinePath = location.pathname === '/timeline';
   const isAnalysisPath = location.pathname === '/analysis';
@@ -49,6 +51,15 @@ export function MapPage() {
   const isRoutePath = location.pathname === '/route';
   const isExploreMode = appMode === 'explore';
   const hasAutoPlayed = useRef(false);
+
+  // Seed map viewport from URL params once, before MapLibreContainer mounts.
+  // useState initializer runs once — sets store synchronously so initialViewState picks it up.
+  useState(() => {
+    const viewport = parseViewportFromURL(new URLSearchParams(window.location.search));
+    if (viewport) {
+      useMapStore.setState({ center: [viewport.lat, viewport.lng], zoom: viewport.zoom });
+    }
+  });
 
   // Responsive breakpoint — single source of truth for timeline bar layout
   const [isMobile, setIsMobile] = useState(false);
@@ -61,24 +72,17 @@ export function MapPage() {
 
   // Sync URL params with app mode on mount
   useEffect(() => {
+    const vizParam = searchParams.get('viz');
+    const viz = vizParam === 'heatmap' ? 'heatmap' : 'dots';
+
     if (isAnalysisPath) {
       setAppMode('density');
-    } else if (isExplorePath) {
+    } else if (isExplorePath || isTimelinePath) {
       useAppModeStore.setState({
         appMode: 'explore',
-        mapVisualization: 'dots',
+        mapVisualization: viz,
         timelineSettings: {
-          currentDate: new Date().toISOString().slice(0, 10),
-          isPlaying: false,
-          playSpeed: 45,
-        },
-      });
-    } else if (isTimelinePath) {
-      useAppModeStore.setState({
-        appMode: 'explore',
-        mapVisualization: 'dots',
-        timelineSettings: {
-          currentDate: '2024-07-01',
+          currentDate: isTimelinePath ? '2024-07-01' : new Date().toISOString().slice(0, 10),
           isPlaying: false,
           playSpeed: 45,
         },
@@ -106,19 +110,33 @@ export function MapPage() {
 
   // Update URL when mode changes
   const handleSetAppMode = useCallback((mode: AppMode) => {
-    setAppMode(mode);
-    if (mode === 'map') {
+    if (mode === 'explore') {
+      // Set timeline state directly — bypass setAppMode which defaults to today's date
+      useAppModeStore.setState({
+        appMode: 'explore',
+        mapVisualization: 'dots',
+        timelineSettings: {
+          currentDate: '2024-07-01',
+          isPlaying: false,
+          playSpeed: 45,
+        },
+      });
+      hasAutoPlayed.current = false;
+      navigate('/timeline', { replace: true });
+    } else if (mode === 'map') {
+      setAppMode(mode);
       setSearchParams({}, { replace: true });
     } else if (mode === 'route') {
+      setAppMode(mode);
       setSearchParams({ mode: 'route' }, { replace: true });
-    } else if (mode === 'explore') {
-      setSearchParams({ mode: 'explore' }, { replace: true });
     } else if (mode === 'density') {
+      setAppMode(mode);
       setSearchParams({ mode: 'density' }, { replace: true });
     } else if (mode === 'network') {
+      setAppMode(mode);
       setSearchParams({ mode: 'network' }, { replace: true });
     }
-  }, [setAppMode, setSearchParams]);
+  }, [setAppMode, setSearchParams, navigate]);
 
   // Mobile menu state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -307,8 +325,10 @@ export function MapPage() {
                 </button>
               </div>
 
-              {/* Desktop: Legacy map link */}
-              <div className="hidden lg:flex items-center flex-shrink-0">
+              {/* Desktop: Share + Legacy map link */}
+              <div className="hidden lg:flex items-center gap-4 flex-shrink-0">
+                <ShareButton variant="header" />
+                <div className="w-px h-4 bg-dark-600" />
                 <LegacyMapLink variant="header" />
               </div>
             </div>
@@ -341,7 +361,8 @@ export function MapPage() {
                 </button>
               ))}
             </div>
-            <div className="border-t border-dark-600 mt-1 pt-1 px-4 pb-2">
+            <div className="border-t border-dark-600 mt-1 pt-1 px-4 pb-2 space-y-0.5">
+              <ShareButton variant="menu-item" />
               <LegacyMapLink variant="menu-item" />
             </div>
           </nav>
