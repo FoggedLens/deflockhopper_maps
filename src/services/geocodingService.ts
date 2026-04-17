@@ -15,34 +15,6 @@ export interface GeocodingResult {
   distance?: number; // Only for coordinate-based results
 }
 
-// LocationIQ types
-interface LocationIQResult {
-  place_id: string;
-  licence: string;
-  osm_type: string;
-  osm_id: string;
-  lat: string;
-  lon: string;
-  display_name: string;
-  class: string;
-  type: string;
-  importance: number;
-  address?: {
-    house_number?: string;
-    road?: string;
-    neighbourhood?: string;
-    suburb?: string;
-    city?: string;
-    town?: string;
-    village?: string;
-    county?: string;
-    state?: string;
-    postcode?: string;
-    country?: string;
-    country_code?: string;
-  };
-}
-
 interface PhotonFeature {
   type: 'Feature';
   geometry: {
@@ -97,131 +69,6 @@ interface NominatimResult {
     postcode?: string;
     country?: string;
     country_code?: string;
-  };
-}
-
-// ============================================================================
-// LOCATIONIQ API (Primary - Best Address Accuracy)
-// ============================================================================
-
-const LOCATIONIQ_API = 'https://us1.locationiq.com/v1';
-// API key MUST be set via VITE_LOCATIONIQ_KEY environment variable
-const LOCATIONIQ_KEY = import.meta.env.VITE_LOCATIONIQ_KEY;
-
-if (!LOCATIONIQ_KEY) {
-  console.error('[Geocoding] VITE_LOCATIONIQ_KEY environment variable is required. Geocoding will fall back to Photon.');
-}
-
-// Rate limiting for LocationIQ (free tier: 2 requests/second)
-let lastLocationIQRequest = 0;
-const LOCATIONIQ_MIN_INTERVAL = 550; // 550ms = ~1.8 req/sec to stay under limit
-
-// Promise chain to serialize rate-limited requests (prevents race condition)
-let locationIQRateLimitPromise: Promise<void> = Promise.resolve();
-
-async function waitForLocationIQRateLimit(): Promise<void> {
-  // Chain onto existing promise to serialize requests and prevent race conditions
-  locationIQRateLimitPromise = locationIQRateLimitPromise.then(async () => {
-    const now = Date.now();
-    const timeSinceLastRequest = now - lastLocationIQRequest;
-
-    if (timeSinceLastRequest < LOCATIONIQ_MIN_INTERVAL) {
-      await new Promise(resolve =>
-        setTimeout(resolve, LOCATIONIQ_MIN_INTERVAL - timeSinceLastRequest)
-      );
-    }
-
-    lastLocationIQRequest = Date.now();
-  });
-
-  return locationIQRateLimitPromise;
-}
-
-/**
- * Search using LocationIQ geocoder (OSM + OpenAddresses, excellent for street addresses)
- */
-async function searchLocationIQ(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
-  // Apply rate limiting
-  await waitForLocationIQRateLimit();
-  const params = new URLSearchParams({
-    key: LOCATIONIQ_KEY,
-    q: query,
-    format: 'json',
-    addressdetails: '1',
-    limit: '8',
-    countrycodes: 'us',
-    dedupe: '1',
-  });
-
-  const response = await fetch(`${LOCATIONIQ_API}/search?${params}`, { signal });
-  
-  if (!response.ok) {
-    // If LocationIQ fails, throw to trigger fallback
-    throw new Error(`LocationIQ API error: ${response.status}`);
-  }
-
-  const data: LocationIQResult[] = await response.json();
-  
-  return data.map(locationIQToResult);
-}
-
-/**
- * Convert LocationIQ result to our result format
- */
-function locationIQToResult(result: LocationIQResult): GeocodingResult {
-  const addr = result.address;
-  
-  // Determine result type based on class and type
-  let type: GeocodingResult['type'] = 'address';
-  const resultClass = result.class?.toLowerCase() || '';
-  const resultType = result.type?.toLowerCase() || '';
-  
-  if (resultClass === 'shop' || resultClass === 'amenity' || resultClass === 'tourism' || resultClass === 'leisure') {
-    type = 'poi';
-  } else if (resultClass === 'place' && ['city', 'town', 'village', 'hamlet'].includes(resultType)) {
-    type = 'city';
-  } else if (resultClass === 'boundary' && resultType === 'administrative') {
-    // Check if it's a state
-    if (addr?.state && !addr?.city && !addr?.town && !addr?.village && !addr?.road) {
-      type = 'state';
-    } else {
-      type = 'city';
-    }
-  } else if (resultClass === 'highway') {
-    type = 'street';
-  } else if (resultType === 'postcode') {
-    type = 'zip';
-  }
-  
-  // Build name - prefer structured address parts
-  let name = '';
-  if (addr?.house_number && addr?.road) {
-    name = `${addr.house_number} ${addr.road}`;
-  } else if (addr?.road) {
-    name = addr.road;
-  } else {
-    // Use first part of display name
-    name = result.display_name.split(',')[0];
-  }
-  
-  // Build description from address parts
-  const descParts: string[] = [];
-  
-  // If we have a street address and name is the address, don't repeat it
-  const city = addr?.city || addr?.town || addr?.village;
-  if (city) descParts.push(city);
-  if (addr?.state) descParts.push(addr.state);
-  if (addr?.postcode) descParts.push(addr.postcode);
-  
-  const description = descParts.join(', ') || 'United States';
-  
-  return {
-    id: `liq-${result.place_id}`,
-    lat: parseFloat(result.lat),
-    lon: parseFloat(result.lon),
-    name: name || description.split(',')[0],
-    description,
-    type,
   };
 }
 
@@ -409,7 +256,7 @@ async function waitForNominatimRateLimit(): Promise<void> {
 function nominatimToResult(result: NominatimResult): GeocodingResult {
   const addr = result.address;
 
-  // Determine result type based on class and type (same logic as LocationIQ)
+  // Determine result type based on class and type
   let type: GeocodingResult['type'] = 'address';
   const resultClass = result.class?.toLowerCase() || '';
   const resultType = result.type?.toLowerCase() || '';
@@ -497,12 +344,11 @@ async function searchNominatim(query: string, signal?: AbortSignal): Promise<Geo
 type GeocodingProvider = (query: string, signal?: AbortSignal) => Promise<GeocodingResult[]>;
 
 /**
- * Search through providers in order: LocationIQ (1.8 req/sec) → Nominatim (1 req/sec) → Photon (no limit).
+ * Search through providers in order: Nominatim (1 req/sec) → Photon (no limit).
  * Falls through to the next provider on failure or empty results.
  */
 async function searchWithFallback(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
   const providers: { name: string; search: GeocodingProvider }[] = [
-    { name: 'LocationIQ', search: searchLocationIQ },
     { name: 'Nominatim', search: searchNominatim },
     { name: 'Photon', search: searchPhoton },
   ];
@@ -584,7 +430,7 @@ export async function smartSearch(query: string, signal?: AbortSignal): Promise<
     return searchWithFallback(`${trimmed}, USA`, signal);
   }
 
-  // Search with 3-tier fallback: LocationIQ → Nominatim → Photon
+  // Search with 2-tier fallback: Nominatim → Photon
   return searchWithFallback(trimmed, signal);
 }
 
