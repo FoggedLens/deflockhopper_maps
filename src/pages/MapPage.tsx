@@ -11,7 +11,7 @@ import { NetworkLegendBar } from '@/components/map/NetworkLegendBar';
 import { DensityLegendBar } from '@/components/map/DensityLegendBar';
 import { NetworkAgencyCount } from '@/components/map/NetworkAgencyCount';
 import { Seo, LegacyMapLink, ShareButton } from '@/components/common';
-import { parseViewportFromURL } from '@/utils/urlParams';
+import { parseViewportFromURL, writeViewportParams } from '@/utils/urlParams';
 import { useCameraStore, useMapStore, useAppModeStore } from '@/store';
 import { MapStyleControl } from '@/components/map/MapStyleControl';
 import { TimelineBar } from '@/modes/timeline/TimelineBar';
@@ -38,7 +38,10 @@ export function MapPage() {
     loadPhase,
   } = useCameraStore();
   const bounds = useMapStore(s => s.bounds);
+  const center = useMapStore(s => s.center);
+  const zoom = useMapStore(s => s.zoom);
   const appMode = useAppModeStore(s => s.appMode);
+  const mapVisualization = useAppModeStore(s => s.mapVisualization);
   const setAppMode = useAppModeStore(s => s.setAppMode);
   const updateTimelineSettings = useAppModeStore(s => s.updateTimelineSettings);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -60,6 +63,15 @@ export function MapPage() {
       useMapStore.setState({ center: [viewport.lat, viewport.lng], zoom: viewport.zoom });
     }
   });
+
+  // Debounced live URL sync: mirrors whatever buildShareURL would produce,
+  // so copying the address bar equals clicking Share.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchParams(prev => writeViewportParams(new URLSearchParams(prev)), { replace: true });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [center, zoom, appMode, mapVisualization, setSearchParams]);
 
   // Responsive breakpoint — single source of truth for timeline bar layout
   const [isMobile, setIsMobile] = useState(false);
