@@ -285,17 +285,13 @@ function nominatimToResult(result: NominatimResult): GeocodingResult {
 // PROXY GEOCODING (Primary - custom proxy returning Nominatim-format results)
 // ============================================================================
 
-const GEOCODE_PROXY_URL = import.meta.env.VITE_GEOCODE_API_URL as string | undefined;
+const GEOCODE_PROXY_URL = (import.meta.env.VITE_GEOCODE_API_URL as string | undefined) || 'https://api.deflock.org/geocode/multi';
 
 /**
  * Search using the custom geocoding proxy (returns Nominatim-format JSON).
  * Uses ?query= param as required by the proxy.
  */
 async function searchProxy(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
-  if (!GEOCODE_PROXY_URL) {
-    throw new Error('VITE_GEOCODE_API_URL is not configured');
-  }
-
   const params = new URLSearchParams({ query });
   const response = await fetch(`${GEOCODE_PROXY_URL}?${params}`, { signal });
 
