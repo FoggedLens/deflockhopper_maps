@@ -395,10 +395,30 @@ input[type="range"]::-moz-range-thumb {
   right: 16px !important;
 }
 
-/* Map style control — inline above zoom controls */
+/* Map style control — inline above zoom + geolocate controls */
 .map-page .map-style-control {
-  bottom: 156px; /* 24px (zoom offset) + 120px (zoom group with padding/rounding) + 12px gap */
+  bottom: 208px; /* 24px (zoom offset) + 172px (zoom group + geolocate group + gaps) + 12px gap */
   right: 26px; /* 16px (ctrl container offset) + 10px (maplibregl-ctrl margin) */
+}
+
+/* Dark theme overrides for GeolocateControl */
+.maplibregl-ctrl-geolocate {
+  background-color: #1e2535 !important; /* dark-800 */
+  border: 1px solid #2d3548 !important; /* dark-600 */
+  border-radius: 6px !important;
+}
+.maplibregl-ctrl-geolocate:hover {
+  background-color: #252d40 !important; /* dark-700 */
+}
+.maplibregl-ctrl-geolocate .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(0.7);
+}
+.maplibregl-ctrl-geolocate:hover .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1);
+}
+.maplibregl-ctrl-geolocate.maplibregl-ctrl-geolocate-active .maplibregl-ctrl-icon,
+.maplibregl-ctrl-geolocate.maplibregl-ctrl-geolocate-active-error .maplibregl-ctrl-icon {
+  filter: none;
 }
 
 /* Mobile-specific styles for main map page (with bottom sheet) */
@@ -411,7 +431,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .map-page .map-style-control {
-    bottom: 224px; /* 92px (zoom offset) + 120px (zoom group) + 12px gap */
+    bottom: 276px; /* 92px (zoom offset) + 172px (zoom + geolocate groups) + 12px gap */
     right: 22px; /* 12px (ctrl container offset) + 10px (maplibregl-ctrl margin) */
   }
 
@@ -427,7 +447,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .map-page.timeline-active .map-style-control {
-    bottom: 280px; /* 224px + 56px */
+    bottom: 332px; /* 276px + 56px */
   }
 
   .map-page.timeline-active .maplibregl-ctrl-bottom-left {

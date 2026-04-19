@@ -4,10 +4,34 @@ import Map, {
   Layer, 
   Popup,
   NavigationControl,
+  useControl,
   type MapRef,
   type ViewStateChangeEvent,
   type MapLayerMouseEvent
 } from 'react-map-gl/maplibre';
+
+// @vis.gl/react-maplibre's GeolocateControl only patches _setupUI for Strict Mode reuse,
+// but misses _finishSetupUI (the async half that adds the click listener). In Strict Mode
+// this runs twice, registering two listeners: the second immediately cancels the first.
+// Fix: also guard _finishSetupUI with the same _setup flag MapLibre sets after first run.
+function GeolocateControl({ position }: { position: string }) {
+  useControl(
+    ({ mapLib }) => {
+      const gc = new (mapLib as typeof maplibregl).GeolocateControl({ trackUserLocation: true });
+      const origSetupUI = gc._setupUI;
+      const origFinishSetupUI = (gc as unknown as { _finishSetupUI: (s: boolean) => void })._finishSetupUI;
+      gc._setupUI = () => {
+        if (!gc._container.hasChildNodes()) origSetupUI();
+      };
+      (gc as unknown as { _finishSetupUI: (s: boolean) => void })._finishSetupUI = (supported) => {
+        if (!(gc as unknown as { _setup: boolean })._setup) origFinishSetupUI(supported);
+      };
+      return gc;
+    },
+    { position: position as 'bottom-right' },
+  );
+  return null;
+}
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -911,6 +935,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       // Removed reuseMaps to avoid stale reused instances
     >
       <NavigationControl position="bottom-right" showCompass={false} />
+      <GeolocateControl position="bottom-right" />
 
       {/* Explore visualization layers */}
       {isHeatmapMode && <HeatmapLayers />}
