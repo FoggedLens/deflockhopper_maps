@@ -13,6 +13,7 @@ import { NetworkAgencyCount } from '@/components/map/NetworkAgencyCount';
 import { Seo, LegacyMapLink, ShareButton } from '@/components/common';
 import { parseViewportFromURL, writeViewportParams } from '@/utils/urlParams';
 import { useCameraStore, useMapStore, useAppModeStore } from '@/store';
+import { useEmbedMode } from '@/hooks/useEmbedMode';
 import { MapStyleControl } from '@/components/map/MapStyleControl';
 import { TimelineBar } from '@/modes/timeline/TimelineBar';
 import { DensityFeaturePopup } from '@/modes/density/DensityFeaturePopup';
@@ -43,6 +44,7 @@ export function MapPage() {
   const appMode = useAppModeStore(s => s.appMode);
   const mapVisualization = useAppModeStore(s => s.mapVisualization);
   const setAppMode = useAppModeStore(s => s.setAppMode);
+  const isEmbed = useEmbedMode();
   const updateTimelineSettings = useAppModeStore(s => s.updateTimelineSettings);
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -338,11 +340,13 @@ export function MapPage() {
               </div>
 
               {/* Desktop: Share + Legacy map link */}
+              {!isEmbed && (
               <div className="hidden lg:flex items-center gap-4 flex-shrink-0">
                 <ShareButton variant="header" />
                 <div className="w-px h-4 bg-dark-600" />
                 <LegacyMapLink variant="header" />
               </div>
+              )}
             </div>
           </div>
         </header>
@@ -374,8 +378,8 @@ export function MapPage() {
               ))}
             </div>
             <div className="border-t border-dark-600 mt-1 pt-1 px-4 pb-2 space-y-0.5">
-              <ShareButton variant="menu-item" />
-              <LegacyMapLink variant="menu-item" />
+              {!isEmbed && <ShareButton variant="menu-item" />}
+              {!isEmbed && <LegacyMapLink variant="menu-item" />}
             </div>
           </nav>
         )}
@@ -402,7 +406,7 @@ export function MapPage() {
             />
 
             {/* Map Overlays */}
-            <MapSearch />
+            {!isEmbed && <MapSearch />}
             {appMode === 'network' ? <NetworkAgencyCount /> : appMode !== 'map' ? <CameraStats /> : null}
             <MapStyleControl />
 
