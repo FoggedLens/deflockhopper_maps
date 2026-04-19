@@ -222,36 +222,11 @@ function photonToResult(feature: PhotonFeature): GeocodingResult {
 }
 
 // ============================================================================
-// NOMINATIM GEOCODING (Fallback - OSM's own geocoder, strict 1 req/sec)
+// NOMINATIM-FORMAT RESULT CONVERTER
 // ============================================================================
 
-const NOMINATIM_API = 'https://nominatim.openstreetmap.org/search';
-
-// Rate limiting for Nominatim (strict policy: max 1 request/second)
-let lastNominatimRequest = 0;
-const NOMINATIM_MIN_INTERVAL = 1100; // 1100ms = ~0.9 req/sec to stay safely under limit
-
-let nominatimRateLimitPromise: Promise<void> = Promise.resolve();
-
-async function waitForNominatimRateLimit(): Promise<void> {
-  nominatimRateLimitPromise = nominatimRateLimitPromise.then(async () => {
-    const now = Date.now();
-    const timeSinceLastRequest = now - lastNominatimRequest;
-
-    if (timeSinceLastRequest < NOMINATIM_MIN_INTERVAL) {
-      await new Promise(resolve =>
-        setTimeout(resolve, NOMINATIM_MIN_INTERVAL - timeSinceLastRequest)
-      );
-    }
-
-    lastNominatimRequest = Date.now();
-  });
-
-  return nominatimRateLimitPromise;
-}
-
 /**
- * Convert Nominatim result to our result format
+ * Convert Nominatim-format result to our result format
  */
 function nominatimToResult(result: NominatimResult): GeocodingResult {
   const addr = result.address;
@@ -306,34 +281,29 @@ function nominatimToResult(result: NominatimResult): GeocodingResult {
   };
 }
 
+// ============================================================================
+// PROXY GEOCODING (Primary - custom proxy returning Nominatim-format results)
+// ============================================================================
+
+const GEOCODE_PROXY_URL = import.meta.env.VITE_GEOCODE_API_URL as string | undefined;
+
 /**
- * Search using Nominatim geocoder (OSM's official geocoder, 1 req/sec limit)
+ * Search using the custom geocoding proxy (returns Nominatim-format JSON).
+ * Uses ?query= param as required by the proxy.
  */
-async function searchNominatim(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
-  await waitForNominatimRateLimit();
+async function searchProxy(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
+  if (!GEOCODE_PROXY_URL) {
+    throw new Error('VITE_GEOCODE_API_URL is not configured');
+  }
 
-  const params = new URLSearchParams({
-    q: query,
-    format: 'json',
-    addressdetails: '1',
-    limit: '8',
-    countrycodes: 'us',
-    dedupe: '1',
-  });
-
-  const response = await fetch(`${NOMINATIM_API}?${params}`, {
-    signal,
-    headers: {
-      'User-Agent': 'DeFlock Maps (maps.deflock.org)',
-    },
-  });
+  const params = new URLSearchParams({ query });
+  const response = await fetch(`${GEOCODE_PROXY_URL}?${params}`, { signal });
 
   if (!response.ok) {
-    throw new Error(`Nominatim API error: ${response.status}`);
+    throw new Error(`Geocoding proxy error: ${response.status}`);
   }
 
   const data: NominatimResult[] = await response.json();
-
   return data.map(nominatimToResult);
 }
 
@@ -344,12 +314,12 @@ async function searchNominatim(query: string, signal?: AbortSignal): Promise<Geo
 type GeocodingProvider = (query: string, signal?: AbortSignal) => Promise<GeocodingResult[]>;
 
 /**
- * Search through providers in order: Nominatim (1 req/sec) → Photon (no limit).
+ * Search through providers in order: Proxy → Photon (fallback).
  * Falls through to the next provider on failure or empty results.
  */
 async function searchWithFallback(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
   const providers: { name: string; search: GeocodingProvider }[] = [
-    { name: 'Nominatim', search: searchNominatim },
+    { name: 'Proxy', search: searchProxy },
     { name: 'Photon', search: searchPhoton },
   ];
 
@@ -430,7 +400,7 @@ export async function smartSearch(query: string, signal?: AbortSignal): Promise<
     return searchWithFallback(`${trimmed}, USA`, signal);
   }
 
-  // Search with 2-tier fallback: Nominatim → Photon
+  // Search with 2-tier fallback: Proxy → Photon
   return searchWithFallback(trimmed, signal);
 }
 
