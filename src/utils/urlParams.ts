@@ -36,21 +36,33 @@ export function parseViewportFromURL(searchParams: URLSearchParams): ViewportPar
 }
 
 /**
- * Build a shareable URL from current Zustand store state.
- * Reads directly from stores — no React subscription, no re-renders.
+ * Write viewport params (lat/lng/zoom, plus viz in explore mode) onto the given
+ * URLSearchParams, mutating and returning it. Single source of truth used by
+ * both the live URL sync and the Share button so their output stays identical.
  */
-export function buildShareURL(): string {
+export function writeViewportParams(params: URLSearchParams): URLSearchParams {
   const { center, zoom } = useMapStore.getState();
   const { appMode, mapVisualization } = useAppModeStore.getState();
 
-  const path = MODE_PATHS[appMode] ?? '/';
-  const params = new URLSearchParams();
   params.set('lat', center[0].toFixed(4));
   params.set('lng', center[1].toFixed(4));
   params.set('zoom', zoom.toFixed(2));
   if (appMode === 'explore') {
     params.set('viz', mapVisualization);
+  } else {
+    params.delete('viz');
   }
 
+  return params;
+}
+
+/**
+ * Build a shareable URL from current Zustand store state.
+ * Reads directly from stores — no React subscription, no re-renders.
+ */
+export function buildShareURL(): string {
+  const { appMode } = useAppModeStore.getState();
+  const path = MODE_PATHS[appMode] ?? '/';
+  const params = writeViewportParams(new URLSearchParams());
   return `${window.location.origin}${path}?${params.toString()}`;
 }

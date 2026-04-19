@@ -10,7 +10,7 @@ export {
 // API client - FlockHopper routing API
 export * from './apiClient';
 
-// Geocoding - Photon + LocationIQ based service (preferred)
+// Geocoding - Nominatim + Photon based service
 export { smartSearch, toLocation, getResultTypeIcon } from './geocodingService';
 export type { GeocodingResult } from './geocodingService';
 

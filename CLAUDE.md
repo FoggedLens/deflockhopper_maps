@@ -104,7 +104,6 @@ src/
 | `VITE_API_URL` | FlockHopper routing API URL | `https://api.dontgetflocked.com` |
 | `VITE_TILES_URL` | Protomaps vector tile server URL | `https://tiles.dontgetflocked.com` |
 | `VITE_DATA_API_URL` | Cloudflare Worker data API URL | `https://data.dontgetflocked.com` |
-| `VITE_LOCATIONIQ_KEY` | LocationIQ geocoding API key | (optional) |
 | `VITE_PERF_LOGGING` | Enable performance logging | `false` |
 
 ## Important Patterns
@@ -123,7 +122,7 @@ Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, stat
 - **Camera Data**: `/public/cameras-us.json.gz` — fetched and decompressed via `cameraDataService`
 - **ZIP Codes**: `/public/zipcodes-us.json` — local lookup, no API needed
 - **Map Tiles**: Protomaps vector tiles via `VITE_TILES_URL`
-- **Geocoding**: Photon (OSM-based) with LocationIQ fallback
+- **Geocoding**: Nominatim (OSM) with Photon fallback
 - **Density Data**: GeoJSON files in `/public/geo/` (states-metrics, counties-metrics)
 - **Network Data**: `/public/sharing-network-adjacency.json` and `/public/sharing-network-nodes.geojson`
 
