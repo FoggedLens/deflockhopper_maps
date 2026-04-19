@@ -2,9 +2,6 @@
 # SECURITY HEADERS (Applied to all routes)
 # =============================================================================
 /*
-  # Prevent clickjacking - site cannot be embedded in iframes
-  X-Frame-Options: DENY
-
   # Prevent MIME type sniffing
   X-Content-Type-Options: nosniff
 
