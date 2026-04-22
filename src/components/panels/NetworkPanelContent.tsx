@@ -26,13 +26,13 @@ const TYPE_COLORS: Record<string, string> = {
 
 const DIRECTION_HEX: Record<Direction, string> = {
   outgoing: '#F97316',
-  incoming: '#38BDF8',
+  incoming: '#3B82F6',
   mutual:   '#8B5CF6',
 };
 
 const DIRECTION_DOT: Record<Direction, string> = {
   outgoing: 'bg-orange-500',
-  incoming: 'bg-sky-400',
+  incoming: 'bg-blue-500',
   mutual:   'bg-violet-500',
 };
 
@@ -62,8 +62,8 @@ function ArcSwatch({ direction }: { direction: Direction }) {
     );
   }
 
-  const fromOpacity = direction === 'outgoing' ? 0.9 : 0.25;
-  const toOpacity   = direction === 'outgoing' ? 0.25 : 0.9;
+  const fromOpacity = direction === 'outgoing' ? 0.95 : 0.47;
+  const toOpacity   = direction === 'outgoing' ? 0.47 : 0.95;
 
   return (
     <svg width="22" height="10" viewBox="0 0 22 10" className="flex-shrink-0">

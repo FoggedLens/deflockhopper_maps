@@ -15,7 +15,7 @@ const NODE_COLORS: Record<string, [number, number, number]> = {
 
 const DIRECTION_COLORS: Record<Direction, [number, number, number]> = {
   outgoing: [249, 115, 22],   // orange  #F97316 - selected agency shares to them
-  incoming: [56, 189, 248],   // sky blue #38BDF8 - they share to selected agency
+  incoming: [59, 130, 246],   // blue    #3B82F6 - they share to selected agency
   mutual:   [139, 92, 246],   // violet  #8B5CF6 - both directions
 };
 
@@ -138,13 +138,13 @@ export function NetworkLayers() {
           getSourceColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
             // Selected-node end: bright for outgoing, faded for incoming, even for mutual.
-            const alpha = d.direction === 'outgoing' ? 220 : d.direction === 'incoming' ? 70 : 200;
+            const alpha = d.direction === 'outgoing' ? 240 : d.direction === 'incoming' ? 120 : 230;
             return [c[0], c[1], c[2], alpha];
           },
           getTargetColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
             // Neighbor end: faded for outgoing, bright for incoming, even for mutual.
-            const alpha = d.direction === 'outgoing' ? 70 : d.direction === 'incoming' ? 220 : 200;
+            const alpha = d.direction === 'outgoing' ? 120 : d.direction === 'incoming' ? 240 : 230;
             return [c[0], c[1], c[2], alpha];
           },
           getWidth: arcWidth * 4,
@@ -166,12 +166,12 @@ export function NetworkLayers() {
           getTargetPosition: (d) => d.target.coordinates,
           getSourceColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            const alpha = d.direction === 'outgoing' ? 110 : d.direction === 'incoming' ? 35 : 100;
+            const alpha = d.direction === 'outgoing' ? 140 : d.direction === 'incoming' ? 60 : 130;
             return [c[0], c[1], c[2], alpha];
           },
           getTargetColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            const alpha = d.direction === 'outgoing' ? 35 : d.direction === 'incoming' ? 110 : 100;
+            const alpha = d.direction === 'outgoing' ? 60 : d.direction === 'incoming' ? 140 : 130;
             return [c[0], c[1], c[2], alpha];
           },
           getWidth: arcWidth * 3,
