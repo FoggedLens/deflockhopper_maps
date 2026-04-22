@@ -18,6 +18,7 @@ export interface NetworkNode {
 }
 
 export type Direction = 'mutual' | 'outgoing' | 'incoming';
+export type TabKey = 'all' | Direction;
 
 export interface DirectionalArc {
   source: NetworkNode;
@@ -72,6 +73,7 @@ interface NetworkState {
   selectedNodeId: string | null;
   selectedNode: NetworkNode | null;
   selectedArcs: DirectionalArc[];
+  activeTab: TabKey;
   hoveredNode: NetworkNode | null;
   hoverArcsEnabled: boolean;
   arcWidth: number;
@@ -82,6 +84,7 @@ interface NetworkState {
 
   loadNetworkData: () => Promise<void>;
   setSelectedNodeId: (id: string | null) => void;
+  setActiveTab: (tab: TabKey) => void;
   setHoveredNode: (node: NetworkNode | null) => void;
   setHoverArcsEnabled: (enabled: boolean) => void;
   setArcWidth: (width: number) => void;
@@ -167,6 +170,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   selectedNodeId: null,
   selectedNode: null,
   selectedArcs: [],
+  activeTab: 'all',
   hoveredNode: null,
   hoverArcsEnabled: false,
   arcWidth: 0.5,
@@ -225,7 +229,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setSelectedNodeId: (id) => {
     const { nodesMap, adjacency, reverseAdjacency } = get();
     if (!id) {
-      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [] });
+      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all' });
       return;
     }
     const sourceNode = nodesMap.get(id);
@@ -237,8 +241,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       selectedNodeId: id,
       selectedNode: sourceNode,
       selectedArcs: arcs,
+      activeTab: 'all',
     });
   },
+
+  setActiveTab: (tab) => set({ activeTab: tab }),
 
   setHoveredNode: (node) => set({ hoveredNode: node }),
   setHoverArcsEnabled: (enabled) => set({ hoverArcsEnabled: enabled }),
@@ -261,5 +268,5 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   togglePortalOnly: () => set((s) => ({ portalOnly: !s.portalOnly })),
 
-  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [] }),
+  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all' }),
 }));

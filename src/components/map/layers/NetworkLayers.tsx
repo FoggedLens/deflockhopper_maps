@@ -44,6 +44,7 @@ export function NetworkLayers() {
   const portalOnly = useNetworkStore(s => s.portalOnly);
   const arcWidth = useNetworkStore(s => s.arcWidth);
   const hoverArcsEnabled = useNetworkStore(s => s.hoverArcsEnabled);
+  const activeTab = useNetworkStore(s => s.activeTab);
   const setSelectedNodeId = useNetworkStore(s => s.setSelectedNodeId);
   const setHoveredNode = useNetworkStore(s => s.setHoveredNode);
 
@@ -89,6 +90,16 @@ export function NetworkLayers() {
     if (selectedNodeId) setHoveredArcs([]);
   }, [selectedNodeId]);
 
+  // Filter arcs by the active direction tab
+  const visibleSelectedArcs = useMemo(
+    () => activeTab === 'all' ? selectedArcs : selectedArcs.filter(a => a.direction === activeTab),
+    [selectedArcs, activeTab],
+  );
+  const visibleHoveredArcs = useMemo(
+    () => activeTab === 'all' ? hoveredArcs : hoveredArcs.filter(a => a.direction === activeTab),
+    [hoveredArcs, activeTab],
+  );
+
   // Build layers
   const layers = useMemo(() => {
     const result = [];
@@ -128,11 +139,11 @@ export function NetworkLayers() {
     );
 
     // ArcLayer - selected node (full opacity, with dimming on scatterplot)
-    if (selectedArcs.length > 0) {
+    if (visibleSelectedArcs.length > 0) {
       result.push(
         new ArcLayer<DirectionalArc>({
           id: 'network-arcs',
-          data: selectedArcs,
+          data: visibleSelectedArcs,
           getSourcePosition: (d) => d.source.coordinates,
           getTargetPosition: (d) => d.target.coordinates,
           getSourceColor: (d) => {
@@ -153,11 +164,11 @@ export function NetworkLayers() {
     }
 
     // ArcLayer - hover preview (semi-transparent, no dimming)
-    if (hoveredArcs.length > 0 && !selectedNodeId) {
+    if (visibleHoveredArcs.length > 0 && !selectedNodeId) {
       result.push(
         new ArcLayer<DirectionalArc>({
           id: 'network-hover-arcs',
-          data: hoveredArcs,
+          data: visibleHoveredArcs,
           getSourcePosition: (d) => d.source.coordinates,
           getTargetPosition: (d) => d.target.coordinates,
           getSourceColor: (d) => {
@@ -178,7 +189,8 @@ export function NetworkLayers() {
     }
 
     return result;
-  }, [filteredNodes, selectedArcs, selectedNodeId, arcWidth, hoveredArcs, handleNodeClick, handleNodeHover]);
+  }, [filteredNodes, selectedArcs, selectedNodeId, arcWidth, visibleSelectedArcs, visibleHoveredArcs, handleNodeClick, handleNodeHover]);
+  // Note: selectedArcs kept in deps because ScatterplotLayer dimming uses it unfiltered (direction filter should not change which nodes dim).
 
   // Mount/unmount the deck.gl overlay
   useEffect(() => {

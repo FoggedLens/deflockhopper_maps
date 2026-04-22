@@ -90,11 +90,11 @@ const INITIAL_SHOW_COUNT = 10;
 
 export function NetworkPanelContent() {
   const [showAll, setShowAll] = useState(false);
-  const [activeTab, setActiveTab] = useState<Direction>('mutual');
 
   const {
     loadPhase, loadNetworkData, nodesArray, searchQuery,
     setSearchQuery, setSelectedNodeId, selectedNode, selectedArcs,
+    activeTab, setActiveTab,
     clearSelection, arcWidth, setArcWidth, hoverArcsEnabled, setHoverArcsEnabled,
     portalOnly, togglePortalOnly, error,
   } = useNetworkStore();
@@ -104,10 +104,9 @@ export function NetworkPanelContent() {
     loadNetworkData();
   }, [loadNetworkData]);
 
-  // Reset showAll and default tab whenever selection changes
+  // Reset pagination whenever selection changes (tab reset is handled by the store)
   useEffect(() => {
     setShowAll(false);
-    setActiveTab('mutual');
   }, [selectedNode?.id]);
 
   // Escape key to dismiss selection
@@ -154,7 +153,17 @@ export function NetworkPanelContent() {
   const mutualCount   = byDirection.mutual.length;
   const outgoingCount = byDirection.outgoing.length;
   const incomingCount = byDirection.incoming.length;
-  const activeConnections = byDirection[activeTab];
+  // Each entry pairs a node with its direction. 'all' tab concatenates mutual → outgoing → incoming.
+  const activeConnections = useMemo<Array<{ node: NetworkNode; direction: Direction }>>(() => {
+    if (activeTab === 'all') {
+      return [
+        ...byDirection.mutual.map(node => ({ node, direction: 'mutual' as Direction })),
+        ...byDirection.outgoing.map(node => ({ node, direction: 'outgoing' as Direction })),
+        ...byDirection.incoming.map(node => ({ node, direction: 'incoming' as Direction })),
+      ];
+    }
+    return byDirection[activeTab].map(node => ({ node, direction: activeTab }));
+  }, [byDirection, activeTab]);
   const visibleConnections = showAll ? activeConnections : activeConnections.slice(0, INITIAL_SHOW_COUNT);
   const hasMore = activeConnections.length > INITIAL_SHOW_COUNT;
 
@@ -309,38 +318,46 @@ export function NetworkPanelContent() {
               {selectedArcs.length > 0 && (
                 <div>
                   <div className="flex gap-1 mb-2 border-b border-dark-700/50" role="tablist">
-                    {(['mutual', 'outgoing', 'incoming'] as const).map(dir => {
-                      const count = byDirection[dir].length;
-                      const isActive = activeTab === dir;
+                    {(['all', 'mutual', 'outgoing', 'incoming'] as const).map(tab => {
+                      const count = tab === 'all' ? selectedArcs.length : byDirection[tab].length;
+                      const label = tab === 'all' ? 'All' : DIRECTION_TAB_LABEL[tab];
+                      const isActive = activeTab === tab;
                       return (
                         <button
-                          key={dir}
+                          key={tab}
                           role="tab"
                           aria-selected={isActive}
-                          onClick={() => { setActiveTab(dir); setShowAll(false); }}
+                          onClick={() => { setActiveTab(tab); setShowAll(false); }}
                           className={`px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
                             isActive ? 'text-white border-accent' : 'text-dark-400 border-transparent hover:text-white'
                           }`}
                         >
-                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${DIRECTION_DOT[dir]}`} aria-hidden />
-                          {DIRECTION_TAB_LABEL[dir]} ({count})
+                          {tab !== 'all' && (
+                            <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${DIRECTION_DOT[tab]}`} aria-hidden />
+                          )}
+                          {label} ({count})
                         </button>
                       );
                     })}
                   </div>
 
                   {activeConnections.length === 0 ? (
-                    <p className="text-xs text-dark-500 py-2">{DIRECTION_EMPTY_MSG[activeTab]}</p>
+                    <p className="text-xs text-dark-500 py-2">
+                      {activeTab === 'all' ? 'No connections.' : DIRECTION_EMPTY_MSG[activeTab]}
+                    </p>
                   ) : (
                     <>
                       <div className="space-y-0.5">
-                        {visibleConnections.map(node => (
+                        {visibleConnections.map(({ node, direction }) => (
                           <button
                             key={node.id}
                             onClick={() => handleConnectionClick(node)}
-                            className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-dark-800 transition-colors group"
+                            className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-dark-800 transition-colors group flex items-center gap-2"
                           >
-                            <span className="text-sm text-dark-200 group-hover:text-white">{node.name}</span>
+                            {activeTab === 'all' && (
+                              <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${DIRECTION_DOT[direction]}`} aria-hidden />
+                            )}
+                            <span className="text-sm text-dark-200 group-hover:text-white truncate">{node.name}</span>
                           </button>
                         ))}
                       </div>
