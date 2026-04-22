@@ -391,8 +391,8 @@ export function NetworkPanelContent() {
                 This map visualizes the Flock Safety surveillance sharing network &mdash; {nodesArray.length.toLocaleString()}+ law enforcement agencies that share automatic license plate reader (ALPR) data with each other. Click an agency to see who they share data with.
               </p>
               <div className="flex items-center gap-2 mb-3">
-                <span className="inline-block w-3 h-3 rounded-full bg-dark-700 ring-2 ring-green-500 flex-shrink-0" aria-hidden />
-                <span className="text-xs text-dark-300">Green ring = has a transparency portal (click for details)</span>
+                <span className="inline-block w-3 h-3 rounded-full bg-dark-700 ring-2 ring-lime-400 flex-shrink-0" aria-hidden />
+                <span className="text-xs text-dark-300">Lime ring = has a transparency portal (click for details)</span>
               </div>
               <p className="text-xs text-dark-500 leading-relaxed">
                 Data sourced from{' '}

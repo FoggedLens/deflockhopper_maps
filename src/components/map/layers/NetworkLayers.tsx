@@ -122,9 +122,12 @@ export function NetworkLayers() {
           }
           return NODE_COLORS[d.type] || NODE_COLORS.other;
         },
-        getLineColor: (d: NetworkNode) => d.isPortal ? [34, 197, 94] : [255, 255, 255],
-        getLineWidth: (d: NetworkNode) => d.isPortal ? 2 : 1,
-        lineWidthUnits: 'pixels',
+        getLineColor: (d: NetworkNode) => d.isPortal ? [163, 230, 53] : [255, 255, 255],
+        // Meters for dynamic scaling: ring grows as the user zooms in, so portals
+        // become unmistakable at close zoom. minPixels keeps them visible at country view.
+        getLineWidth: (d: NetworkNode) => d.isPortal ? 1400 : 400,
+        lineWidthUnits: 'meters',
+        lineWidthMinPixels: 2,
         stroked: true,
         pickable: true,
         radiusMinPixels: 2,
