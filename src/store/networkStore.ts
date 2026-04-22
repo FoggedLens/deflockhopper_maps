@@ -176,7 +176,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   arcWidth: 0.5,
   searchQuery: '',
   typeFilter: new Set(),
-  portalOnly: true,
+  portalOnly: false,
   error: null,
 
   loadNetworkData: async () => {
