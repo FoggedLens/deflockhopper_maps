@@ -110,7 +110,7 @@ export function NetworkLayers() {
         id: 'network-nodes',
         data: filteredNodes,
         getPosition: (d: NetworkNode) => d.coordinates,
-        getRadius: (d: NetworkNode) => d.isPortal ? 6000 : 3000,
+        getRadius: 4000,
         getFillColor: (d: NetworkNode) => {
           // Dim non-connected nodes when a node is selected
           if (selectedNodeId && d.id !== selectedNodeId) {
@@ -124,10 +124,11 @@ export function NetworkLayers() {
         },
         getLineColor: (d: NetworkNode) => d.isPortal ? [34, 197, 94] : [255, 255, 255],
         getLineWidth: (d: NetworkNode) => d.isPortal ? 2 : 1,
+        lineWidthUnits: 'pixels',
         stroked: true,
         pickable: true,
         radiusMinPixels: 2,
-        radiusMaxPixels: 12,
+        radiusMaxPixels: 10,
         onClick: handleNodeClick,
         onHover: handleNodeHover,
         autoHighlight: true,
