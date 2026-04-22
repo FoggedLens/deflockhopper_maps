@@ -27,13 +27,13 @@ const TYPE_COLORS: Record<string, string> = {
 const DIRECTION_HEX: Record<Direction, string> = {
   outgoing: '#F97316',
   incoming: '#38BDF8',
-  mutual:   '#0080BC',
+  mutual:   '#8B5CF6',
 };
 
 const DIRECTION_DOT: Record<Direction, string> = {
   outgoing: 'bg-orange-500',
   incoming: 'bg-sky-400',
-  mutual:   'bg-accent',
+  mutual:   'bg-violet-500',
 };
 
 const DIRECTION_TAB_LABEL: Record<Direction, string> = {

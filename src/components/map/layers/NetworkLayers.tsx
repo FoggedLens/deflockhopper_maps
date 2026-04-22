@@ -16,7 +16,7 @@ const NODE_COLORS: Record<string, [number, number, number]> = {
 const DIRECTION_COLORS: Record<Direction, [number, number, number]> = {
   outgoing: [249, 115, 22],   // orange  #F97316 - selected agency shares to them
   incoming: [56, 189, 248],   // sky blue #38BDF8 - they share to selected agency
-  mutual:   [0, 128, 188],    // accent  #0080BC - both directions
+  mutual:   [139, 92, 246],   // violet  #8B5CF6 - both directions
 };
 
 const TYPE_LABELS: Record<string, string> = {
