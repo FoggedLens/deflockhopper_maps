@@ -36,21 +36,17 @@ const DIRECTION_DOT: Record<Direction, string> = {
   mutual:   'bg-accent',
 };
 
-// Reserved for Task 4 — silenced until then
 const DIRECTION_TAB_LABEL: Record<Direction, string> = {
   mutual: 'Mutual',
   outgoing: 'Outgoing',
   incoming: 'Incoming',
 };
-void DIRECTION_TAB_LABEL;
 
-// Reserved for Task 4 — silenced until then
 const DIRECTION_EMPTY_MSG: Record<Direction, string> = {
   mutual: 'No mutual connections.',
   outgoing: 'No outgoing-only connections.',
   incoming: 'No incoming-only connections.',
 };
-void DIRECTION_EMPTY_MSG;
 
 /** Small inline SVG arc swatch that matches the map's gradient treatment. */
 function ArcSwatch({ direction }: { direction: Direction }) {
@@ -114,6 +110,7 @@ const INITIAL_SHOW_COUNT = 10;
 
 export function NetworkPanelContent() {
   const [showAll, setShowAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<Direction>('mutual');
 
   const {
     loadPhase, loadNetworkData, nodesArray, searchQuery,
@@ -127,10 +124,16 @@ export function NetworkPanelContent() {
     loadNetworkData();
   }, [loadNetworkData]);
 
-  // Reset showAll when selected node changes
+  // Reset showAll and default tab whenever selection changes
   useEffect(() => {
     setShowAll(false);
+    setActiveTab('mutual');
   }, [selectedNode?.id]);
+
+  // Reset showAll whenever the active tab changes
+  useEffect(() => {
+    setShowAll(false);
+  }, [activeTab]);
 
   // Escape key to dismiss selection
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -168,12 +171,17 @@ export function NetworkPanelContent() {
   }, [setSelectedNodeId]);
 
   const isLoading = loadPhase === 'idle' || loadPhase === 'fetching';
-  const mutualCount   = useMemo(() => selectedArcs.filter(a => a.direction === 'mutual').length,   [selectedArcs]);
-  const outgoingCount = useMemo(() => selectedArcs.filter(a => a.direction === 'outgoing').length, [selectedArcs]);
-  const incomingCount = useMemo(() => selectedArcs.filter(a => a.direction === 'incoming').length, [selectedArcs]);
-  const connections = selectedArcs.map(a => a.target);
-  const visibleConnections = showAll ? connections : connections.slice(0, INITIAL_SHOW_COUNT);
-  const hasMore = connections.length > INITIAL_SHOW_COUNT;
+  const byDirection = useMemo(() => {
+    const buckets: Record<Direction, NetworkNode[]> = { mutual: [], outgoing: [], incoming: [] };
+    for (const arc of selectedArcs) buckets[arc.direction].push(arc.target);
+    return buckets;
+  }, [selectedArcs]);
+  const mutualCount   = byDirection.mutual.length;
+  const outgoingCount = byDirection.outgoing.length;
+  const incomingCount = byDirection.incoming.length;
+  const activeConnections = byDirection[activeTab];
+  const visibleConnections = showAll ? activeConnections : activeConnections.slice(0, INITIAL_SHOW_COUNT);
+  const hasMore = activeConnections.length > INITIAL_SHOW_COUNT;
 
   return (
     <>
@@ -322,34 +330,56 @@ export function NetworkPanelContent() {
                 </div>
               )}
 
-              {/* Connections list */}
-              {connections.length > 0 && (
+              {/* Tabbed connections list */}
+              {selectedArcs.length > 0 && (
                 <div>
-                  <p className="text-xs text-dark-400 uppercase tracking-wider font-medium mb-2">
-                    Shares data with ({connections.length})
-                  </p>
-                  <div className="space-y-0.5">
-                    {visibleConnections.map(node => (
-                      <button
-                        key={node.id}
-                        onClick={() => handleConnectionClick(node)}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-dark-800 transition-colors group"
-                      >
-                        <span className="text-sm text-dark-200 group-hover:text-white">{node.name}</span>
-                      </button>
-                    ))}
+                  <div className="flex gap-1 mb-2 border-b border-dark-700/50">
+                    {(['mutual', 'outgoing', 'incoming'] as const).map(dir => {
+                      const count = byDirection[dir].length;
+                      const isActive = activeTab === dir;
+                      return (
+                        <button
+                          key={dir}
+                          onClick={() => setActiveTab(dir)}
+                          className={`px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                            isActive ? 'text-white border-accent' : 'text-dark-400 border-transparent hover:text-white'
+                          }`}
+                        >
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle ${DIRECTION_DOT[dir]}`} aria-hidden />
+                          {DIRECTION_TAB_LABEL[dir]} ({count})
+                        </button>
+                      );
+                    })}
                   </div>
-                  {hasMore && (
-                    <button
-                      onClick={() => setShowAll(!showAll)}
-                      className="w-full flex items-center justify-center gap-1.5 mt-2 py-1.5 text-xs text-accent hover:text-accent transition-colors"
-                    >
-                      {showAll ? (
-                        <>Show less <ChevronUp className="w-3 h-3" /></>
-                      ) : (
-                        <>Show all {connections.length} <ChevronDown className="w-3 h-3" /></>
+
+                  {activeConnections.length === 0 ? (
+                    <p className="text-xs text-dark-500 py-2">{DIRECTION_EMPTY_MSG[activeTab]}</p>
+                  ) : (
+                    <>
+                      <div className="space-y-0.5">
+                        {visibleConnections.map(node => (
+                          <button
+                            key={node.id}
+                            onClick={() => handleConnectionClick(node)}
+                            className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-dark-800 transition-colors group"
+                          >
+                            <span className="text-sm text-dark-200 group-hover:text-white">{node.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {hasMore && (
+                        <button
+                          onClick={() => setShowAll(!showAll)}
+                          className="w-full flex items-center justify-center gap-1.5 mt-2 py-1.5 text-xs text-accent hover:text-accent transition-colors"
+                        >
+                          {showAll ? (
+                            <>Show less <ChevronUp className="w-3 h-3" /></>
+                          ) : (
+                            <>Show all {activeConnections.length} <ChevronDown className="w-3 h-3" /></>
+                          )}
+                        </button>
                       )}
-                    </button>
+                    </>
                   )}
                 </div>
               )}
