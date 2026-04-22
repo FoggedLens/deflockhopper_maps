@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNetworkStore } from '../../store/networkStore';
 import { useMapStore } from '../../store';
-import { Search, X, ChevronDown, ChevronUp, Camera, ScanSearch, Car, AlertTriangle, Link2, Users, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Search, X, ChevronDown, ChevronUp, Camera, ScanSearch, Car, AlertTriangle, Link2, Users, ArrowUpRight, ArrowDownLeft, ExternalLink } from 'lucide-react';
 import type { NetworkNode, Direction } from '../../store/networkStore';
 
 /* ------------------------------------------------------------------ */
@@ -285,9 +285,15 @@ export function NetworkPanelContent() {
                 )}
                 {selectedNode.isPortal && (
                   <div className="mt-1">
-                    <span className="inline-block text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">
+                    <a
+                      href={`https://transparency.flocksafety.com/${selectedNode.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs bg-accent/10 hover:bg-accent/20 text-accent px-2 py-0.5 rounded-full font-medium transition-colors"
+                    >
                       Flock Portal
-                    </span>
+                      <ExternalLink className="w-3 h-3" aria-hidden />
+                    </a>
                   </div>
                 )}
               </div>
