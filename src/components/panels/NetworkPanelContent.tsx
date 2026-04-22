@@ -130,11 +130,6 @@ export function NetworkPanelContent() {
     setActiveTab('mutual');
   }, [selectedNode?.id]);
 
-  // Reset showAll whenever the active tab changes
-  useEffect(() => {
-    setShowAll(false);
-  }, [activeTab]);
-
   // Escape key to dismiss selection
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') clearSelection();
@@ -333,14 +328,16 @@ export function NetworkPanelContent() {
               {/* Tabbed connections list */}
               {selectedArcs.length > 0 && (
                 <div>
-                  <div className="flex gap-1 mb-2 border-b border-dark-700/50">
+                  <div className="flex gap-1 mb-2 border-b border-dark-700/50" role="tablist">
                     {(['mutual', 'outgoing', 'incoming'] as const).map(dir => {
                       const count = byDirection[dir].length;
                       const isActive = activeTab === dir;
                       return (
                         <button
                           key={dir}
-                          onClick={() => setActiveTab(dir)}
+                          role="tab"
+                          aria-selected={isActive}
+                          onClick={() => { setActiveTab(dir); setShowAll(false); }}
                           className={`px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
                             isActive ? 'text-white border-accent' : 'text-dark-400 border-transparent hover:text-white'
                           }`}
