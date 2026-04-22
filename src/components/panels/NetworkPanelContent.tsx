@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useId } from 'react';
 import { useNetworkStore } from '../../store/networkStore';
 import { useMapStore } from '../../store';
-import { Search, X, ChevronDown, ChevronUp, Camera, ScanSearch, Car, AlertTriangle, Link2, Users } from 'lucide-react';
-import type { NetworkNode } from '../../store/networkStore';
+import { Search, X, ChevronDown, ChevronUp, Camera, ScanSearch, Car, AlertTriangle, Link2, Users, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import type { NetworkNode, Direction } from '../../store/networkStore';
 
 /* ------------------------------------------------------------------ */
 /*  Shared constants & helpers                                         */
@@ -24,17 +24,83 @@ const TYPE_COLORS: Record<string, string> = {
   other: 'bg-gray-500',
 };
 
+const DIRECTION_HEX: Record<Direction, string> = {
+  outgoing: '#F97316',
+  incoming: '#38BDF8',
+  mutual:   '#0080BC',
+};
+
+const DIRECTION_DOT: Record<Direction, string> = {
+  outgoing: 'bg-orange-500',
+  incoming: 'bg-sky-400',
+  mutual:   'bg-accent',
+};
+
+// Reserved for Task 4 — silenced until then
+const DIRECTION_TAB_LABEL: Record<Direction, string> = {
+  mutual: 'Mutual',
+  outgoing: 'Outgoing',
+  incoming: 'Incoming',
+};
+void DIRECTION_TAB_LABEL;
+
+// Reserved for Task 4 — silenced until then
+const DIRECTION_EMPTY_MSG: Record<Direction, string> = {
+  mutual: 'No mutual connections.',
+  outgoing: 'No outgoing-only connections.',
+  incoming: 'No incoming-only connections.',
+};
+void DIRECTION_EMPTY_MSG;
+
+/** Small inline SVG arc swatch that matches the map's gradient treatment. */
+function ArcSwatch({ direction }: { direction: Direction }) {
+  const reactId = useId();
+  const gradId = `arc-swatch-${direction}-${reactId}`;
+  const color = DIRECTION_HEX[direction];
+
+  if (direction === 'mutual') {
+    return (
+      <svg width="22" height="10" viewBox="0 0 22 10" className="flex-shrink-0">
+        <path d="M2 8 Q 11 -1 20 8" stroke={color} strokeOpacity="0.85" strokeWidth="1.75" fill="none" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  const fromOpacity = direction === 'outgoing' ? 0.9 : 0.25;
+  const toOpacity   = direction === 'outgoing' ? 0.25 : 0.9;
+
+  return (
+    <svg width="22" height="10" viewBox="0 0 22 10" className="flex-shrink-0">
+      <defs>
+        <linearGradient id={gradId} x1="0%" x2="100%">
+          <stop offset="0%"   stopColor={color} stopOpacity={fromOpacity} />
+          <stop offset="100%" stopColor={color} stopOpacity={toOpacity} />
+        </linearGradient>
+      </defs>
+      <path d="M2 8 Q 11 -1 20 8" stroke={`url(#${gradId})`} strokeWidth="1.75" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toLocaleString();
 }
 
-function StatRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+function StatRow({ icon: Icon, label, value, colorClass }: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  colorClass?: string;
+}) {
   return (
     <div className="flex items-center gap-2.5 py-1">
       <Icon className="w-4 h-4 text-dark-400 flex-shrink-0" />
       <span className="text-sm text-dark-300 flex-1">{label}</span>
+      {colorClass && (
+        <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${colorClass}`} aria-hidden />
+      )}
       <span className="text-sm font-medium text-white tabular-nums">{value}</span>
     </div>
   );
@@ -102,6 +168,9 @@ export function NetworkPanelContent() {
   }, [setSelectedNodeId]);
 
   const isLoading = loadPhase === 'idle' || loadPhase === 'fetching';
+  const mutualCount   = useMemo(() => selectedArcs.filter(a => a.direction === 'mutual').length,   [selectedArcs]);
+  const outgoingCount = useMemo(() => selectedArcs.filter(a => a.direction === 'outgoing').length, [selectedArcs]);
+  const incomingCount = useMemo(() => selectedArcs.filter(a => a.direction === 'incoming').length, [selectedArcs]);
   const connections = selectedArcs.map(a => a.target);
   const visibleConnections = showAll ? connections : connections.slice(0, INITIAL_SHOW_COUNT);
   const hasMore = connections.length > INITIAL_SHOW_COUNT;
@@ -207,7 +276,18 @@ export function NetworkPanelContent() {
                     <StatRow icon={AlertTriangle} label="Hotlist hits" value={formatNumber(selectedNode.hotlistHits)} />
                   </>
                 )}
-                <StatRow icon={Link2} label="Connections" value={formatNumber(selectedNode.connectionCount)} />
+                {mutualCount > 0 && (
+                  <StatRow icon={Link2} label="Mutual" value={formatNumber(mutualCount)} colorClass={DIRECTION_DOT.mutual} />
+                )}
+                {outgoingCount > 0 && (
+                  <StatRow icon={ArrowUpRight} label="Outgoing only" value={formatNumber(outgoingCount)} colorClass={DIRECTION_DOT.outgoing} />
+                )}
+                {incomingCount > 0 && (
+                  <StatRow icon={ArrowDownLeft} label="Incoming only" value={formatNumber(incomingCount)} colorClass={DIRECTION_DOT.incoming} />
+                )}
+                {mutualCount + outgoingCount + incomingCount === 0 && (
+                  <StatRow icon={Link2} label="Connections" value="0" />
+                )}
                 {selectedNode.population > 0 && (
                   <StatRow icon={Users} label="Population" value={formatNumber(selectedNode.population)} />
                 )}
@@ -219,6 +299,28 @@ export function NetworkPanelContent() {
                   </div>
                 )}
               </div>
+
+              {/* Inline legend */}
+              {selectedArcs.length > 0 && (
+                <div className="mb-4 pb-3 border-b border-dark-700/50 space-y-1.5">
+                  <p className="text-xs text-dark-400 uppercase tracking-wider font-medium mb-2">Connection Types</p>
+                  <div className="flex items-center gap-2">
+                    <ArcSwatch direction="mutual" />
+                    <span className="text-xs text-dark-300">Mutual</span>
+                    <span className="text-xs text-dark-500 ml-auto">both share</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ArcSwatch direction="outgoing" />
+                    <span className="text-xs text-dark-300">Outgoing</span>
+                    <span className="text-xs text-dark-500 ml-auto">{selectedNode.name.length > 20 ? 'selected' : selectedNode.name} shares to them</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ArcSwatch direction="incoming" />
+                    <span className="text-xs text-dark-300">Incoming</span>
+                    <span className="text-xs text-dark-500 ml-auto">they share to {selectedNode.name.length > 20 ? 'selected' : selectedNode.name}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Connections list */}
               {connections.length > 0 && (
