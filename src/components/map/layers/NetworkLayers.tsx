@@ -2,8 +2,8 @@ import { useEffect, useRef, useMemo, useCallback, useState } from 'react';
 import { useMap } from 'react-map-gl/maplibre';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer, ArcLayer } from '@deck.gl/layers';
-import { useNetworkStore } from '../../../store/networkStore';
-import type { NetworkNode } from '../../../store/networkStore';
+import { useNetworkStore, classifyArcs } from '../../../store/networkStore';
+import type { NetworkNode, Direction, DirectionalArc } from '../../../store/networkStore';
 
 const NODE_COLORS: Record<string, [number, number, number]> = {
   pd:      [59, 130, 246],   // blue
@@ -11,6 +11,12 @@ const NODE_COLORS: Record<string, [number, number, number]> = {
   federal: [245, 158, 11],   // amber
   school:  [139, 92, 246],   // purple
   other:   [107, 114, 128],  // gray
+};
+
+const DIRECTION_COLORS: Record<Direction, [number, number, number]> = {
+  outgoing: [249, 115, 22],   // orange  #F97316 - selected agency shares to them
+  incoming: [56, 189, 248],   // sky blue #38BDF8 - they share to selected agency
+  mutual:   [0, 128, 188],    // accent  #0080BC - both directions
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -25,12 +31,13 @@ export function NetworkLayers() {
   const { current: mapgl } = useMap();
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ node: NetworkNode; x: number; y: number } | null>(null);
-  const [hoveredArcs, setHoveredArcs] = useState<Array<{ source: NetworkNode; target: NetworkNode }>>([]);
+  const [hoveredArcs, setHoveredArcs] = useState<DirectionalArc[]>([]);
   const hoverDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const nodesArray = useNetworkStore(s => s.nodesArray);
   const nodesMap = useNetworkStore(s => s.nodesMap);
   const adjacency = useNetworkStore(s => s.adjacency);
+  const reverseAdjacency = useNetworkStore(s => s.reverseAdjacency);
   const selectedArcs = useNetworkStore(s => s.selectedArcs);
   const selectedNodeId = useNetworkStore(s => s.selectedNodeId);
   const typeFilter = useNetworkStore(s => s.typeFilter);
@@ -65,11 +72,7 @@ export function NetworkLayers() {
         const node = info.object;
         hoverDebounceRef.current = setTimeout(() => {
           // ~16ms ≈ one frame at 60fps
-          const connectedIds = adjacency[node.id] || [];
-          const arcs = connectedIds
-            .map(cid => nodesMap.get(cid))
-            .filter((n): n is NetworkNode => n != null)
-            .map(target => ({ source: node, target }));
+          const arcs = classifyArcs(node, nodesMap, adjacency, reverseAdjacency);
           setHoveredArcs(arcs);
         }, 16);
       }
@@ -79,7 +82,7 @@ export function NetworkLayers() {
       clearTimeout(hoverDebounceRef.current);
       if (hoveredArcs.length > 0) setHoveredArcs([]);
     }
-  }, [setHoveredNode, hoverArcsEnabled, selectedNodeId, adjacency, nodesMap, hoveredArcs.length]);
+  }, [setHoveredNode, hoverArcsEnabled, selectedNodeId, adjacency, reverseAdjacency, nodesMap, hoveredArcs.length]);
 
   // Clear hover arcs when a node gets clicked (selected arcs take over)
   useEffect(() => {
@@ -127,13 +130,23 @@ export function NetworkLayers() {
     // ArcLayer - selected node (full opacity, with dimming on scatterplot)
     if (selectedArcs.length > 0) {
       result.push(
-        new ArcLayer<{ source: NetworkNode; target: NetworkNode }>({
+        new ArcLayer<DirectionalArc>({
           id: 'network-arcs',
           data: selectedArcs,
           getSourcePosition: (d) => d.source.coordinates,
           getTargetPosition: (d) => d.target.coordinates,
-          getSourceColor: (d) => NODE_COLORS[d.source.type] || NODE_COLORS.other,
-          getTargetColor: (d) => NODE_COLORS[d.target.type] || NODE_COLORS.other,
+          getSourceColor: (d) => {
+            const c = DIRECTION_COLORS[d.direction];
+            // Selected-node end: bright for outgoing, faded for incoming, even for mutual.
+            const alpha = d.direction === 'outgoing' ? 220 : d.direction === 'incoming' ? 70 : 200;
+            return [c[0], c[1], c[2], alpha];
+          },
+          getTargetColor: (d) => {
+            const c = DIRECTION_COLORS[d.direction];
+            // Neighbor end: faded for outgoing, bright for incoming, even for mutual.
+            const alpha = d.direction === 'outgoing' ? 70 : d.direction === 'incoming' ? 220 : 200;
+            return [c[0], c[1], c[2], alpha];
+          },
           getWidth: arcWidth * 4,
           getHeight: 1,
           greatCircle: true,
@@ -146,13 +159,21 @@ export function NetworkLayers() {
     // ArcLayer - hover preview (semi-transparent, no dimming)
     if (hoveredArcs.length > 0 && !selectedNodeId) {
       result.push(
-        new ArcLayer<{ source: NetworkNode; target: NetworkNode }>({
+        new ArcLayer<DirectionalArc>({
           id: 'network-hover-arcs',
           data: hoveredArcs,
           getSourcePosition: (d) => d.source.coordinates,
           getTargetPosition: (d) => d.target.coordinates,
-          getSourceColor: (d) => [...(NODE_COLORS[d.source.type] || NODE_COLORS.other), 140] as [number, number, number, number],
-          getTargetColor: (d) => [...(NODE_COLORS[d.target.type] || NODE_COLORS.other), 140] as [number, number, number, number],
+          getSourceColor: (d) => {
+            const c = DIRECTION_COLORS[d.direction];
+            const alpha = d.direction === 'outgoing' ? 110 : d.direction === 'incoming' ? 35 : 100;
+            return [c[0], c[1], c[2], alpha];
+          },
+          getTargetColor: (d) => {
+            const c = DIRECTION_COLORS[d.direction];
+            const alpha = d.direction === 'outgoing' ? 35 : d.direction === 'incoming' ? 110 : 100;
+            return [c[0], c[1], c[2], alpha];
+          },
           getWidth: arcWidth * 3,
           getHeight: 1,
           greatCircle: true,
