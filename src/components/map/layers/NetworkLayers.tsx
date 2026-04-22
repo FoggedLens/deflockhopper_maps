@@ -122,12 +122,12 @@ export function NetworkLayers() {
           }
           return NODE_COLORS[d.type] || NODE_COLORS.other;
         },
-        getLineColor: (d: NetworkNode) => d.isPortal ? [236, 72, 153] : [255, 255, 255],
-        getLineWidth: (d: NetworkNode) => d.isPortal ? 2 : 1,
+        getLineColor: [236, 72, 153],
+        getLineWidth: (d: NetworkNode) => d.isPortal ? 2 : 0,
         lineWidthUnits: 'pixels',
         stroked: true,
         pickable: true,
-        radiusMinPixels: 2,
+        radiusMinPixels: 3,
         radiusMaxPixels: 10,
         onClick: handleNodeClick,
         onHover: handleNodeHover,
