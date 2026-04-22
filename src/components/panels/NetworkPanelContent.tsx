@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useId } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNetworkStore } from '../../store/networkStore';
 import { useMapStore } from '../../store';
 import { Search, X, ChevronDown, ChevronUp, Camera, ScanSearch, Car, AlertTriangle, Link2, Users, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
@@ -48,32 +48,12 @@ const DIRECTION_EMPTY_MSG: Record<Direction, string> = {
   incoming: 'No incoming-only connections.',
 };
 
-/** Small inline SVG arc swatch that matches the map's gradient treatment. */
+/** Small inline SVG arc swatch that matches the map's solid arc treatment. */
 function ArcSwatch({ direction }: { direction: Direction }) {
-  const reactId = useId();
-  const gradId = `arc-swatch-${direction}-${reactId}`;
   const color = DIRECTION_HEX[direction];
-
-  if (direction === 'mutual') {
-    return (
-      <svg width="22" height="10" viewBox="0 0 22 10" className="flex-shrink-0">
-        <path d="M2 8 Q 11 -1 20 8" stroke={color} strokeOpacity="0.85" strokeWidth="1.75" fill="none" strokeLinecap="round" />
-      </svg>
-    );
-  }
-
-  const fromOpacity = direction === 'outgoing' ? 0.95 : 0.47;
-  const toOpacity   = direction === 'outgoing' ? 0.47 : 0.95;
-
   return (
     <svg width="22" height="10" viewBox="0 0 22 10" className="flex-shrink-0">
-      <defs>
-        <linearGradient id={gradId} x1="0%" x2="100%">
-          <stop offset="0%"   stopColor={color} stopOpacity={fromOpacity} />
-          <stop offset="100%" stopColor={color} stopOpacity={toOpacity} />
-        </linearGradient>
-      </defs>
-      <path d="M2 8 Q 11 -1 20 8" stroke={`url(#${gradId})`} strokeWidth="1.75" fill="none" strokeLinecap="round" />
+      <path d="M2 8 Q 11 -1 20 8" stroke={color} strokeOpacity="0.9" strokeWidth="1.75" fill="none" strokeLinecap="round" />
     </svg>
   );
 }

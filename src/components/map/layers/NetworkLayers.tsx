@@ -137,15 +137,11 @@ export function NetworkLayers() {
           getTargetPosition: (d) => d.target.coordinates,
           getSourceColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            // Selected-node end: bright for outgoing, faded for incoming, even for mutual.
-            const alpha = d.direction === 'outgoing' ? 240 : d.direction === 'incoming' ? 120 : 230;
-            return [c[0], c[1], c[2], alpha];
+            return [c[0], c[1], c[2], 230];
           },
           getTargetColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            // Neighbor end: faded for outgoing, bright for incoming, even for mutual.
-            const alpha = d.direction === 'outgoing' ? 120 : d.direction === 'incoming' ? 240 : 230;
-            return [c[0], c[1], c[2], alpha];
+            return [c[0], c[1], c[2], 230];
           },
           getWidth: arcWidth * 4,
           getHeight: 1,
@@ -166,13 +162,11 @@ export function NetworkLayers() {
           getTargetPosition: (d) => d.target.coordinates,
           getSourceColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            const alpha = d.direction === 'outgoing' ? 140 : d.direction === 'incoming' ? 60 : 130;
-            return [c[0], c[1], c[2], alpha];
+            return [c[0], c[1], c[2], 130];
           },
           getTargetColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            const alpha = d.direction === 'outgoing' ? 60 : d.direction === 'incoming' ? 140 : 130;
-            return [c[0], c[1], c[2], alpha];
+            return [c[0], c[1], c[2], 130];
           },
           getWidth: arcWidth * 3,
           getHeight: 1,
