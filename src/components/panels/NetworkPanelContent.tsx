@@ -128,7 +128,8 @@ export function NetworkPanelContent() {
         n.name.toLowerCase().includes(q) ||
         n.city.toLowerCase().includes(q) ||
         n.state.toLowerCase().includes(q) ||
-        n.id.toLowerCase().includes(q)
+        n.id.toLowerCase().includes(q) ||
+        n.aliases.some(a => a.toLowerCase().includes(q))
       )
       .slice(0, 20);
   }, [nodesArray, searchQuery]);
@@ -237,17 +238,33 @@ export function NetworkPanelContent() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base font-semibold text-white truncate">{selectedNode.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${TYPE_COLORS[selectedNode.type] || TYPE_COLORS.other}`} />
                     <span className="text-xs text-dark-400">
                       {TYPE_LABELS[selectedNode.type]}
                       {selectedNode.state && ` \u00b7 ${selectedNode.state}`}
                     </span>
+                    {selectedNode.isInactive && (
+                      <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-dark-700 text-dark-300 border border-dark-600">
+                        Inactive
+                      </span>
+                    )}
                   </div>
                   {(selectedNode.geocodeMethod === 'state' || selectedNode.geocodeMethod === 'default') && (
                     <p className="text-xs text-amber-500/80 mt-1">
                       Location approximate ({selectedNode.geocodeMethod}-level)
                     </p>
+                  )}
+                  {selectedNode.portalSlug && (
+                    <a
+                      href={`https://transparency.flocksafety.com/${selectedNode.portalSlug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-3 text-sm bg-[#3C7F66] hover:bg-[#346E58] active:bg-[#2C5D4A] text-white px-4 py-1.5 rounded-full font-semibold shadow-sm shadow-[#3C7F66]/30 transition-colors"
+                    >
+                      Flock Portal
+                      <ExternalLink className="w-3.5 h-3.5" aria-hidden />
+                    </a>
                   )}
                 </div>
                 <button
@@ -282,19 +299,6 @@ export function NetworkPanelContent() {
                 )}
                 {selectedNode.population > 0 && (
                   <StatRow icon={Users} label="Population" value={formatNumber(selectedNode.population)} />
-                )}
-                {selectedNode.isPortal && (
-                  <div className="mt-1">
-                    <a
-                      href={`https://transparency.flocksafety.com/${selectedNode.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs bg-accent/10 hover:bg-accent/20 text-accent px-2 py-0.5 rounded-full font-medium transition-colors"
-                    >
-                      Flock Portal
-                      <ExternalLink className="w-3 h-3" aria-hidden />
-                    </a>
-                  </div>
                 )}
               </div>
 

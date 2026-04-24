@@ -7,6 +7,10 @@ export interface NetworkNode {
   state: string;
   type: 'pd' | 'so' | 'federal' | 'school' | 'other';
   isPortal: boolean;
+  isInactive: boolean;
+  isLikelyAggregator: boolean;
+  portalSlug: string | null;
+  aliases: string[];
   cameras: number;
   searches: number;
   vehiclesCaptured: number;
@@ -135,6 +139,7 @@ function parseGeoJSON(geojson: GeoJSONFeatureCollection): { nodesMap: Map<string
     const [lng, lat] = feature.geometry.coordinates;
     if (lng === 0 && lat === 0) continue; // skip invalid coordinates
     const p = feature.properties;
+    if (p.isJunk === true) continue; // upstream-flagged garbage (e.g. "265", "DO NOT USE")
     const raw: NetworkNode = {
       id: p.id as string,
       name: p.name as string,
@@ -142,6 +147,10 @@ function parseGeoJSON(geojson: GeoJSONFeatureCollection): { nodesMap: Map<string
       state: (p.state as string) || '',
       type: (p.type as NetworkNode['type']) || 'other',
       isPortal: Boolean(p.isPortal),
+      isInactive: Boolean(p.isInactive),
+      isLikelyAggregator: Boolean(p.isLikelyAggregator),
+      portalSlug: (p.portalSlug as string | null) ?? null,
+      aliases: Array.isArray(p.aliases) ? (p.aliases as string[]) : [],
       cameras: Number(p.cameras) || 0,
       searches: Number(p.searches) || 0,
       vehiclesCaptured: Number(p.vehiclesCaptured) || 0,
@@ -176,7 +185,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   arcWidth: 0.5,
   searchQuery: '',
   typeFilter: new Set(),
-  portalOnly: false,
+  portalOnly: true,
   error: null,
 
   loadNetworkData: async () => {
