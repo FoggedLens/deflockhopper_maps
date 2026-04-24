@@ -310,8 +310,8 @@ export function NetworkPanelContent() {
                     <p>
                       This agency operates a transparency portal but lists zero outgoing shares. Flock portals
                       allow agencies to redact their &ldquo;Organizations shared with&rdquo; list, so this may
-                      mean the information is hidden rather than truly absent. Incoming shares shown above are
-                      confirmed from other portals.
+                      mean the information is hidden rather than truly absent.
+                      {incomingCount > 0 && ' Incoming shares shown above are confirmed from other portals.'}
                     </p>
                   </div>
                 </div>
