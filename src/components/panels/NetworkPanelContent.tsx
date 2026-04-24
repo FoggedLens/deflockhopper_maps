@@ -303,7 +303,7 @@ export function NetworkPanelContent() {
               </div>
 
               {selectedNode.isPortal && outgoingCount === 0 && (
-                <div className="mb-4 flex gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <div role="status" className="mb-4 flex gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                   <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" aria-hidden />
                   <div className="text-xs text-amber-100/90 leading-relaxed">
                     <p className="font-medium text-amber-300 mb-1">Outgoing shares not visible</p>
