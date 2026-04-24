@@ -368,7 +368,11 @@ export function NetworkPanelContent() {
 
                   {activeConnections.length === 0 ? (
                     <p className="text-xs text-dark-500 py-2">
-                      {activeTab === 'all' ? 'No connections.' : DIRECTION_EMPTY_MSG[activeTab]}
+                      {activeTab === 'outgoing' && selectedNode.isPortal && outgoingCount === 0
+                        ? 'No outgoing shares visible. This portal may have redacted its "Organizations shared with" list.'
+                        : activeTab === 'all'
+                          ? 'No connections.'
+                          : DIRECTION_EMPTY_MSG[activeTab]}
                     </p>
                   ) : (
                     <>
