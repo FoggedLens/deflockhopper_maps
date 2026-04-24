@@ -302,6 +302,21 @@ export function NetworkPanelContent() {
                 )}
               </div>
 
+              {selectedNode.isPortal && outgoingCount === 0 && (
+                <div className="mb-4 flex gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" aria-hidden />
+                  <div className="text-xs text-amber-100/90 leading-relaxed">
+                    <p className="font-medium text-amber-300 mb-1">Outgoing shares not visible</p>
+                    <p>
+                      This agency operates a transparency portal but lists zero outgoing shares. Flock portals
+                      allow agencies to redact their &ldquo;Organizations shared with&rdquo; list, so this may
+                      mean the information is hidden rather than truly absent. Incoming shares shown above are
+                      confirmed from other portals.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Inline legend */}
               {selectedArcs.length > 0 && (
                 <div className="mb-4 pb-3 border-b border-dark-700/50 space-y-1.5">
