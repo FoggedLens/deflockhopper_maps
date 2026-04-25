@@ -7,7 +7,6 @@ import { DensityPanel } from '@/components/panels/DensityPanel';
 import { NetworkPanel } from '@/components/panels/NetworkPanel';
 import { MapPanel } from '@/components/panels/MapPanel';
 import { MobileTabDrawer } from '@/components/panels/MobileTabDrawer';
-import { NetworkLegendBar } from '@/components/map/NetworkLegendBar';
 import { DensityLegendBar } from '@/components/map/DensityLegendBar';
 import { NetworkAgencyCount } from '@/components/map/NetworkAgencyCount';
 import { Seo, LegacyMapLink, ShareButton, ProductSwitcher } from '@/components/common';
@@ -419,8 +418,6 @@ export function MapPage() {
             {/* Density legend bar — horizontal bottom overlay */}
             {appMode === 'density' && <DensityLegendBar />}
 
-            {/* Network legend bar — horizontal bottom overlay */}
-            {appMode === 'network' && <NetworkLegendBar />}
 
             {/* Map Legend - route mode only (explore/density legends live in side panel) */}
             {appMode === 'route' && (

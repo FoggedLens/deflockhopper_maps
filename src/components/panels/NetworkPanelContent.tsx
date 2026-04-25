@@ -96,7 +96,7 @@ export function NetworkPanelContent() {
     setSearchQuery, setSelectedNodeId, selectedNode, selectedArcs,
     activeTab, setActiveTab,
     clearSelection, arcWidth, setArcWidth, hoverArcsEnabled, setHoverArcsEnabled,
-    portalOnly, togglePortalOnly, error,
+    portalOnly, togglePortalOnly, typeFilter, toggleTypeFilter, clearTypeFilter, error,
   } = useNetworkStore();
 
   // Load data on mount
@@ -443,6 +443,39 @@ export function NetworkPanelContent() {
               </p>
             </div>
           )}
+
+          {/* Agency type filter */}
+          <div className="mt-5 pt-5 border-t border-dark-700/50">
+            <p className="text-xs text-dark-400 uppercase tracking-wider font-medium mb-2">Agency Type</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { type: 'pd', label: 'PD', color: '#3b82f6' },
+                { type: 'so', label: 'Sheriff', color: '#14b8a6' },
+                { type: 'federal', label: 'Federal', color: '#f59e0b' },
+                { type: 'school', label: 'School', color: '#8b5cf6' },
+                { type: 'other', label: 'Other', color: '#6b7280' },
+              ] as const).map(({ type, label, color }) => (
+                <button
+                  key={type}
+                  onClick={() => toggleTypeFilter(type)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-opacity ${
+                    typeFilter.size > 0 && !typeFilter.has(type) ? 'opacity-35' : ''
+                  }`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                  <span className="text-dark-200">{label}</span>
+                </button>
+              ))}
+              {typeFilter.size > 0 && (
+                <button
+                  onClick={clearTypeFilter}
+                  className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* Arc settings */}
           <div className="mt-5 pt-5 border-t border-dark-700/50 space-y-4">
