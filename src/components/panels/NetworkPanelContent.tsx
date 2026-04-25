@@ -416,7 +416,7 @@ export function NetworkPanelContent() {
               <div className="space-y-1.5 mb-3">
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-3 h-3 rounded-full bg-dark-700 ring-2 ring-green-500 flex-shrink-0" aria-hidden />
-                  <span className="text-xs text-dark-300">Green ring = portal with visible outgoing shares</span>
+                  <span className="text-xs text-dark-300">Green ring = portal with disclosed outgoing shares</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-3 h-3 rounded-full bg-dark-700 ring-2 ring-red-500 flex-shrink-0" aria-hidden />
