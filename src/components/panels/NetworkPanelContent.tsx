@@ -417,6 +417,17 @@ export function NetworkPanelContent() {
                 <span className="inline-block w-3 h-3 rounded-full bg-dark-700 ring-2 ring-pink-500 flex-shrink-0" aria-hidden />
                 <span className="text-xs text-dark-300">Pink ring = has a transparency portal (click for details)</span>
               </div>
+
+              <div role="alert" className="mb-3 flex gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/40">
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" aria-hidden />
+                <div className="text-xs text-amber-100/90 leading-relaxed">
+                  <p className="font-semibold text-amber-300 mb-1">Most of the network is hidden.</p>
+                  <p>
+                    Of <span className="font-semibold text-amber-200">6,400+ agencies</span> using Flock, only about <span className="font-semibold text-amber-200">900</span> run a public transparency portal &mdash; and just <span className="font-semibold text-amber-200">~530</span> of those actually disclose who they share data with. The rest redact their sharing list or don&rsquo;t publish one at all.
+                  </p>
+                </div>
+              </div>
+
               <p className="text-xs text-dark-500 leading-relaxed">
                 Data sourced from{' '}
                 <a href="https://eyesonflock.com" target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent transition-colors">

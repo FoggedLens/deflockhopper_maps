@@ -33,6 +33,7 @@ export function NetworkLayers() {
   const [hoverInfo, setHoverInfo] = useState<{ node: NetworkNode; x: number; y: number } | null>(null);
   const [hoveredArcs, setHoveredArcs] = useState<DirectionalArc[]>([]);
   const hoverDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const lastNodeClickRef = useRef(0);
 
   const nodesArray = useNetworkStore(s => s.nodesArray);
   const nodesMap = useNetworkStore(s => s.nodesMap);
@@ -58,6 +59,7 @@ export function NetworkLayers() {
 
   const handleNodeClick = useCallback((info: { object?: NetworkNode }) => {
     if (info.object) {
+      lastNodeClickRef.current = Date.now();
       setSelectedNodeId(info.object.id);
     }
   }, [setSelectedNodeId]);
@@ -133,6 +135,10 @@ export function NetworkLayers() {
         onHover: handleNodeHover,
         autoHighlight: true,
         highlightColor: [255, 255, 255, 100],
+        parameters: {
+          depthCompare: 'always',
+          depthWriteEnabled: false,
+        },
         updateTriggers: {
           getFillColor: [selectedNodeId, selectedArcs.length],
         },
@@ -219,6 +225,36 @@ export function NetworkLayers() {
       overlayRef.current.setProps({ layers });
     }
   }, [layers]);
+
+  // Clear hover on map interaction — touch devices never fire pointerleave.
+  useEffect(() => {
+    if (!mapgl) return;
+    const map = mapgl.getMap();
+    const clearHover = () => {
+      setHoverInfo(null);
+      setHoveredArcs([]);
+      setHoveredNode(null);
+    };
+    map.on('movestart', clearHover);
+    return () => {
+      map.off('movestart', clearHover);
+    };
+  }, [mapgl, setHoveredNode]);
+
+  // Clear selection when tapping the empty basemap. Guard against the node's
+  // own click also firing a map click immediately after.
+  useEffect(() => {
+    if (!mapgl) return;
+    const map = mapgl.getMap();
+    const handleMapClick = () => {
+      if (Date.now() - lastNodeClickRef.current < 100) return;
+      useNetworkStore.getState().clearSelection();
+    };
+    map.on('click', handleMapClick);
+    return () => {
+      map.off('click', handleMapClick);
+    };
+  }, [mapgl]);
 
   // Fly to US overview with 3D pitch on mount.
   // Deferred by one frame so the deck.gl overlay is fully initialised and
