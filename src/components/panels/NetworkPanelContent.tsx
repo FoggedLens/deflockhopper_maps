@@ -413,17 +413,6 @@ export function NetworkPanelContent() {
               <p className="text-sm text-dark-300 leading-relaxed mb-3">
                 This map visualizes the Flock Safety surveillance sharing network &mdash; {nodesArray.length.toLocaleString()}+ law enforcement agencies that share automatic license plate reader (ALPR) data with each other. Click an agency to see who they share data with.
               </p>
-              <div className="space-y-1.5 mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block w-3 h-3 rounded-full bg-dark-700 ring-2 ring-green-500 flex-shrink-0" aria-hidden />
-                  <span className="text-xs text-dark-300">Green ring = portal with disclosed outgoing shares</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-block w-3 h-3 rounded-full bg-dark-700 ring-2 ring-red-500 flex-shrink-0" aria-hidden />
-                  <span className="text-xs text-dark-300">Red ring = portal with redacted outgoing shares</span>
-                </div>
-              </div>
-
               <div role="alert" className="mb-3 flex gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/40">
                 <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" aria-hidden />
                 <div className="text-xs text-amber-100/90 leading-relaxed">
@@ -431,6 +420,17 @@ export function NetworkPanelContent() {
                   <p>
                     Of <span className="font-semibold text-amber-200">6,400+ agencies</span> using Flock, only about <span className="font-semibold text-amber-200">900</span> run a public transparency portal &mdash; and just <span className="font-semibold text-amber-200">~530</span> of those actually disclose who they share data with. The rest redact their sharing list or don&rsquo;t publish one at all.
                   </p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-3 h-3 rounded-full bg-dark-700 ring-2 ring-green-500 flex-shrink-0" aria-hidden />
+                  <span className="text-xs text-dark-300">Green ring = portal with disclosed data sharing</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-3 h-3 rounded-full bg-dark-700 ring-2 ring-red-500 flex-shrink-0" aria-hidden />
+                  <span className="text-xs text-dark-300">Red ring = portal with redacted data sharing</span>
                 </div>
               </div>
 
