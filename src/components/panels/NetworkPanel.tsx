@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNetworkStore } from '../../store/networkStore';
 import { BottomSheet, type SnapPoint } from '../common/BottomSheet';
-import { ChevronLeft, ChevronRight, Network } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Network, AlertTriangle } from 'lucide-react';
 import { NetworkPanelContent } from './NetworkPanelContent';
 
 export function NetworkPanel() {
@@ -10,7 +10,7 @@ export function NetworkPanel() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [hasAnimated, setHasAnimated] = useState(false);
 
-  const { nodesArray, selectedNode } = useNetworkStore();
+  const { nodesArray, selectedNode, adjacency } = useNetworkStore();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
@@ -26,7 +26,21 @@ export function NetworkPanel() {
 
   // Mobile: BottomSheet
   if (isMobile) {
+    const isNonSharingPortal = selectedNode?.isPortal &&
+      (adjacency[selectedNode.id]?.length ?? 0) === 0;
+    const showWarning = isNonSharingPortal && snapPoint !== 'full';
+
     return (
+      <>
+      {showWarning && (
+        <button
+          onClick={() => setSnapPoint('full')}
+          className="fixed bottom-[100px] right-4 z-[52] flex items-center justify-center w-10 h-10 rounded-full bg-amber-500 shadow-lg shadow-amber-500/30 active:bg-amber-600 transition-colors"
+          aria-label="View sharing disclaimer"
+        >
+          <AlertTriangle className="w-5 h-5 text-white" />
+        </button>
+      )}
       <BottomSheet
         snapPoint={snapPoint}
         onSnapPointChange={setSnapPoint}
@@ -62,6 +76,7 @@ export function NetworkPanel() {
           </div>
         )}
       </BottomSheet>
+      </>
     );
   }
 

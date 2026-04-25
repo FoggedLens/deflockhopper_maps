@@ -4,6 +4,7 @@ import { useDensityStore } from '../../store/densityStore';
 import { useNetworkStore } from '../../store/networkStore';
 import type { AppMode } from '../../store';
 import { BottomSheet, type SnapPoint } from '../common/BottomSheet';
+import { AlertTriangle } from 'lucide-react';
 import { RoutePanelContent } from './RoutePanelContent';
 import { MobileRoutePreview } from './MobileRoutePreview';
 import { NetworkPanelContent } from './NetworkPanelContent';
@@ -54,6 +55,8 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
 
   // Network store — preload data when tab is selected (before drawer expands)
   const loadNetworkData = useNetworkStore(s => s.loadNetworkData);
+  const selectedNode = useNetworkStore(s => s.selectedNode);
+  const adjacency = useNetworkStore(s => s.adjacency);
 
   /* ---- load data on mode switch ---- */
   useEffect(() => {
@@ -275,17 +278,33 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
   /*  Render                                                           */
   /* ================================================================ */
 
+  const isNonSharingPortal = appMode === 'network' &&
+    selectedNode?.isPortal &&
+    (adjacency[selectedNode.id]?.length ?? 0) === 0;
+  const showNetworkWarning = isNonSharingPortal && snapPoint !== 'full';
+
   return (
-    <BottomSheet
-      snapPoint={snapPoint}
-      onSnapPointChange={setSnapPoint}
-      minimizedHeight={80}
-      peekHeight={80}
-      fullHeight={85}
-      headerContent={headerContent}
-      disableHeaderTap
-    >
-      {snapPoint === 'full' && renderTabContent()}
-    </BottomSheet>
+    <>
+      {showNetworkWarning && (
+        <button
+          onClick={handleExpandSheet}
+          className="fixed bottom-[96px] left-4 z-[52] flex items-center justify-center w-10 h-10 rounded-full bg-amber-500 shadow-lg shadow-amber-500/30 active:bg-amber-600 transition-colors"
+          aria-label="View sharing disclaimer"
+        >
+          <AlertTriangle className="w-5 h-5 text-white" />
+        </button>
+      )}
+      <BottomSheet
+        snapPoint={snapPoint}
+        onSnapPointChange={setSnapPoint}
+        minimizedHeight={80}
+        peekHeight={80}
+        fullHeight={85}
+        headerContent={headerContent}
+        disableHeaderTap
+      >
+        {snapPoint === 'full' && renderTabContent()}
+      </BottomSheet>
+    </>
   );
 }

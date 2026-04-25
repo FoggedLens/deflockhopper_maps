@@ -124,8 +124,12 @@ export function NetworkLayers() {
           }
           return NODE_COLORS[d.type] || NODE_COLORS.other;
         },
-        getLineColor: [236, 72, 153],
-        getLineWidth: (d: NetworkNode) => d.isPortal ? 2 : 0,
+        getLineColor: (d: NetworkNode): [number, number, number] => {
+          if (!d.isPortal) return [0, 0, 0];
+          const hasOutgoing = (adjacency[d.id]?.length ?? 0) > 0;
+          return hasOutgoing ? [34, 197, 94] : [239, 68, 68]; // green vs red
+        },
+        getLineWidth: (d: NetworkNode) => d.isPortal ? 3 : 0,
         lineWidthUnits: 'pixels',
         stroked: true,
         pickable: true,
@@ -141,6 +145,8 @@ export function NetworkLayers() {
         },
         updateTriggers: {
           getFillColor: [selectedNodeId, selectedArcs.length],
+          getLineColor: [adjacency],
+          getLineWidth: [adjacency],
         },
       })
     );
