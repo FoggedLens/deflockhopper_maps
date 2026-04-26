@@ -7,6 +7,10 @@ export interface NetworkNode {
   state: string;
   type: 'pd' | 'so' | 'federal' | 'school' | 'other';
   isPortal: boolean;
+  isInactive: boolean;
+  isLikelyAggregator: boolean;
+  portalSlug: string | null;
+  aliases: string[];
   cameras: number;
   searches: number;
   vehiclesCaptured: number;
@@ -17,6 +21,51 @@ export interface NetworkNode {
   coordinates: [number, number]; // [lng, lat]
 }
 
+export type Direction = 'mutual' | 'outgoing' | 'incoming';
+export type TabKey = 'all' | Direction;
+
+export interface DirectionalArc {
+  source: NetworkNode;
+  target: NetworkNode;
+  direction: Direction;
+}
+
+/** Invert adjacency so we can answer "who shares inbound to X?" in O(1). */
+function buildReverseAdjacency(adjacency: Record<string, string[]>): Record<string, string[]> {
+  const reverse: Record<string, string[]> = {};
+  for (const sourceId in adjacency) {
+    for (const targetId of adjacency[sourceId]) {
+      (reverse[targetId] ??= []).push(sourceId);
+    }
+  }
+  return reverse;
+}
+
+/** Tag each neighbor of `source` as mutual/outgoing/incoming. */
+export function classifyArcs(
+  source: NetworkNode,
+  nodesMap: Map<string, NetworkNode>,
+  adjacency: Record<string, string[]>,
+  reverseAdjacency: Record<string, string[]>,
+): DirectionalArc[] {
+  const outgoing = new Set(adjacency[source.id] ?? []);
+  const incoming = new Set(reverseAdjacency[source.id] ?? []);
+  const neighborIds = new Set<string>();
+  outgoing.forEach(id => neighborIds.add(id));
+  incoming.forEach(id => neighborIds.add(id));
+
+  const arcs: DirectionalArc[] = [];
+  for (const nid of neighborIds) {
+    const target = nodesMap.get(nid);
+    if (!target) continue;
+    const isOut = outgoing.has(nid);
+    const isIn = incoming.has(nid);
+    const direction: Direction = isOut && isIn ? 'mutual' : isOut ? 'outgoing' : 'incoming';
+    arcs.push({ source, target, direction });
+  }
+  return arcs;
+}
+
 export type NetworkLoadPhase = 'idle' | 'fetching' | 'ready' | 'error';
 
 interface NetworkState {
@@ -24,9 +73,11 @@ interface NetworkState {
   nodesMap: Map<string, NetworkNode>;
   nodesArray: NetworkNode[];
   adjacency: Record<string, string[]>;
+  reverseAdjacency: Record<string, string[]>;
   selectedNodeId: string | null;
   selectedNode: NetworkNode | null;
-  selectedArcs: Array<{ source: NetworkNode; target: NetworkNode }>;
+  selectedArcs: DirectionalArc[];
+  activeTab: TabKey;
   hoveredNode: NetworkNode | null;
   hoverArcsEnabled: boolean;
   arcWidth: number;
@@ -37,6 +88,7 @@ interface NetworkState {
 
   loadNetworkData: () => Promise<void>;
   setSelectedNodeId: (id: string | null) => void;
+  setActiveTab: (tab: TabKey) => void;
   setHoveredNode: (node: NetworkNode | null) => void;
   setHoverArcsEnabled: (enabled: boolean) => void;
   setArcWidth: (width: number) => void;
@@ -87,6 +139,7 @@ function parseGeoJSON(geojson: GeoJSONFeatureCollection): { nodesMap: Map<string
     const [lng, lat] = feature.geometry.coordinates;
     if (lng === 0 && lat === 0) continue; // skip invalid coordinates
     const p = feature.properties;
+    if (p.isJunk === true) continue; // upstream-flagged garbage (e.g. "265", "DO NOT USE")
     const raw: NetworkNode = {
       id: p.id as string,
       name: p.name as string,
@@ -94,6 +147,10 @@ function parseGeoJSON(geojson: GeoJSONFeatureCollection): { nodesMap: Map<string
       state: (p.state as string) || '',
       type: (p.type as NetworkNode['type']) || 'other',
       isPortal: Boolean(p.isPortal),
+      isInactive: Boolean(p.isInactive),
+      isLikelyAggregator: Boolean(p.isLikelyAggregator),
+      portalSlug: (p.portalSlug as string | null) ?? null,
+      aliases: Array.isArray(p.aliases) ? (p.aliases as string[]) : [],
       cameras: Number(p.cameras) || 0,
       searches: Number(p.searches) || 0,
       vehiclesCaptured: Number(p.vehiclesCaptured) || 0,
@@ -118,9 +175,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   nodesMap: new Map(),
   nodesArray: [],
   adjacency: {},
+  reverseAdjacency: {},
   selectedNodeId: null,
   selectedNode: null,
   selectedArcs: [],
+  activeTab: 'all',
   hoveredNode: null,
   hoverArcsEnabled: false,
   arcWidth: 0.5,
@@ -153,11 +212,13 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         ]);
 
         const { nodesMap, nodesArray } = parseGeoJSON(nodesGeoJSON);
+        const reverseAdjacency = buildReverseAdjacency(adjacency);
 
         set({
           nodesMap,
           nodesArray,
           adjacency,
+          reverseAdjacency,
           loadPhase: 'ready',
         });
         _initPromise = null;
@@ -175,26 +236,25 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   },
 
   setSelectedNodeId: (id) => {
-    const { nodesMap, adjacency } = get();
+    const { nodesMap, adjacency, reverseAdjacency } = get();
     if (!id) {
-      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [] });
+      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all' });
       return;
     }
     const sourceNode = nodesMap.get(id);
     if (!sourceNode) return;
 
-    const connectedIds = adjacency[id] || [];
-    const arcs = connectedIds
-      .map(cid => nodesMap.get(cid))
-      .filter((n): n is NetworkNode => n != null)
-      .map(target => ({ source: sourceNode, target }));
+    const arcs = classifyArcs(sourceNode, nodesMap, adjacency, reverseAdjacency);
 
     set({
       selectedNodeId: id,
       selectedNode: sourceNode,
       selectedArcs: arcs,
+      activeTab: 'all',
     });
   },
+
+  setActiveTab: (tab) => set({ activeTab: tab }),
 
   setHoveredNode: (node) => set({ hoveredNode: node }),
   setHoverArcsEnabled: (enabled) => set({ hoverArcsEnabled: enabled }),
@@ -217,5 +277,5 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   togglePortalOnly: () => set((s) => ({ portalOnly: !s.portalOnly })),
 
-  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [] }),
+  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all' }),
 }));
