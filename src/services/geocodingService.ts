@@ -1,5 +1,4 @@
 import type { Location } from '../types';
-import { lookupZipCode } from './zipCodeService';
 
 // ============================================================================
 // TYPES
@@ -109,19 +108,6 @@ function parseCoordinates(input: string): { lat: number; lon: number } | null {
   }
   
   return null;
-}
-
-// ============================================================================
-// ZIP CODE DETECTION
-// ============================================================================
-
-const ZIP_PATTERN = /^\d{5}(-\d{4})?$/;
-
-/**
- * Check if input is a US zip code
- */
-function isZipCode(input: string): boolean {
-  return ZIP_PATTERN.test(input.trim());
 }
 
 // ============================================================================
@@ -356,7 +342,7 @@ async function searchWithFallback(query: string, signal?: AbortSignal): Promise<
 /**
  * Smart geocoding search that handles:
  * - GPS coordinates (40.7128, -74.0060)
- * - ZIP codes (43215) - uses local bundled data for instant lookups
+ * - ZIP codes (43215) - resolved by the backend proxy
  * - Addresses (123 Main St, Columbus, OH)
  * - Cities (Columbus, Ohio)
  * - POI/Business (Walmart Columbus)
@@ -379,30 +365,6 @@ export async function smartSearch(query: string, signal?: AbortSignal): Promise<
       description: 'GPS Coordinates',
       type: 'coordinates',
     }];
-  }
-
-  // Check for ZIP codes - use local bundled data for instant, reliable lookups
-  if (isZipCode(trimmed)) {
-    try {
-      const zipData = await lookupZipCode(trimmed);
-      if (zipData) {
-        // Return the ZIP code result from local data
-        return [{
-          id: `zip-${trimmed}`,
-          lat: zipData.lat,
-          lon: zipData.lon,
-          name: trimmed,
-          description: `${zipData.city}, ${zipData.state}`,
-          type: 'zip',
-        }];
-      }
-    } catch {
-      // If local lookup fails, fall through to API search
-      console.warn('Local ZIP lookup failed, falling back to API');
-    }
-    
-    // Fall back to API providers for ZIP lookup
-    return searchWithFallback(`${trimmed}, USA`, signal);
   }
 
   // Search with 2-tier fallback: Proxy → Photon
