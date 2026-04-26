@@ -33,9 +33,37 @@ function useCopyFeedback() {
 
 export function ShareModal({ onClose }: ShareModalProps) {
   const { copied, copy } = useCopyFeedback();
+  const [downloading, setDownloading] = useState(false);
 
   // Snapshot URL once when modal opens
   const [shareURL] = useState(buildShareURL);
+
+  const handleDownload = useCallback(async () => {
+    setDownloading(true);
+    try {
+      // Re-use browser cache (same URL / headers as preload — no network request)
+      const response = await fetch('https://data.dontgetflocked.com/cameras.geojson.gz', {
+        headers: { 'Accept': 'application/geo+json, application/json' },
+        cache: 'default',
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      // Browser decompresses via Content-Encoding: gzip, so blob is plain GeoJSON
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = 'cameras.geojson';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // Fallback: open in new tab so the browser handles it
+      window.open('https://data.dontgetflocked.com/cameras.geojson.gz', '_blank');
+    } finally {
+      setDownloading(false);
+    }
+  }, []);
 
   // Close on Escape
   useEffect(() => {
@@ -112,19 +140,20 @@ export function ShareModal({ onClose }: ShareModalProps) {
             </button>
           </section>
 
-          {/* --- Download All Data (Coming Soon) --- */}
+          {/* --- Download All Data --- */}
           <section>
             <div className="flex items-center gap-2 mb-1">
               <Download className="w-4 h-4 text-dark-300" />
-              <span className="text-sm font-medium text-dark-100">Download All Data (Coming Soon)</span>
+              <span className="text-sm font-medium text-dark-100">Download All Data</span>
             </div>
-            <p className="text-xs text-dark-400 mb-3">Get the complete dataset in GeoJSON format.</p>
+            <p className="text-xs text-dark-400 mb-3">Get the current dataset in GeoJSON format.</p>
             <button
-              disabled
-              className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium bg-dark-700 text-dark-500 border border-dark-600 cursor-not-allowed"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium bg-accent text-dark-900 hover:bg-accent/90 border border-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Download className="w-3.5 h-3.5" />
-              Coming Soon
+              {downloading ? 'Preparing…' : 'Download GeoJSON'}
             </button>
           </section>
         </div>

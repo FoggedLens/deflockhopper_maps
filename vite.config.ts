@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   resolve: {
     alias: {
@@ -65,7 +65,7 @@ export default defineConfig({
   },
   // Remove console.log in production builds
   esbuild: {
-    drop: ['console', 'debugger'],
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
   // Optimize dependency pre-bundling
   optimizeDeps: {
@@ -73,4 +73,4 @@ export default defineConfig({
     // Exclude large libs that are lazy loaded
     exclude: ['@turf/turf'],
   },
-})
+}))

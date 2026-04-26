@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect, useState, useMemo, memo, useImperativeHandle, forwardRef } from 'react';
+import { md5 } from 'js-md5';
 import Map, { 
   Source, 
   Layer, 
@@ -424,6 +425,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     // Function to apply data to source with verification
     const applyDataToSource = (): boolean => {
       if (isCleanedUp) return false;
+      if (sourceDataVersion.current === currentVersion) return true;
       
       // Check if style is loaded first
       if (!map.isStyleLoaded()) {
@@ -706,6 +708,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           mountType: props.mountType || undefined,
           ref: props.ref || undefined,
           startDate: props.startDate || undefined,
+          wikimediaCommons: props.wikimediaCommons || undefined,
         };
         
         setPopupInfo({
@@ -1167,24 +1170,59 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   );
 });
 
+// Module-level vendor image cache — fetched once, reused across all popup instances
+let vendorCachePromise: Promise<Array<{ fullName: string; urls: Array<{ url: string }> }>> | null = null;
+
+function getVendorImageUrl(brand: string): Promise<string | null> {
+  if (!vendorCachePromise) {
+    vendorCachePromise = fetch('https://cms.deflock.me/items/lprVendors')
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then((json: { data: Array<{ fullName: string; urls: Array<{ url: string }> }> }) => json.data)
+      .catch(() => []);
+  }
+  return vendorCachePromise.then(vendors => {
+    const vendor = vendors.find(v => v.fullName === brand);
+    return vendor?.urls?.[0]?.url ?? null;
+  });
+}
+
+function wikimediaImageUrl(tag: string): string {
+  const clean = tag.replace(/^File:/, '').replace(/ /g, '_');
+  const hash = md5(clean) as string;
+  const encoded = encodeURIComponent(clean);
+  return `https://upload.wikimedia.org/wikipedia/commons/thumb/${hash[0]}/${hash.slice(0, 2)}/${encoded}/300px-${encoded}`;
+}
+
 // Popup content component - Dark theme
 function CameraPopupContent({ camera }: { camera: ALPRCamera }) {
   const osmUrl = `https://www.openstreetmap.org/${camera.osmType}/${camera.osmId}`;
 
+  const wikiImageUrl = camera.wikimediaCommons ? wikimediaImageUrl(camera.wikimediaCommons) : null;
+  const [imageUrl, setImageUrl] = useState<string | null>(wikiImageUrl);
+
+  useEffect(() => {
+    if (wikiImageUrl || !camera.brand) return;
+    getVendorImageUrl(camera.brand).then(url => setImageUrl(url));
+  }, [camera.brand, camera.wikimediaCommons]);
+
   return (
-    <div className="min-w-[220px] p-4">
+    <div className="min-w-[260px] p-4">
       <div className="flex items-center gap-3 mb-3 pb-3 border-b border-dark-600">
-        <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
-          <svg
-            className="w-5 h-5 text-accent"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
-          </svg>
+        <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0">
+          {imageUrl ? (
+            <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full" title="View example photo">
+              <img src={imageUrl} alt={camera.brand ?? 'ALPR camera'} className="w-full h-full object-cover" />
+            </a>
+          ) : (
+            <div className="w-full h-full bg-accent/20 flex items-center justify-center">
+              <svg className="w-8 h-8 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
+              </svg>
+            </div>
+          )}
         </div>
         <div>
-          <h3 className="font-display font-semibold text-white text-sm">ALPR Camera</h3>
+          <h3 className="font-display font-semibold text-white text-base">ALPR Camera</h3>
           <p className="text-xs text-dark-400">ID: {camera.osmId}</p>
         </div>
       </div>
@@ -1192,15 +1230,15 @@ function CameraPopupContent({ camera }: { camera: ALPRCamera }) {
       <div className="space-y-2 text-xs">
         {camera.operator && (
           <div className="flex justify-between gap-4">
-            <span className="text-dark-400">Operator</span>
+            <span className="text-dark-400">Operated by</span>
             <span className="text-white font-medium truncate max-w-[120px]">{camera.operator}</span>
           </div>
         )}
 
         {camera.brand && (
           <div className="flex justify-between gap-4">
-            <span className="text-dark-400">Brand</span>
-            <span className="text-dark-200 truncate max-w-[120px]">{camera.brand}</span>
+            <span className="text-dark-400">Made by</span>
+            <span className="text-dark-200 truncate max-w-[140px]">{camera.brand}</span>
           </div>
         )}
 

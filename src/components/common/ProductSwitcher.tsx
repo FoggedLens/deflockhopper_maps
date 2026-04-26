@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { LayoutGrid, Check, ExternalLink } from 'lucide-react';
+import { LayoutGrid, Check } from 'lucide-react';
 
 export function ProductSwitcher() {
   const [open, setOpen] = useState(false);

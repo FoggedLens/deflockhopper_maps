@@ -157,6 +157,7 @@ export function transformOverpassToGeoJSON(
     if (tags['start_date']) properties.startDate = tags['start_date'];
     if (el.timestamp) properties.osmTimestamp = el.timestamp;
     if (el.version) properties.osmVersion = el.version;
+    if (tags['wikimedia_commons']) properties.wikimediaCommons = tags['wikimedia_commons'];
 
     features.push(pointFeature(lon, lat, properties));
   }

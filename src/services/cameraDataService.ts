@@ -97,6 +97,7 @@ export async function loadBundledCameras(): Promise<ALPRCamera[]> {
               startDate: p.startDate,
               osmTimestamp: p.osmTimestamp,
               osmVersion: p.osmVersion,
+              wikimediaCommons: p.wikimediaCommons,
             };
           }
         } else if (Array.isArray(data)) {
@@ -123,6 +124,7 @@ export async function loadBundledCameras(): Promise<ALPRCamera[]> {
               startDate: cam.startDate,
               osmTimestamp: cam.osmTimestamp,
               osmVersion: cam.osmVersion,
+              wikimediaCommons: cam.wikimediaCommons,
             };
           }
         } else {
