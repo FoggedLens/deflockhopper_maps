@@ -6,4 +6,5 @@ export { Seo } from './Seo';
 export { LegacyMapLink } from './LegacyMapLink';
 export { ShareButton } from './ShareButton';
 export { ShareModal } from './ShareModal';
+export { ProductSwitcher } from './ProductSwitcher';
 

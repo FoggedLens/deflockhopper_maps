@@ -43,6 +43,7 @@
     "clsx": "^2.1.1",
     "d3-contour": "^4.0.2",
     "framer-motion": "^12.23.26",
+    "js-md5": "^0.8.3",
     "lucide-react": "^0.562.0",
     "maplibre-gl": "^5.15.0",
     "react": "^18.3.1",
@@ -56,6 +57,7 @@
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/d3-contour": "^3.0.6",
+    "@types/js-md5": "^0.8.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",

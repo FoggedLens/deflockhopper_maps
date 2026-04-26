@@ -10,7 +10,7 @@ import { MobileTabDrawer } from '@/components/panels/MobileTabDrawer';
 import { NetworkLegendBar } from '@/components/map/NetworkLegendBar';
 import { DensityLegendBar } from '@/components/map/DensityLegendBar';
 import { NetworkAgencyCount } from '@/components/map/NetworkAgencyCount';
-import { Seo, LegacyMapLink, ShareButton } from '@/components/common';
+import { Seo, LegacyMapLink, ShareButton, ProductSwitcher } from '@/components/common';
 import { parseViewportFromURL, writeViewportParams } from '@/utils/urlParams';
 import { useCameraStore, useMapStore, useAppModeStore } from '@/store';
 import { useEmbedMode } from '@/hooks/useEmbedMode';
@@ -288,20 +288,23 @@ export function MapPage() {
         <header className="h-12 bg-dark-900 border-b border-dark-600 flex items-center z-50 shrink-0">
           <div className="w-full px-4 lg:px-5">
             <div className="flex items-center justify-between h-12">
-              {/* Logo */}
-              <a href="https://deflock.org" className="flex items-center gap-2 group flex-shrink-0">
-                <img
-                  src="/deflock-icon.png"
-                  alt="DeFlock Icon"
-                  className="h-7 lg:h-8 w-auto object-contain transition-opacity duration-150 group-hover:opacity-80"
-                />
-                <img
-                  src="/deflock-logo.svg"
-                  alt="DeFlock Logo"
-                  className="h-7 lg:h-8 w-auto object-contain transition-opacity duration-150 group-hover:opacity-80"
-                />
-                <span className="text-dark-400 text-[11px] font-medium tracking-[0.2em] uppercase hidden sm:inline self-end mb-[3px]">Maps</span>
-              </a>
+              {/* Logo + Product Switcher */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <ProductSwitcher />
+                <div className="flex items-center gap-2">
+                  <img
+                    src="/deflock-icon.png"
+                    alt="DeFlock Icon"
+                    className="h-7 lg:h-8 w-auto object-contain"
+                  />
+                  <img
+                    src="/deflock-logo.svg"
+                    alt="DeFlock Logo"
+                    className="h-7 lg:h-8 w-auto object-contain"
+                  />
+                  <span className="text-dark-400 text-[11px] font-medium tracking-[0.2em] uppercase hidden sm:inline self-end mb-[3px]">Maps</span>
+                </div>
+              </div>
 
               {/* Desktop: Mode tabs - editorial underline style */}
               <nav className="hidden lg:flex items-center gap-6" aria-label="App modes">

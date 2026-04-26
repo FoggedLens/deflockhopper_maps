@@ -300,7 +300,16 @@ async function searchProxy(query: string, signal?: AbortSignal): Promise<Geocodi
   }
 
   const data: NominatimResult[] = await response.json();
-  return data.map(nominatimToResult);
+  const mapped = data.map(nominatimToResult);
+
+  // Deduplicate by name: when multiple results share the same display name
+  // (e.g. multiple buildings at the same street address), keep only the first.
+  const seen = new Set<string>();
+  return mapped.filter(r => {
+    if (seen.has(r.name)) return false;
+    seen.add(r.name);
+    return true;
+  });
 }
 
 // ============================================================================

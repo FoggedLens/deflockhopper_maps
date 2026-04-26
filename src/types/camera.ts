@@ -15,6 +15,7 @@ export interface ALPRCamera {
   startDate?: string;
   osmTimestamp?: string;  // ISO 8601 from Overpass out meta
   osmVersion?: number;    // Element version (1 = never edited)
+  wikimediaCommons?: string;
 }
 
 export interface CameraOnRoute {
