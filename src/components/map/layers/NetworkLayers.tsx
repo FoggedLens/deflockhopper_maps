@@ -253,7 +253,7 @@ export function NetworkLayers() {
     if (!mapgl) return;
     const map = mapgl.getMap();
     const handleMapClick = () => {
-      if (Date.now() - lastNodeClickRef.current < 100) return;
+      if (Date.now() - lastNodeClickRef.current < 400) return;
       useNetworkStore.getState().clearSelection();
     };
     map.on('click', handleMapClick);

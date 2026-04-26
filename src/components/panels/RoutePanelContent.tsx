@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useRouteStore, useMapStore } from '../../store';
 import { AddressSearch } from '../inputs/AddressSearch';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { FlockHopperAppPromo } from './FlockHopperAppPromo';
 import { downloadGPX } from '../../services/gpxService';
 import { formatDistance, formatDuration } from '../../utils/geo';
 import { formatPercent } from '../../utils/formatting';
@@ -106,17 +107,21 @@ export function RoutePanelContent({ onExpandSheet, onCollapseSheet, isBottomShee
             <div className="space-y-4">
               <div>
                 <img src="/FlockHopper-2.png" alt="FlockHopper" className="h-14 w-auto" />
-                <p className="text-xs text-dark-400 mt-2">
-                  Powered by{' '}
-                  <a
-                    href="https://dontgetflocked.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent hover:text-accent-hover font-medium transition-colors"
-                  >
-                    dontgetflocked.com
-                  </a>
-                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <p className="text-xs text-dark-400">
+                    Powered by{' '}
+                    <a
+                      href="https://dontgetflocked.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent hover:text-accent-hover font-medium transition-colors"
+                    >
+                      dontgetflocked.com
+                    </a>
+                  </p>
+                  <span className="text-dark-600">·</span>
+                  <FlockHopperAppPromo />
+                </div>
               </div>
               <p className="text-sm text-gray-200 leading-relaxed">
                 Enter your starting point and destination to analyze ALPR camera exposure along your route and discover safer alternatives.
@@ -518,6 +523,7 @@ export function RoutePanelContent({ onExpandSheet, onCollapseSheet, isBottomShee
               </ol>
             </div>
           )}
+
     </div>
   );
 }
