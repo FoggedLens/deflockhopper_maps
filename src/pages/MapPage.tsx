@@ -290,7 +290,11 @@ export function MapPage() {
               {/* Logo + Product Switcher */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <ProductSwitcher />
-                <div className="flex items-center gap-2">
+                <a
+                  href="https://deflock.org"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2"
+                >
                   <img
                     src="/deflock-icon.png"
                     alt="DeFlock Icon"
@@ -302,7 +306,7 @@ export function MapPage() {
                     className="h-7 lg:h-8 w-auto object-contain"
                   />
                   <span className="text-dark-400 text-[11px] font-medium tracking-[0.2em] uppercase hidden sm:inline self-end mb-[3px]">Maps</span>
-                </div>
+                </a>
               </div>
 
               {/* Desktop: Mode tabs - editorial underline style */}
