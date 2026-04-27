@@ -292,8 +292,9 @@ async function searchProxy(query: string, signal?: AbortSignal): Promise<Geocodi
   // (e.g. multiple buildings at the same street address), keep only the first.
   const seen = new Set<string>();
   return mapped.filter(r => {
-    if (seen.has(r.name)) return false;
-    seen.add(r.name);
+    const key = `${r.name}|${r.description}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
 }
