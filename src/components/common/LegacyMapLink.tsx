@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import { useMapStore } from '../../store/mapStore';
 
-const LEGACY_MAP_BASE_URL = 'https://deflock.org/map';
+const LEGACY_MAP_BASE_URL = 'https://deflock.org/legacy-map';
 const LEGACY_MAP_LABEL = 'DeFlock Legacy Map';
 
 interface LegacyMapLinkProps {
