@@ -83,7 +83,7 @@ export function MapSearch() {
     abortControllerRef.current = new AbortController();
     
     try {
-      const searchResults = await smartSearch(searchQuery, abortControllerRef.current.signal);
+      const searchResults = await smartSearch(searchQuery, 'map', abortControllerRef.current.signal);
       setResults(searchResults);
       setIsOpen(searchResults.length > 0);
       setSelectedIndex(-1);

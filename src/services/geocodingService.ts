@@ -277,8 +277,8 @@ const GEOCODE_PROXY_URL = (import.meta.env.VITE_GEOCODE_API_URL as string | unde
  * Search using the custom geocoding proxy (returns Nominatim-format JSON).
  * Uses ?query= param as required by the proxy.
  */
-async function searchProxy(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
-  const params = new URLSearchParams({ query });
+async function searchProxy(query: string, source: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
+  const params = new URLSearchParams({ query, source });
   const response = await fetch(`${GEOCODE_PROXY_URL}?${params}`, { signal });
 
   if (!response.ok) {
@@ -303,21 +303,21 @@ async function searchProxy(query: string, signal?: AbortSignal): Promise<Geocodi
 // FALLBACK CHAIN
 // ============================================================================
 
-type GeocodingProvider = (query: string, signal?: AbortSignal) => Promise<GeocodingResult[]>;
+type GeocodingProvider = (query: string, source: string, signal?: AbortSignal) => Promise<GeocodingResult[]>;
 
 /**
  * Search through providers in order: Proxy → Photon (fallback).
  * Falls through to the next provider on failure or empty results.
  */
-async function searchWithFallback(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
+async function searchWithFallback(query: string, source: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
   const providers: { name: string; search: GeocodingProvider }[] = [
     { name: 'Proxy', search: searchProxy },
-    { name: 'Photon', search: searchPhoton },
+    { name: 'Photon', search: (q, _source, s) => searchPhoton(q, s) },
   ];
 
   for (const provider of providers) {
     try {
-      const results = await provider.search(query, signal);
+      const results = await provider.search(query, source, signal);
       if (results.length > 0) {
         return results;
       }
@@ -348,7 +348,7 @@ async function searchWithFallback(query: string, signal?: AbortSignal): Promise<
  * - Cities (Columbus, Ohio)
  * - POI/Business (Walmart Columbus)
  */
-export async function smartSearch(query: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
+export async function smartSearch(query: string, source: string, signal?: AbortSignal): Promise<GeocodingResult[]> {
   const trimmed = query.trim();
   
   if (!trimmed || trimmed.length < 2) {
@@ -369,7 +369,7 @@ export async function smartSearch(query: string, signal?: AbortSignal): Promise<
   }
 
   // Search with 2-tier fallback: Proxy → Photon
-  return searchWithFallback(trimmed, signal);
+  return searchWithFallback(trimmed, source, signal);
 }
 
 // ============================================================================

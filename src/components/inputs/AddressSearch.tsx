@@ -180,7 +180,7 @@ export function AddressSearch({
 
     try {
       setError(null);
-      const searchResults = await smartSearch(searchQuery, abortControllerRef.current.signal);
+      const searchResults = await smartSearch(searchQuery, 'routing', abortControllerRef.current.signal);
       setResults(searchResults);
       setIsOpen(searchResults.length > 0);
       setSelectedIndex(-1);
