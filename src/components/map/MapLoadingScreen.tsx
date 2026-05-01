@@ -7,7 +7,6 @@ interface MapLoadingScreenProps {
   cameraCount?: number;
   error?: string | null;
   onRetry?: () => void;
-  watchdogWarning?: boolean;
   camerasReady?: boolean;
   markersReady?: boolean;
 }
@@ -22,7 +21,6 @@ export function MapLoadingScreen({
   cameraCount = 0,
   error,
   onRetry,
-  watchdogWarning = false,
   camerasReady = false,
   markersReady = false,
 }: MapLoadingScreenProps) {
@@ -210,21 +208,6 @@ export function MapLoadingScreen({
                 </p>
               )}
             </div>
-
-            {/* Watchdog warning */}
-            {watchdogWarning && (
-              <div className="mt-2 px-4 py-3 bg-amber-900/30 rounded-xl border border-amber-500/30 max-w-sm">
-                <p className="text-xs text-amber-300 text-center mb-2">
-                  Map source didn't initialize properly
-                </p>
-                <button
-                  onClick={onRetry}
-                  className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
 
           </div>
         )}
