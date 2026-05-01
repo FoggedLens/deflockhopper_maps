@@ -137,7 +137,7 @@ export function MapLoadingScreen({
             </div>
             <div>
               <h2 className="text-xl font-display font-bold text-white mb-2">
-                Failed to Load Camera Data
+                Couldn't Load Map
               </h2>
               <p className="text-dark-300 text-sm">
                 {error}
