@@ -11,6 +11,7 @@ import { DensityLegendBar } from '@/components/map/DensityLegendBar';
 import { NetworkAgencyCount } from '@/components/map/NetworkAgencyCount';
 import { Seo, LegacyMapLink, ShareButton, ProductSwitcher } from '@/components/common';
 import { parseViewportFromURL, writeViewportParams } from '@/utils/urlParams';
+import { isWebGLAvailable } from '@/utils/webgl';
 import { useCameraStore, useMapStore, useAppModeStore } from '@/store';
 import { useEmbedMode } from '@/hooks/useEmbedMode';
 import { MapStyleControl } from '@/components/map/MapStyleControl';
@@ -18,6 +19,9 @@ import { TimelineBar } from '@/modes/timeline/TimelineBar';
 import { DensityFeaturePopup } from '@/modes/density/DensityFeaturePopup';
 import { Route, Compass, BarChart3, Menu, X, Network, Map as MapIcon } from 'lucide-react';
 import type { AppMode } from '@/store';
+
+const WEBGL_REQUIRED_MESSAGE =
+  'WebGL is required to display the interactive map. Please enable hardware acceleration in your browser settings, then reload the page.';
 
 const MODE_LABELS: Record<AppMode, { icon: typeof Route; label: string }> = {
   map: { icon: MapIcon, label: 'Map' },
@@ -178,6 +182,16 @@ export function MapPage() {
     setMarkersReady(false);
     setMapInitError(null);
 
+    // Probe for WebGL before doing any work — without it the map cannot
+    // render and there is no point fetching the camera dataset.
+    if (!isWebGLAvailable()) {
+      setMapInitError(WEBGL_REQUIRED_MESSAGE);
+      if (import.meta.env.DEV) {
+        console.warn('[MapPage] WebGL not available — surfacing error UI');
+      }
+      return;
+    }
+
     ensureCamerasLoaded()
       .then(() => {
         if (import.meta.env.DEV) {
@@ -229,6 +243,17 @@ export function MapPage() {
     if (import.meta.env.DEV) {
       console.log('[MapPage] Retry with remount requested');
     }
+
+    // Re-probe WebGL on every retry — if it's still unavailable, surface the
+    // same WebGL-specific message and skip the camera refetch / remount.
+    if (!isWebGLAvailable()) {
+      setMapInitError(WEBGL_REQUIRED_MESSAGE);
+      if (import.meta.env.DEV) {
+        console.warn('[MapPage] Retry: WebGL still not available');
+      }
+      return;
+    }
+
     setMapInitError(null);
     setMarkersReady(false);
     // Force map remount with new key — unconditional so a failing
