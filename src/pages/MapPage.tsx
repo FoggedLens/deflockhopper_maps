@@ -157,9 +157,9 @@ export function MapPage() {
   // Track map markers ready state
   const [markersReady, setMarkersReady] = useState(false);
   const [mapKey, setMapKey] = useState(0);
-  const [watchdogWarning, setWatchdogWarning] = useState(false);
+  const [mapInitError, setMapInitError] = useState<string | null>(null);
   const mapRef = useRef<MapLibreViewHandle>(null);
-  const watchdogTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const mapInitDeadlineRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Get cameras in view for mobile header display
   const viewCameraCount = bounds
@@ -176,7 +176,7 @@ export function MapPage() {
 
     // Reset UI state on mount (handles navigation back scenarios)
     setMarkersReady(false);
-    setWatchdogWarning(false);
+    setMapInitError(null);
 
     ensureCamerasLoaded()
       .then(() => {
@@ -189,25 +189,29 @@ export function MapPage() {
       });
   }, [ensureCamerasLoaded]);
 
-  // Watchdog: if markers don't become ready within 5s after cameras load, show warning
+  // Map-init deadline: if markers don't become ready within 15s after cameras
+  // load, treat the map init as failed and surface the existing error UI
+  // (Try Again + Legacy Maps Link). The inner retry pipeline in
+  // MapLibreContainer keeps event listeners attached for the full duration,
+  // so a successful late init before the deadline still clears markersReady.
   useEffect(() => {
-    if (isInitialized && cameras.length > 0 && !markersReady) {
-      watchdogTimeoutRef.current = setTimeout(() => {
+    if (isInitialized && cameras.length > 0 && !markersReady && !mapInitError) {
+      mapInitDeadlineRef.current = setTimeout(() => {
         if (!markersReady) {
-          setWatchdogWarning(true);
+          setMapInitError('Map failed to initialize. Please try again.');
           if (import.meta.env.DEV) {
-            console.warn('[MapPage] Watchdog: markers not ready after 5s');
+            console.warn('[MapPage] Map init deadline exceeded (15s) — surfacing error UI');
           }
         }
-      }, 5000);
-      
+      }, 15000);
+
       return () => {
-        if (watchdogTimeoutRef.current) {
-          clearTimeout(watchdogTimeoutRef.current);
+        if (mapInitDeadlineRef.current) {
+          clearTimeout(mapInitDeadlineRef.current);
         }
       };
     }
-  }, [isInitialized, cameras.length, markersReady]);
+  }, [isInitialized, cameras.length, markersReady, mapInitError]);
 
   // Handle markers ready callback from MapLibreView
   const handleMarkersReady = useCallback((ready: boolean) => {
@@ -216,7 +220,7 @@ export function MapPage() {
     }
     setMarkersReady(ready);
     if (ready) {
-      setWatchdogWarning(false);
+      setMapInitError(null);
     }
   }, []);
 
@@ -225,9 +229,9 @@ export function MapPage() {
     if (import.meta.env.DEV) {
       console.log('[MapPage] Retry with remount requested');
     }
-    setWatchdogWarning(false);
+    setMapInitError(null);
     setMarkersReady(false);
-    
+
     try {
       await retryCameraLoad();
       // Force map remount with new key
@@ -271,13 +275,12 @@ export function MapPage() {
     <>
       {seo}
       {/* Unified loading overlay — map renders underneath so tiles load in parallel */}
-      {(!isFullyReady || error) && (
+      {(!isFullyReady || error || mapInitError) && (
         <MapLoadingScreen
           cameraProgress={cameraProgress}
           cameraCount={cameras.length}
-          error={error}
+          error={error ?? mapInitError}
           onRetry={handleRetryWithRemount}
-          watchdogWarning={watchdogWarning}
           markersReady={markersReady}
           camerasReady={camerasReady}
         />
