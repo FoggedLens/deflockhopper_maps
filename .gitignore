@@ -71,5 +71,8 @@ __pycache__/
 worker/node_modules/
 .superpowers/
 
+# Documentation
+docs/
+
 # R2 boundary data (uploaded separately, too large for git)
 data/boundaries/
