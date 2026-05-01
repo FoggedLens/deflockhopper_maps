@@ -231,11 +231,12 @@ export function MapPage() {
     }
     setMapInitError(null);
     setMarkersReady(false);
+    // Force map remount with new key — unconditional so a failing
+    // retryCameraLoad still gets a fresh map instance on next attempt
+    setMapKey(k => k + 1);
 
     try {
       await retryCameraLoad();
-      // Force map remount with new key
-      setMapKey(k => k + 1);
     } catch {
       // Error handling done in store
     }
