@@ -348,14 +348,11 @@ export function MapPage() {
                 </button>
               </div>
 
-              {/* Desktop: Share + Legacy map link */}
-              {!isEmbed && (
               <div className="hidden lg:flex items-center gap-4 flex-shrink-0">
                 <ShareButton variant="header" />
                 <div className="w-px h-4 bg-dark-600" />
                 <LegacyMapLink variant="header" />
               </div>
-              )}
             </div>
           </div>
         </header>
@@ -388,8 +385,8 @@ export function MapPage() {
               ))}
             </div>
             <div className="border-t border-dark-600 mt-1 pt-1 px-4 pb-2 space-y-0.5">
-              {!isEmbed && <ShareButton variant="menu-item" />}
-              {!isEmbed && <LegacyMapLink variant="menu-item" />}
+              <ShareButton variant="menu-item" />
+              <LegacyMapLink variant="menu-item" />
             </div>
           </nav>
         )}
