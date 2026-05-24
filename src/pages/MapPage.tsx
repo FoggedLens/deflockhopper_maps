@@ -75,13 +75,15 @@ export function MapPage() {
   }, [center, zoom, appMode, mapVisualization, setSearchParams]);
 
   // Responsive breakpoint — single source of truth for timeline bar layout
+  // Never go mobile in embed mode — the iframe width should not affect layout
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
+    if (isEmbed) return;
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [isEmbed]);
 
   // Sync URL params with app mode on mount
   useEffect(() => {
@@ -283,7 +285,8 @@ export function MapPage() {
         />
       )}
       <div className={`map-page h-screen w-screen flex flex-col bg-dark-900 overflow-hidden ${isExploreMode ? 'timeline-active' : ''}`}>
-        {/* Header - Persistent on Map View */}
+        {/* Header - hidden in embed mode */}
+        {!isEmbed && (
         <header className="h-12 bg-dark-900 border-b border-dark-600 flex items-center z-50 shrink-0">
           <div className="w-full px-4 lg:px-5">
             <div className="flex items-center justify-between h-12">
@@ -356,9 +359,10 @@ export function MapPage() {
             </div>
           </div>
         </header>
+        )} {/* end !isEmbed header */}
 
-        {/* Mobile slide-down menu */}
-        {mobileMenuOpen && (
+        {/* Mobile slide-down menu — only relevant outside embed mode */}
+        {!isEmbed && mobileMenuOpen && (
           <nav
             className="lg:hidden absolute top-12 left-0 right-0 z-[60] bg-dark-800 border-b border-dark-600"
             aria-label="Mobile navigation"
