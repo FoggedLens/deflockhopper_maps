@@ -59,7 +59,7 @@ export interface MapLibreViewHandle {
 import { layers as pmLayers, namedFlavor } from '@protomaps/basemaps';
 import { Protocol } from 'pmtiles';
 
-const TILES_URL = import.meta.env.VITE_TILES_URL as string;
+const TILES_URL = "https://sanitas.deflock.org";
 
 const _pmtilesProtocol = new Protocol();
 maplibregl.addProtocol('pmtiles', _pmtilesProtocol.tile.bind(_pmtilesProtocol));
