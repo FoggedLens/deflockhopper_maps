@@ -97,7 +97,7 @@ function buildMapStyle(tileStyleId: MapTileStyleId): maplibregl.StyleSpecificati
     sources: {
       protomaps: {
         type: 'vector',
-        url: `pmtiles://${TILES_URL}/deflock.pmtiles`,
+        url: `pmtiles://${TILES_URL}/basemap.pmtiles`,
         attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
       },
     },
