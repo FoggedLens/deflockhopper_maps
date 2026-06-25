@@ -57,8 +57,12 @@ export interface MapLibreViewHandle {
 }
 
 import { layers as pmLayers, namedFlavor } from '@protomaps/basemaps';
+import { Protocol } from 'pmtiles';
 
-const TILES_URL = 'https://tiles.dontgetflocked.com';
+const TILES_URL = import.meta.env.VITE_TILES_URL as string;
+
+const _pmtilesProtocol = new Protocol();
+maplibregl.addProtocol('pmtiles', _pmtilesProtocol.tile.bind(_pmtilesProtocol));
 
 // Map our style IDs to Protomaps flavor names (must match R2 sprites at /sprites/v4/{flavor})
 const FLAVOR_MAP: Record<MapTileStyleId, string> = {
@@ -93,7 +97,7 @@ function buildMapStyle(tileStyleId: MapTileStyleId): maplibregl.StyleSpecificati
     sources: {
       protomaps: {
         type: 'vector',
-        url: `${TILES_URL}/planet.json`,
+        url: `pmtiles://${TILES_URL}/deflock.pmtiles`,
         attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
       },
     },
@@ -1118,7 +1122,14 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       )}
 
       {/* Camera count is now shown in the header on mobile and CameraStats on desktop */}
-      
+
+      {/* US-only tile coverage indicator */}
+      <div className="absolute bottom-8 left-2 z-10 pointer-events-none">
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm border border-white/10">
+          <span className="text-[10px] font-medium text-white/70 leading-none">🇺🇸 US coverage only</span>
+        </div>
+      </div>
+
       {/* Location picking mode indicator */}
       {pickingLocation && (
         <div className="absolute inset-0 z-40 pointer-events-none">

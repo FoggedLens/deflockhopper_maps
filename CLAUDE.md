@@ -99,13 +99,14 @@ src/
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VITE_API_URL` | FlockHopper routing API URL | `https://api.dontgetflocked.com` |
-| `VITE_TILES_URL` | Protomaps vector tile server URL | `https://tiles.dontgetflocked.com` |
-| `VITE_DATA_API_URL` | Cloudflare Worker data API URL | `https://data.dontgetflocked.com` |
-| `VITE_PERF_LOGGING` | Enable performance logging | `false` |
+Found in .env file. Environment variables are prefixed with `VITE_` for Vite to expose them to the frontend.
 
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_URL` | FlockHopper routing API URL |
+| `VITE_TILES_URL` | Protomaps vector tile server URL |
+| `VITE_DATA_API_URL` | Cloudflare Worker data API URL |
+| `VITE_PERF_LOGGING` | Enable performance logging |
 ## Important Patterns
 
 ### Spatial Optimization
