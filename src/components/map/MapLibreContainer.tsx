@@ -1121,15 +1121,6 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         </Popup>
       )}
 
-      {/* Camera count is now shown in the header on mobile and CameraStats on desktop */}
-
-      {/* US-only tile coverage indicator */}
-      <div className="absolute bottom-8 left-2 z-10 pointer-events-none">
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm border border-white/10">
-          <span className="text-[10px] font-medium text-white/70 leading-none">🇺🇸 US coverage only</span>
-        </div>
-      </div>
-
       {/* Location picking mode indicator */}
       {pickingLocation && (
         <div className="absolute inset-0 z-40 pointer-events-none">
