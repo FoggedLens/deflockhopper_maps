@@ -32,7 +32,7 @@ function PageLoader() {
         <div className="w-full px-3 lg:px-6">
           <div className="flex items-center justify-between h-14 lg:h-16">
             <div className="flex items-center gap-2">
-              <img src="/deflock-icon.png" alt="DeFlock Icon" className="h-8 lg:h-10 w-auto object-contain" />
+              <img src="/deflock-icon.webp" alt="DeFlock Icon" className="h-8 lg:h-10 w-auto object-contain" />
               <img src="/deflock-logo.svg" alt="DeFlock Logo" className="h-8 lg:h-10 w-auto object-contain" />
             </div>
             <div className="flex items-center gap-2 bg-dark-800 rounded-full px-3 py-1.5">
@@ -46,7 +46,7 @@ function PageLoader() {
       <div className="flex-1 flex items-center justify-center relative pb-14 lg:pb-16">
         <div className="relative z-10 flex flex-col items-center gap-6 lg:gap-8">
           <div className="flex items-center gap-2 lg:gap-3">
-            <img src="/deflock-icon.png" alt="DeFlock Icon" className="h-12 lg:h-24 w-auto object-contain" />
+            <img src="/deflock-icon.webp" alt="DeFlock Icon" className="h-12 lg:h-24 w-auto object-contain" />
             <img src="/deflock-logo.svg" alt="DeFlock" className="h-12 lg:h-24 w-auto object-contain" />
           </div>
           <div className="flex flex-col items-center gap-3">

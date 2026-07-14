@@ -2,15 +2,17 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0a0f" />
 
+    <!-- Preconnect to critical data/tile origins -->
+    <link rel="preconnect" href="https://data.dontgetflocked.com" crossorigin>
+    <link rel="preconnect" href="https://sanitas.deflock.org" crossorigin>
+
     <!-- DNS Prefetch for external resources -->
     <link rel="dns-prefetch" href="https://tile.openstreetmap.org">
-
-    <!-- Prefetch camera data for instant map loading -->
-    <link rel="prefetch" href="/cameras-us.json" as="fetch" crossorigin="anonymous">
 
     <!-- Self-hosted fonts (no third-party requests) -->
     <link rel="preload" href="/fonts/dm-sans-latin.woff2" as="font" type="font/woff2" crossorigin>

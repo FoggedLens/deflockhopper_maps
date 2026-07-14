@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState, useMemo, memo, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useCallback, useEffect, useState, useMemo, memo, useImperativeHandle, forwardRef, lazy, Suspense } from 'react';
 import { md5 } from 'js-md5';
 import Map, { 
   Source, 
@@ -42,7 +42,7 @@ import { useMapModeStore, getActiveViewForZoom } from '../../store/mapModeStore'
 import { HeatmapLayers } from './layers/HeatmapLayers';
 import { DotDensityLayers } from './layers/DotDensityLayers';
 import { DensityLayers } from './layers/DensityLayers';
-import { NetworkLayers } from './layers/NetworkLayers';
+const NetworkLayers = lazy(() => import('./layers/NetworkLayers').then(m => ({ default: m.NetworkLayers })));
 import { CameraMarkerLayers } from './layers/CameraMarkerLayers';
 import { BoundaryOverlayLayers } from './layers/BoundaryOverlayLayers';
 import { useDensityStore } from '../../store/densityStore';
@@ -949,7 +949,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       {isMapMode && <HeatmapLayers visible={mapModeViz === 'auto' || activeView === 'heatmap'} />}
       {isDotsMode && <DotDensityLayers />}
       {isDensityMode && <DensityLayers />}
-      {isNetworkMode && <NetworkLayers />}
+      {isNetworkMode && <Suspense fallback={null}><NetworkLayers /></Suspense>}
       {isMapMode && <BoundaryOverlayLayers />}
 
 

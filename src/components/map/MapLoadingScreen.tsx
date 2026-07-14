@@ -76,7 +76,7 @@ export function MapLoadingScreen({
             {/* Logo */}
             <a href="https://deflock.org" className="flex items-center gap-2 group">
               <img
-                src="/deflock-icon.png"
+                src="/deflock-icon.webp"
                 alt="DeFlock Icon"
                 className="h-8 lg:h-10 w-auto object-contain transition-all duration-300 group-hover:scale-110"
               />
@@ -125,7 +125,7 @@ export function MapLoadingScreen({
           <div className="relative z-10 flex flex-col items-center gap-6 px-6 max-w-md text-center">
             <div className="flex items-center gap-2 lg:gap-3 opacity-50">
               <img
-                src="/deflock-icon.png"
+                src="/deflock-icon.webp"
                 alt="DeFlock Icon"
                 className="h-12 lg:h-20 w-auto object-contain"
               />
@@ -159,7 +159,7 @@ export function MapLoadingScreen({
             {/* Logo */}
             <div className="flex items-center gap-2 lg:gap-3">
               <img
-                src="/deflock-icon.png"
+                src="/deflock-icon.webp"
                 alt="DeFlock Icon"
                 className="h-12 lg:h-24 w-auto object-contain"
               />
