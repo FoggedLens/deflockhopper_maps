@@ -28,7 +28,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview --port 3000",
+    "lighthouse": "node scripts/lighthouse.mjs --port 3000",
+    "lighthouse:prod": "node scripts/lighthouse.mjs --url https://maps.deflock.org"
   },
   "dependencies": {
     "@deck.gl/core": "^9.2.9",
@@ -67,6 +69,8 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
+    "lighthouse": "^13.4.0",
+    "playwright": "^1.61.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.6.2",

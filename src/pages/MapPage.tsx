@@ -329,6 +329,8 @@ export function MapPage() {
                   <img
                     src="/deflock-icon.webp"
                     alt="DeFlock Icon"
+                    width="512"
+                    height="512"
                     className="h-7 lg:h-8 w-auto object-contain"
                   />
                   <img

@@ -78,6 +78,8 @@ export function MapLoadingScreen({
               <img
                 src="/deflock-icon.webp"
                 alt="DeFlock Icon"
+                width="512"
+                height="512"
                 className="h-8 lg:h-10 w-auto object-contain transition-all duration-300 group-hover:scale-110"
               />
               <img
@@ -127,6 +129,8 @@ export function MapLoadingScreen({
               <img
                 src="/deflock-icon.webp"
                 alt="DeFlock Icon"
+                width="512"
+                height="512"
                 className="h-12 lg:h-20 w-auto object-contain"
               />
               <img
@@ -161,6 +165,9 @@ export function MapLoadingScreen({
               <img
                 src="/deflock-icon.webp"
                 alt="DeFlock Icon"
+                width="512"
+                height="512"
+                fetchPriority="high"
                 className="h-12 lg:h-24 w-auto object-contain"
               />
               <img

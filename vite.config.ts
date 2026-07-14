@@ -35,10 +35,6 @@ export default defineConfig(({ mode }) => ({
               id.includes('node_modules/@protomaps')) {
             return 'map-vendor';
           }
-          // Animation library
-          if (id.includes('node_modules/framer-motion')) {
-            return 'motion';
-          }
           // Geo utilities - large library
           if (id.includes('node_modules/@turf')) {
             return 'geo-utils';
@@ -47,14 +43,11 @@ export default defineConfig(({ mode }) => ({
           if (id.includes('node_modules/zustand')) {
             return 'state';
           }
-          // deck.gl visualization library
-          if (id.includes('node_modules/@deck.gl') ||
-              id.includes('node_modules/@luma.gl') ||
-              id.includes('node_modules/@math.gl') ||
-              id.includes('node_modules/@probe.gl') ||
-              id.includes('node_modules/@loaders.gl')) {
-            return 'deck-vendor';
-          }
+          // deck.gl and dependencies — do NOT assign a manual chunk here.
+          // NetworkLayers is lazy-loaded via React.lazy(), so Rollup will
+          // naturally split deck.gl into its own chunk(s) as a lazy dependency.
+          // Forcing it into a named chunk causes shared helpers to leak into
+          // the main bundle, creating eager imports that defeat the lazy split.
         },
       },
     },
@@ -69,8 +62,8 @@ export default defineConfig(({ mode }) => ({
   },
   // Optimize dependency pre-bundling
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'maplibre-gl', 'zustand', '@deck.gl/core'],
+    include: ['react', 'react-dom', 'react-router-dom', 'maplibre-gl', 'zustand'],
     // Exclude large libs that are lazy loaded
-    exclude: ['@turf/turf'],
+    exclude: ['@turf/turf', '@deck.gl/core', '@deck.gl/layers', '@deck.gl/mapbox'],
   },
 }))
