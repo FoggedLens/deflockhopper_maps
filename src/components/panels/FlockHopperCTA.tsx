@@ -1,8 +1,8 @@
 import { Navigation, Smartphone } from 'lucide-react';
 
 export const APP_STORE_URL = 'https://apps.apple.com/us/app/flockhopper/id6762170253';
-// TODO: replace with the Google Play public beta URL when available
-export const ANDROID_BETA_URL = '';
+export const ANDROID_BETA_URL =
+  'https://play.google.com/store/apps/details?id=com.dontgetflocked.flockhopper';
 export const LEARN_MORE_URL = 'https://dontgetflocked.com';
 
 const androidHref = ANDROID_BETA_URL || LEARN_MORE_URL;
@@ -107,7 +107,7 @@ export function FlockHopperCTA({ variant, title, description }: FlockHopperCTAPr
             className="h-10 w-auto"
           />
           <a
-            href="https://dontgetflocked.com/app"
+            href={LEARN_MORE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#d80018] active:bg-[#a80013] text-white text-xs font-bold flex-shrink-0 transition-colors"
