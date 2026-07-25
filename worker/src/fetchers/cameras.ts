@@ -10,8 +10,8 @@ import { tileIntegrityFailed, belowMinimum } from '../lib/guards';
 export const CAMERAS_OVERPASS_QUERY = `[out:json][timeout:120];
 area["ISO3166-1"="US"]->.us;
 (
-  node["man_made"="surveillance"]["surveillance:type"="ALPR"](area.us);
-  way["man_made"="surveillance"]["surveillance:type"="ALPR"](area.us);
+  node["surveillance:type"~"(^|;)ALPR($|;)"](area.us);
+  way["surveillance:type"~"(^|;)ALPR($|;)"](area.us);
 );
 out meta;
 >;
@@ -262,9 +262,10 @@ export function addElementsToFeatures(
   for (const el of elements) {
     const tags = el.tags ?? {};
 
-    // Only process surveillance ALPR elements
-    if (tags['man_made'] !== 'surveillance') continue;
-    if (tags['surveillance:type'] !== 'ALPR') continue;
+    // Only process ALPR elements. surveillance:type=ALPR is the defining tag and
+    // may be one of several ;-separated values; man_made=surveillance is not required.
+    const surveillanceTypes = (tags['surveillance:type'] ?? '').split(';').map((s) => s.trim());
+    if (!surveillanceTypes.includes('ALPR')) continue;
 
     let lat = el.lat;
     let lon = el.lon;
