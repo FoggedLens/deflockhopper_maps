@@ -1369,7 +1369,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       attributionControl={false}
       // Removed reuseMaps to avoid stale reused instances
     >
-      <NavigationControl position="bottom-right" showCompass={false} />
+      <NavigationControl position="bottom-right" showCompass />
       <GeolocateControl position="bottom-right" />
       <AttributionCtl key={attribPosition} position={attribPosition} />
 
