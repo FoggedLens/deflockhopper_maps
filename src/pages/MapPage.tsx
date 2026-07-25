@@ -31,6 +31,7 @@ import { CameraTileStatusPill } from '@/components/map/CameraTileStatusPill';
 import { TimelineBar } from '@/modes/timeline/TimelineBar';
 import { DensityFeaturePopup } from '@/modes/density/DensityFeaturePopup';
 import { Route, Compass, BarChart3, Network, Map as MapIcon } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { AppMode } from '@/store';
 
 const WEBGL_REQUIRED_MESSAGE =
@@ -353,6 +354,28 @@ export function MapPage() {
                 onMarkersReady={handleMarkersReady}
               />
             </div>
+
+            {/* The wrapper above holds the map at opacity-0 until markersReady, which
+                leaves a black void on slow connections. This indicator fills that gap:
+                delayed 400ms so fast loads never flash it, and its exit crossfades
+                with the map's own 300ms fade-in. AnimatePresence unmounts it after
+                the exit, so nothing keeps animating once the map is up. */}
+            <AnimatePresence>
+              {!markersReady && !mapInitError && (
+                <motion.div
+                  role="status"
+                  className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, transition: { delay: 0.4, duration: 0.3, ease: 'easeOut' } }}
+                  exit={{ opacity: 0, transition: { duration: 0.3 } }}
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-2 border-dark-400 border-t-accent rounded-full animate-spin" />
+                    <span className="text-dark-400 text-[11px] font-medium tracking-[0.2em] uppercase">Loading map</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Map Overlays */}
             {!isEmbed && (appMode === 'route' ? <FloatingRouteCard /> : <MapSearch />)}
