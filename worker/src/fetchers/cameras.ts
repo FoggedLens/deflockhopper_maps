@@ -188,27 +188,35 @@ function resolveSimple(token: string): number | null {
   if (upper in SPELLED_CARDINALS) return SPELLED_CARDINALS[upper];
   if (upper in BOUND_DIRECTIONS) return BOUND_DIRECTIONS[upper];
   const num = Number(upper);  // Number() rejects "338-23" unlike parseFloat
-  return isNaN(num) ? null : num;
+  return Number.isFinite(num) ? num : null;
 }
 
-/** Compute the midpoint bearing of a clockwise sector from startDeg to endDeg (raw values, not pre-normalized). */
-function rangeMidpoint(startDeg: number, endDeg: number): number {
+/** Compute the clockwise span from startDeg to endDeg (raw values, not pre-normalized). */
+function rangeSpan(startDeg: number, endDeg: number): number {
   const rawArc = endDeg - startDeg;
-  const arc = ((rawArc % 360) + 360) % 360;
+  const normalizedArc = normalizeDegrees(rawArc);
   // Full circle: raw values differ but normalized arc is 0 (e.g. 0→360)
-  if (arc === 0 && rawArc !== 0) return normalizeDegrees(startDeg + 180);
-  if (arc === 0) return normalizeDegrees(startDeg);
-  return normalizeDegrees(startDeg + arc / 2);
+  return normalizedArc === 0 && rawArc !== 0 ? 360 : normalizedArc;
 }
 
-/** Parse a single direction token which may be a cardinal, numeric, bound, spelled-out, or range (e.g. "338-23"). */
-function parseSingleToken(token: string): number | null {
+/** Compute the midpoint bearing of a clockwise sector from startDeg to endDeg. */
+function rangeMidpoint(startDeg: number, endDeg: number): number {
+  return normalizeDegrees(startDeg + rangeSpan(startDeg, endDeg) / 2);
+}
+
+interface ParsedDirectionToken {
+  bearing: number;
+  span?: number;
+}
+
+/** Parse one token while retaining range metadata needed during publication. */
+function parseDetailedToken(token: string): ParsedDirectionToken | null {
   const trimmed = token.trim();
   if (!trimmed) return null;
 
   // Try simple resolve first (cardinal, spelled-out, bound, numeric)
   const simple = resolveSimple(trimmed);
-  if (simple !== null) return normalizeDegrees(simple);
+  if (simple !== null) return { bearing: normalizeDegrees(simple) };
 
   // Range notation: "338-23", "WSW-ESE" — find dash that isn't a leading negative
   const dashIdx = trimmed.indexOf('-', 1);
@@ -216,23 +224,32 @@ function parseSingleToken(token: string): number | null {
     const left = resolveSimple(trimmed.slice(0, dashIdx));
     const right = resolveSimple(trimmed.slice(dashIdx + 1));
     if (left !== null && right !== null) {
-      return rangeMidpoint(left, right);
+      const span = rangeSpan(left, right);
+      const bearing = rangeMidpoint(left, right);
+      if (!Number.isFinite(span) || !Number.isFinite(bearing)) return null;
+      return {
+        bearing,
+        span,
+      };
     }
   }
 
   return null;
 }
 
-/** Parse a direction tag into all resolved bearings (handles semicolons and commas). */
-export function parseDirections(value: string | undefined): number[] {
+function parseDetailedDirections(value: string | undefined): ParsedDirectionToken[] {
   if (!value) return [];
-  const tokens = value.split(/[;,]/).map((t) => t.trim()).filter(Boolean);
-  const results: number[] = [];
-  for (const token of tokens) {
-    const deg = parseSingleToken(token);
-    if (deg !== null) results.push(deg);
+  const results: ParsedDirectionToken[] = [];
+  for (const token of value.split(/[;,]/)) {
+    const parsed = parseDetailedToken(token);
+    if (parsed !== null) results.push(parsed);
   }
   return results;
+}
+
+/** Parse a direction tag into all resolved bearings (handles semicolons and commas). */
+export function parseDirections(value: string | undefined): number[] {
+  return parseDetailedDirections(value).map(({ bearing }) => bearing);
 }
 
 /** Parse a direction tag into a single bearing (first resolved value). Backward-compatible. */
@@ -284,8 +301,15 @@ export function addElementsToFeatures(
     if (lat === undefined || lon === undefined) continue;
 
     const directionTag = tags['direction'] || tags['camera:direction'];
-    const directions = parseDirections(directionTag);
-    const direction = directions.length > 0 ? directions[0] : null;
+    const parsedDirections = parseDetailedDirections(directionTag);
+    const firstDirection = parsedDirections[0];
+    const directions = parsedDirections.map(({ bearing }) => bearing);
+    const direction = firstDirection?.bearing ?? null;
+    const directionSpan = firstDirection?.span;
+    const directionSpans = parsedDirections.length > 1
+      && parsedDirections.some(({ span }) => span !== undefined)
+      ? parsedDirections.map(({ span }) => span ?? null)
+      : undefined;
     // directionCardinal stores the original cardinal string when the (first) token is a compass point
     const firstToken = directionTag?.split(/[;,]/)[0]?.trim();
     const isCardinal = firstToken ? firstToken.toUpperCase() in CARDINALS : false;
@@ -300,7 +324,9 @@ export function addElementsToFeatures(
       properties.brand = tags['brand'] || tags['manufacturer'];
     }
     if (direction !== null) properties.direction = direction;
+    if (directionSpan !== undefined) properties.directionSpan = directionSpan;
     if (directions.length > 1) properties.directions = directions;
+    if (directionSpans !== undefined) properties.directionSpans = directionSpans;
     if (isCardinal) properties.directionCardinal = firstToken;
     if (tags['surveillance:zone']) properties.surveillanceZone = tags['surveillance:zone'];
     if (tags['camera:mount']) properties.mountType = tags['camera:mount'];

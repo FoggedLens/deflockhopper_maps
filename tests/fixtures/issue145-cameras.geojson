@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [0.01, 0.01] },
+      "properties": {
+        "osmId": 145001,
+        "osmType": "node",
+        "brand": "Flock Safety",
+        "direction": 261.5,
+        "directionSpan": 45
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [0.011, 0.01] },
+      "properties": {
+        "osmId": 145002,
+        "osmType": "node",
+        "brand": "Flock Safety",
+        "direction": 90,
+        "directions": [90, 255, 0],
+        "directionSpans": [null, 10, null]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [0.012, 0.01] },
+      "properties": {
+        "osmId": 145003,
+        "osmType": "node",
+        "brand": "Flock Safety",
+        "direction": 180
+      }
+    }
+  ]
+}

@@ -312,6 +312,25 @@ describe('transformOverpassToGeoJSON', () => {
     expect(fc.features[1].properties.directions).toBeUndefined();
   });
 
+  it('does not invent span metadata for plural non-range directions', () => {
+    const response: OverpassResponse = {
+      version: 0.6,
+      generator: 'Overpass API',
+      elements: [
+        {
+          type: 'node', id: 1, lat: 38.0, lon: -77.0,
+          tags: { 'man_made': 'surveillance', 'surveillance:type': 'ALPR', 'direction': '90;270' },
+        },
+      ],
+    };
+
+    const feature = transformOverpassToGeoJSON(response).features[0];
+    expect(feature.properties.direction).toBe(90);
+    expect(feature.properties.directions).toEqual([90, 270]);
+    expect(feature.properties.directionSpan).toBeUndefined();
+    expect(feature.properties.directionSpans).toBeUndefined();
+  });
+
   it('handles range notation in transform', () => {
     const response: OverpassResponse = {
       version: 0.6,
@@ -326,6 +345,106 @@ describe('transformOverpassToGeoJSON', () => {
 
     const fc = transformOverpassToGeoJSON(response);
     expect(fc.features[0].properties.direction).toBeCloseTo(0.5, 1);
+  });
+
+  it.each([
+    ['57-117', 87, 60],
+    ['338-23', 0.5, 45],
+    ['90-90', 90, 0],
+    ['0-360', 180, 360],
+  ])('publishes boundary range %s as midpoint %s and span %s', (range, midpoint, span) => {
+    const response: OverpassResponse = {
+      version: 0.6,
+      generator: 'Overpass API',
+      elements: [
+        {
+          type: 'node', id: 1, lat: 38.0, lon: -77.0,
+          tags: { 'man_made': 'surveillance', 'surveillance:type': 'ALPR', 'direction': range },
+        },
+      ],
+    };
+
+    const feature = transformOverpassToGeoJSON(response).features[0];
+    expect(feature.properties.direction).toBeCloseTo(midpoint, 5);
+    expect(feature.properties.directionSpan).toBe(span);
+  });
+
+  it('preserves the midpoint and span of a direction range', () => {
+    const response: OverpassResponse = {
+      version: 0.6,
+      generator: 'Overpass API',
+      elements: [
+        {
+          type: 'node', id: 1, lat: 38.0, lon: -77.0,
+          tags: { 'man_made': 'surveillance', 'surveillance:type': 'ALPR', 'direction': '239-284' },
+        },
+      ],
+    };
+
+    const fc = transformOverpassToGeoJSON(response);
+    expect(fc.features[0].properties.direction).toBeCloseTo(261.5, 1);
+    expect(fc.features[0].properties.directionSpan).toBe(45);
+  });
+
+  it('publishes aligned spans for plural direction tokens', () => {
+    const response: OverpassResponse = {
+      version: 0.6,
+      generator: 'Overpass API',
+      elements: [
+        {
+          type: 'node', id: 1, lat: 38.0, lon: -77.0,
+          tags: { 'man_made': 'surveillance', 'surveillance:type': 'ALPR', 'direction': '90;250-260;N' },
+        },
+      ],
+    };
+
+    const fc = transformOverpassToGeoJSON(response);
+    expect(fc.features[0].properties.direction).toBe(90);
+    expect(fc.features[0].properties.directions).toEqual([90, 255, 0]);
+    expect(fc.features[0].properties.directionSpan).toBeUndefined();
+    expect(fc.features[0].properties.directionSpans).toEqual([null, 10, null]);
+  });
+
+  it('uses the first retained token for singular range metadata', () => {
+    const response: OverpassResponse = {
+      version: 0.6,
+      generator: 'Overpass API',
+      elements: [
+        {
+          type: 'node', id: 1, lat: 38.0, lon: -77.0,
+          tags: { 'man_made': 'surveillance', 'surveillance:type': 'ALPR', 'direction': 'bad;250-260;N' },
+        },
+      ],
+    };
+
+    const fc = transformOverpassToGeoJSON(response);
+    expect(fc.features[0].properties.direction).toBe(255);
+    expect(fc.features[0].properties.directionSpan).toBe(10);
+    expect(fc.features[0].properties.directions).toEqual([255, 0]);
+    expect(fc.features[0].properties.directionSpans).toEqual([10, null]);
+  });
+
+  it.each([
+    '1e309;250-260',
+    '0-1e309;250-260',
+    '-1e308-1e308;250-260',
+  ])('atomically rejects non-finite direction token in %s', (direction) => {
+    const response: OverpassResponse = {
+      version: 0.6,
+      generator: 'Overpass API',
+      elements: [
+        {
+          type: 'node', id: 1, lat: 38.0, lon: -77.0,
+          tags: { 'man_made': 'surveillance', 'surveillance:type': 'ALPR', direction },
+        },
+      ],
+    };
+
+    const feature = transformOverpassToGeoJSON(response).features[0];
+    expect(feature.properties.direction).toBe(255);
+    expect(feature.properties.directionSpan).toBe(10);
+    expect(feature.properties.directions).toBeUndefined();
+    expect(feature.properties.directionSpans).toBeUndefined();
   });
 
   it('sets directionCardinal from first token of multi-value cardinal tag', () => {

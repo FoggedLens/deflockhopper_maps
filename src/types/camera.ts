@@ -8,6 +8,8 @@ export interface ALPRCamera {
   model?: string;
   direction?: number;
   directions?: number[];
+  directionSpan?: number;
+  directionSpans?: Array<number | null>;
   directionCardinal?: string;
   surveillanceZone?: 'traffic' | 'town' | 'parking' | 'other';
   mountType?: 'pole' | 'wall' | 'street_light' | 'other';

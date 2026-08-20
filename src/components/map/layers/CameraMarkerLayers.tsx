@@ -4,7 +4,7 @@ import type maplibregl from 'maplibre-gl';
 import { useMapStore, useAppModeStore } from '../../../store';
 import { CAMERA_POINT_FILL } from './cameraColors';
 import type { ALPRCamera } from '../../../types';
-import { createDirectionCone, parseDirections } from './cameraGeometry';
+import { cameraMarkerCones } from './cameraMarkerCones';
 
 // Convert cameras to GeoJSON - optimized with pre-allocated array
 function camerasToGeoJSON(cameras: ALPRCamera[]): GeoJSON.FeatureCollection {
@@ -191,18 +191,12 @@ export function CameraMarkerLayers({ cameras, visible }: CameraMarkerLayersProps
       console.log(`[CameraMarkerLayers] Cameras with direction: ${camerasWithDirection.length} / ${cameras.length}`);
     }
 
-    const features: GeoJSON.Feature[] = [];
+    const coneFeatures: Array<GeoJSON.Feature<GeoJSON.Polygon>> = [];
     for (const camera of camerasWithDirection) {
-      const bearings = parseDirections(camera.direction, camera.directions);
-      const ts = camera.osmTimestamp ? new Date(camera.osmTimestamp).getTime() : 0;
-      for (const bearing of bearings) {
-        const cone = createDirectionCone(camera.lon, camera.lat, bearing);
-        cone.properties = { ...cone.properties, ts };
-        features.push(cone);
-      }
+      coneFeatures.push(...cameraMarkerCones(camera));
     }
 
-    return { type: 'FeatureCollection', features };
+    return { type: 'FeatureCollection', features: coneFeatures };
   }, [cameras, showCameraLayer]);
 
   return (
