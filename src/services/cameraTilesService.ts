@@ -12,7 +12,8 @@ import { Protocol } from 'pmtiles';
  * - zero tile buffer — no duplicated points along tile seams, so
  *   translucent circle layers never double-blend
  */
-export const CAMERA_TILES_HOST = 'https://tiles.dontgetflocked.com';
+export const CAMERA_TILES_HOST =
+  import.meta.env.VITE_CAMERA_TILES_HOST || 'https://tiles.dontgetflocked.com';
 
 /** Countries with hourly tile archives (both main + filter companions). */
 export type CameraTileCountry = 'us' | 'ca';

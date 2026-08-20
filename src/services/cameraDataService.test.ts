@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { readBodyWithProgress } from './cameraDataService';
+import {
+  clearCameraCache,
+  loadBundledCameras,
+  readBodyWithProgress,
+} from './cameraDataService';
 
 function chunkStream(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
   return new ReadableStream({
@@ -11,6 +15,23 @@ function chunkStream(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
 }
 
 const enc = new TextEncoder();
+
+describe('COUNTRIES', () => {
+  it('uses the development US camera-data URL override', async () => {
+    const dataUrl = 'https://fixture.test/cameras.geojson';
+    vi.stubEnv('VITE_CAMERA_DATA_URL_US', dataUrl);
+    vi.resetModules();
+
+    try {
+      const { COUNTRIES } = await import('./cameraDataService');
+
+      expect(COUNTRIES.us.dataUrl).toBe(dataUrl);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
+});
 
 describe('readBodyWithProgress', () => {
   it('reports determinate percent when Content-Length is present and no Content-Encoding', async () => {
@@ -55,5 +76,76 @@ describe('readBodyWithProgress', () => {
   it('works without a callback', async () => {
     const response = new Response(chunkStream([enc.encode('{"ok":true}')]));
     await expect(readBodyWithProgress(response)).resolves.toBe('{"ok":true}');
+  });
+});
+
+describe('loadBundledCameras', () => {
+  it('hydrates direction spans from FeatureCollection properties', async () => {
+    const featureCollection = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [-84.4, 33.7] },
+        properties: {
+          osmId: 123,
+          osmType: 'node',
+          direction: 90,
+          directions: [90, 255, 0],
+          directionSpan: 10,
+          directionSpans: [null, 10, null],
+        },
+      }],
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(featureCollection), { status: 200 })
+    ));
+
+    clearCameraCache();
+
+    try {
+      const [camera] = await loadBundledCameras();
+
+      expect(camera.direction).toBe(90);
+      expect(camera.directions).toEqual([90, 255, 0]);
+      expect(camera).toMatchObject({
+        directionSpan: 10,
+        directionSpans: [null, 10, null],
+      });
+    } finally {
+      clearCameraCache();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('hydrates direction spans from legacy flat-array records', async () => {
+    const cameras = [{
+      osmId: 123,
+      osmType: 'node',
+      lat: 33.7,
+      lon: -84.4,
+      direction: 90,
+      directions: [90, 255, 0],
+      directionSpan: 10,
+      directionSpans: [null, 10, null],
+    }];
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(cameras), { status: 200 })
+    ));
+
+    clearCameraCache();
+
+    try {
+      const [camera] = await loadBundledCameras();
+
+      expect(camera.direction).toBe(90);
+      expect(camera.directions).toEqual([90, 255, 0]);
+      expect(camera).toMatchObject({
+        directionSpan: 10,
+        directionSpans: [null, 10, null],
+      });
+    } finally {
+      clearCameraCache();
+      vi.unstubAllGlobals();
+    }
   });
 });

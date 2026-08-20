@@ -80,7 +80,7 @@ export const COUNTRIES: Record<CameraCountry, CountryConfig> = {
     id: 'us',
     label: 'United States',
     flag: '🇺🇸',
-    dataUrl: 'https://data.dontgetflocked.com/cameras.geojson.gz',
+    dataUrl: import.meta.env.VITE_CAMERA_DATA_URL_US || 'https://data.dontgetflocked.com/cameras.geojson.gz',
     center: [39.8283, -98.5795],
     zoom: 4,
   },
@@ -128,6 +128,46 @@ const loadStates: Record<CameraCountry, CountryLoadState> = {
 
 const MAX_LOAD_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
+
+type CameraProperties = Partial<ALPRCamera> & Pick<ALPRCamera, 'osmId'>;
+type LegacyCameraRecord = CameraProperties & Pick<ALPRCamera, 'lat' | 'lon'>;
+
+interface CameraPointFeature {
+  geometry: { coordinates: [number, number] };
+  properties: CameraProperties;
+}
+
+function hydrateCamera(properties: CameraProperties, lat: number, lon: number): ALPRCamera {
+  return {
+    osmId: properties.osmId,
+    osmType: properties.osmType || 'node',
+    lat,
+    lon,
+    operator: properties.operator,
+    brand: properties.brand,
+    direction: properties.direction,
+    directions: properties.directions,
+    directionSpan: properties.directionSpan,
+    directionSpans: properties.directionSpans,
+    directionCardinal: properties.directionCardinal,
+    surveillanceZone: properties.surveillanceZone,
+    mountType: properties.mountType,
+    ref: properties.ref,
+    startDate: properties.startDate,
+    osmTimestamp: properties.osmTimestamp,
+    osmVersion: properties.osmVersion,
+    wikimediaCommons: properties.wikimediaCommons,
+  };
+}
+
+function hydrateFeatureCollectionCamera(feature: CameraPointFeature): ALPRCamera {
+  const [lon, lat] = feature.geometry.coordinates;
+  return hydrateCamera(feature.properties, lat, lon);
+}
+
+function hydrateLegacyCamera(camera: LegacyCameraRecord): ALPRCamera {
+  return hydrateCamera(camera, camera.lat, camera.lon);
+}
 
 /**
  * Load camera data for a country from the data Worker
@@ -199,26 +239,7 @@ export async function loadBundledCameras(
           }
           cameras = new Array(data.features.length);
           for (let i = 0; i < data.features.length; i++) {
-            const f = data.features[i];
-            const p = f.properties;
-            cameras[i] = {
-              osmId: p.osmId,
-              osmType: p.osmType || 'node',
-              lat: f.geometry.coordinates[1],
-              lon: f.geometry.coordinates[0],
-              operator: p.operator,
-              brand: p.brand,
-              direction: p.direction,
-              directions: p.directions,
-              directionCardinal: p.directionCardinal,
-              surveillanceZone: p.surveillanceZone,
-              mountType: p.mountType,
-              ref: p.ref,
-              startDate: p.startDate,
-              osmTimestamp: p.osmTimestamp,
-              osmVersion: p.osmVersion,
-              wikimediaCommons: p.wikimediaCommons,
-            };
+            cameras[i] = hydrateFeatureCollectionCamera(data.features[i]);
           }
         } else if (Array.isArray(data)) {
           // Legacy flat array format (backwards compatibility during migration)
@@ -227,25 +248,7 @@ export async function loadBundledCameras(
           }
           cameras = new Array(data.length);
           for (let i = 0; i < data.length; i++) {
-            const cam = data[i];
-            cameras[i] = {
-              osmId: cam.osmId,
-              osmType: cam.osmType || 'node',
-              lat: cam.lat,
-              lon: cam.lon,
-              operator: cam.operator,
-              brand: cam.brand,
-              direction: cam.direction,
-              directions: cam.directions,
-              directionCardinal: cam.directionCardinal,
-              surveillanceZone: cam.surveillanceZone,
-              mountType: cam.mountType,
-              ref: cam.ref,
-              startDate: cam.startDate,
-              osmTimestamp: cam.osmTimestamp,
-              osmVersion: cam.osmVersion,
-              wikimediaCommons: cam.wikimediaCommons,
-            };
+            cameras[i] = hydrateLegacyCamera(data[i]);
           }
         } else {
           throw new Error('Invalid camera data format');

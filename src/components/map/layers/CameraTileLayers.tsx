@@ -8,7 +8,7 @@ import {
   CAMERA_TILES_MAXZOOM,
   CAMERA_POINTS_MINZOOM,
 } from '../../../services/cameraTilesService';
-import { createDirectionCone, parseDirections } from './cameraGeometry';
+import { cameraTileCones } from './cameraTileCones';
 import { CAMERA_POINT_FILL } from './cameraColors';
 import { useAppModeStore } from '../../../store';
 
@@ -204,32 +204,28 @@ export function CameraTileLayers({
     }
     if (!map.getSource(sourceId)) return;
 
-    const rendered = map.querySourceFeatures(sourceId, {
+    const tileFeatures = map.querySourceFeatures(sourceId, {
       sourceLayer: CAMERA_TILES_SOURCE_LAYER,
       filter,
     });
 
     // Dedupe by osmId (present at z9+) — zero-buffer tiles shouldn't duplicate
     // features, but querySourceFeatures can still return one per tile+zoom copy
-    const seen = new Set<number>();
-    const features: GeoJSON.Feature[] = [];
-    for (const f of rendered) {
-      const props = f.properties;
-      if (!props || props.osmId == null || seen.has(props.osmId)) continue;
-      seen.add(props.osmId);
-      const bearings = parseDirections(
-        props.direction as number | undefined,
-        props.directions
-      );
-      if (bearings.length === 0) continue;
-      const [lon, lat] = (f.geometry as GeoJSON.Point).coordinates;
-      for (const bearing of bearings) {
-        features.push(createDirectionCone(lon, lat, bearing));
-        if (features.length >= CONE_FEATURE_CAP) break;
+    const seenOsmIds = new Set<number>();
+    const coneFeatures: Array<GeoJSON.Feature<GeoJSON.Polygon>> = [];
+    for (const tileFeature of tileFeatures) {
+      const properties = tileFeature.properties;
+      if (!properties || properties.osmId == null || seenOsmIds.has(properties.osmId)) continue;
+      seenOsmIds.add(properties.osmId);
+      const cones = cameraTileCones(tileFeature as GeoJSON.Feature<GeoJSON.Point>);
+      if (cones.length === 0) continue;
+      for (const cone of cones) {
+        coneFeatures.push(cone);
+        if (coneFeatures.length >= CONE_FEATURE_CAP) break;
       }
-      if (features.length >= CONE_FEATURE_CAP) break;
+      if (coneFeatures.length >= CONE_FEATURE_CAP) break;
     }
-    setConesData({ type: 'FeatureCollection', features });
+    setConesData({ type: 'FeatureCollection', features: coneFeatures });
   }, [mapInstance, visible, sourceId, filter]);
 
   // Rebuild cones when tiles finish loading or the camera stops moving
