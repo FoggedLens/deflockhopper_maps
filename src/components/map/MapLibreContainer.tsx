@@ -74,6 +74,7 @@ import { layers as pmLayers, namedFlavor } from '@protomaps/basemaps';
 import { CAMERA_POINTS_MINZOOM, cameraTileJsonUrl, cameraFilterTileJsonUrl, tilesTransformRequest } from '../../services/cameraTilesService';
 import { useTilesHostStore, failoverTilesHost } from '../../store/tilesHostStore';
 import { planTileError } from '../../utils/tileErrorPolicy';
+import { isMapRevealReady } from '../../utils/mapReveal';
 import { useCameraTileJson } from '../../hooks/useCameraTileJson';
 import { loadStateGeometry } from '../../services/stateFilterService';
 import { buildCameraTileFilter } from '../../utils/cameraTileFilter';
@@ -275,10 +276,14 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     || (isHeatmapMode && (heatmapSettings.showMarkers || zoom >= 13))
   );
   // Expose handle to parent
+  // The reveal the page acts on: basemap loaded AND camera source loaded (or
+  // the camera source gave up — the retry pill carries that). See mapReveal.
+  const revealReady = isMapRevealReady({ cameraSourceReady: markersReady, mapLoaded, tilesFailed });
+
   useImperativeHandle(ref, () => ({
-    isMarkersReady: markersReady,
+    isMarkersReady: revealReady,
     forceRemount: () => forceUpdate(n => n + 1),
-  }), [markersReady]);
+  }), [revealReady]);
   const { origin, destination, normalRoute, avoidanceRoute, activeRoute, pickingLocation, pickingSequence, setPickedLocation, cancelPickingLocation } = useRouteStore();
 
   // Handle flyTo commands from store
@@ -500,20 +505,12 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     latestDataVersionRef.current = dataVersion;
   }, [geojsonData, dataVersion]);
   
-  // Notify parent when markers are ready
+  // Notify parent when the map may reveal. A camera-tile failure with the
+  // basemap up still reveals (rule in mapReveal): the retry pill carries the
+  // failure instead of a spinner forever. GeoJSON is never loaded on that path.
   useEffect(() => {
-    onMarkersReady?.(markersReady);
-  }, [markersReady, onMarkersReady]);
-
-  // Reveal the basemap on a camera-tile failure. markersReady normally waits
-  // for the camera source to load, which never happens when tiles fail — so
-  // without this the map stays hidden and the 15s watchdog fires a full-screen
-  // error even though the basemap is fine. Once the basemap is up and tiles
-  // have given up, reveal the interactive map; the retry pill carries the
-  // camera-tile failure instead. GeoJSON is never loaded on this path.
-  useEffect(() => {
-    if (mapLoaded && tilesFailed) setMarkersReady(true);
-  }, [mapLoaded, tilesFailed]);
+    onMarkersReady?.(revealReady);
+  }, [revealReady, onMarkersReady]);
 
   // --- Timeline filter handler (imperative setFilter, no GeoJSON rebuild) ---
   const TIMELINE_LAYERS = useMemo(() => ['unclustered-point', 'cameras-dots-lowzoom'], []);
@@ -799,17 +796,17 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     };
   }, [mapLoaded, dataVersion, geojsonData]);
 
-  // Tiles mode readiness: first successful camera-tiles load ⇒ markers ready.
-  // Repeated failures before any load ⇒ flip tilesFailed (surfaces the retry pill).
+  // Tiles mode readiness: first successful camera-tiles load ⇒ camera source
+  // ready. Repeated failures before any load ⇒ flip tilesFailed (retry pill).
   //
-  // Deliberately NOT gated on `mapLoaded`. That flag comes from the map's
-  // `load` event, which by definition waits for the first visually complete
-  // render — i.e. every basemap tile in the viewport. Readiness would then
-  // trail the basemap by seconds on data the cameras never needed. These two
-  // handlers are passed to <Map> instead, so MapLibre binds them at map
-  // creation (react-map-gl reads the callback from props at dispatch time) —
-  // no sourcedata/error can slip through before we attach, which is what the
-  // old effect's synchronous seed check existed to cover.
+  // The reveal itself (revealReady) additionally waits for `mapLoaded` — the
+  // map's `load` event, i.e. the first visually complete render including
+  // every basemap tile in view. Approved 2026-09-10, reversing the earlier
+  // camera-first reveal: that one let the loading indicator leave while the
+  // basemap was still filling in behind the dots, which read as the map being
+  // stuck. These two handlers are passed to <Map> so MapLibre binds them at
+  // map creation (react-map-gl reads the callback from props at dispatch
+  // time) — no sourcedata/error can slip through before we attach.
   const tileLoadSeenRef = useRef(false);
   const tileErrorCountRef = useRef(0);
   const filterTileLoadSeenRef = useRef(false);
@@ -824,6 +821,15 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     filterTileErrorCountRef.current = 0;
     setFilterTilesReady(false);
   }, [mapKey, tilesEpoch]);
+
+  // A remount is a NEW map instance: its load and camera-source flags start
+  // over, so the page hides the map again until the new instance is ready
+  // and every mapLoaded-keyed effect re-attaches to the new map. Without this
+  // the stale true flags never re-fire the ready callback after a retry.
+  useEffect(() => {
+    setMapLoaded(false);
+    setMarkersReady(false);
+  }, [mapKey]);
 
   const handleTileSourceData = useCallback((e: maplibregl.MapSourceDataEvent) => {
     if (!e.isSourceLoaded) return;
