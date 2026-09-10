@@ -52,3 +52,27 @@ describe('readBodyWithProgress', () => {
     expect(onProgress).toHaveBeenLastCalledWith(100, 10);
   });
 });
+
+describe('readBodyWithProgress with assumeCompressed', () => {
+  it('reports null percent even when Content-Length is present and no Content-Encoding is visible', async () => {
+    // Cross-origin responses do not expose Content-Encoding (not CORS-safelisted),
+    // so a gzip-stored file looks uncompressed while the stream yields decoded
+    // bytes far beyond Content-Length. Callers that know the publisher stores
+    // gzip opt into indeterminate progress up front.
+    const body = 'x'.repeat(5000);
+    const response = new Response(body, {
+      status: 200,
+      headers: { 'Content-Length': '500' },
+    });
+    const percents: Array<number | null> = [];
+    let lastBytes = 0;
+    const text = await readBodyWithProgress(response, (percent, loadedBytes) => {
+      percents.push(percent);
+      lastBytes = loadedBytes;
+    }, { assumeCompressed: true });
+    expect(text).toBe(body);
+    expect(percents.every((p) => p === null || p === 100)).toBe(true);
+    expect(percents.filter((p) => p === 100)).toHaveLength(1);
+    expect(lastBytes).toBe(5000);
+  });
+});

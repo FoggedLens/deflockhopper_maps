@@ -95,7 +95,7 @@ Zustand stores expose both state and actions. Key stores:
 - `mapModeStore`: Map style and base layer mode
 - `appModeStore`: Current app mode, visualization settings
 - `densityStore`: Density visualization data
-- `networkStore`: Sharing network data
+- `networkStore`: Sharing network data (fetched from the deflock-data CDN, plus optional `meta` provenance)
 
 ### Directory Structure
 
@@ -134,6 +134,7 @@ Found in .env file. Environment variables are prefixed with `VITE_` for Vite to 
 | `VITE_TILES_URL` | Legacy, unused — tile hosts are fixed in `src/store/tilesHostStore.ts` |
 | `VITE_DATA_API_URL` | Cloudflare Worker data API URL |
 | `VITE_PERF_LOGGING` | Enable performance logging |
+| `VITE_NETWORK_DATA_BASE` | Sharing-network data base URL (default `https://deflockdata.dontgetflocked.com`); point at a local copy or staging bucket |
 ## Important Patterns
 
 ### Spatial Optimization
@@ -153,7 +154,7 @@ Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, stat
 - **Map Tiles**: Protomaps basemap via `<TILES_HOST>/planet.json` (+ `/fonts`, `/sprites`); `boundaries-us.json` for the boundary overlay
 - **Geocoding**: Nominatim (OSM) with Photon fallback
 - **Density Data**: GeoJSON files in `/public/geo/` (states-metrics, counties-metrics)
-- **Network Data**: `/public/sharing-network-adjacency.json` and `/public/sharing-network-nodes.geojson`
+- **Network Data**: `deflockdata.dontgetflocked.com/sharing-network-{nodes.geojson,adjacency.json,meta.json}` — published every Monday by the deflock-data repo (schema frozen by the publisher, gzip-stored, CORS `*`, 1h cache, no edge cache). Base URL overridable with `VITE_NETWORK_DATA_BASE` (`src/services/networkDataService.ts`). Nothing is bundled in `/public/` any more, so the site cannot fall back to stale data.
 
 ## Deployment
 

@@ -1,5 +1,7 @@
 # Network & Analysis Slow-Connection Loading — Design
 
+> **Superseded 2026-09-10:** the two network files are no longer bundled in `/public/`. They are fetched from `https://deflockdata.dontgetflocked.com/` (weekly publish, `VITE_NETWORK_DATA_BASE` override); see `src/services/networkDataService.ts`. Paths quoted below are historical.
+
 **Date:** 2026-07-18
 **Status:** Approved (user opted for "feedback + progressive loading", visuals aligned with the existing pill/skeleton language from the 2026-07-18 loading-states refresh)
 

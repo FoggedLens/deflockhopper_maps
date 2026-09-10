@@ -1,5 +1,7 @@
 # Network & Analysis Slow-Connection Loading Implementation Plan
 
+> **Superseded 2026-09-10:** the two network files are no longer bundled in `/public/`. They are fetched from `https://deflockdata.dontgetflocked.com/` (weekly publish, `VITE_NETWORK_DATA_BASE` override); see `src/services/networkDataService.ts`. Paths quoted below are historical.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Progressive data loading plus on-map progress pills for Network mode (~9 MB) and Analysis mode (~3 MB), so slow connections see content early and always know what's happening.

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { readBodyWithProgress, type DownloadProgress } from '../services/cameraDataService';
+import { networkDataUrl, parseNetworkMeta, type NetworkMeta } from '../services/networkDataService';
 
 export interface NetworkNode {
   id: string;
@@ -96,6 +97,9 @@ interface NetworkState {
   adjacencyReady: boolean;
   nodesProgress: DownloadProgress | null;
   adjacencyProgress: DownloadProgress | null;
+  /** Provenance of the loaded snapshot (weekly publish). Optional: null when
+   *  the meta file is unavailable; the map loads regardless. */
+  meta: NetworkMeta | null;
   nodesMap: Map<string, NetworkNode>;
   nodesArray: NetworkNode[];
   adjacency: Record<string, string[]>;
@@ -204,6 +208,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   adjacencyReady: false,
   nodesProgress: null,
   adjacencyProgress: null,
+  meta: null,
   nodesMap: new Map(),
   nodesArray: [],
   adjacency: {},
@@ -227,6 +232,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
     const needNodes = get().nodesArray.length === 0;
     const needAdjacency = !get().adjacencyReady;
+    const needMeta = get().meta === null;
     if (!needNodes && !needAdjacency) return;
 
     _initPromise = (async () => {
@@ -235,13 +241,16 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       // Each file commits the moment it lands: nodes unlock the dot layer
       // (and flip loadPhase to 'ready'); adjacency arrives later and
       // backfills arcs for any selection made in the meantime.
+      // Files come from the deflock-data CDN (weekly publish; see
+      // networkDataService). They are stored gzip, which a cross-origin fetch
+      // cannot see in the headers, so progress is byte counts, not percent.
       const nodesTask = needNodes
         ? (async () => {
-            const response = await fetch('/sharing-network-nodes.geojson');
+            const response = await fetch(networkDataUrl('sharing-network-nodes.geojson'));
             if (!response.ok) throw new Error(`Nodes fetch failed: ${response.status}`);
             const text = await readBodyWithProgress(response, (percent, loadedBytes) => {
               set({ nodesProgress: { percent, loadedBytes } });
-            });
+            }, { assumeCompressed: true });
             const { nodesMap, nodesArray } = parseGeoJSON(JSON.parse(text));
             set({ nodesMap, nodesArray, loadPhase: 'ready', nodesProgress: null });
           })()
@@ -249,11 +258,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
       const adjacencyTask = needAdjacency
         ? (async () => {
-            const response = await fetch('/sharing-network-adjacency.json');
+            const response = await fetch(networkDataUrl('sharing-network-adjacency.json'));
             if (!response.ok) throw new Error(`Adjacency fetch failed: ${response.status}`);
             const text = await readBodyWithProgress(response, (percent, loadedBytes) => {
               set({ adjacencyProgress: { percent, loadedBytes } });
-            });
+            }, { assumeCompressed: true });
             const adjacency = JSON.parse(text) as Record<string, string[]>;
             const reverseAdjacency = buildReverseAdjacency(adjacency);
             set({ adjacency, reverseAdjacency, adjacencyReady: true, adjacencyProgress: null });
@@ -269,7 +278,22 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           })()
         : Promise.resolve();
 
-      const [nodesResult, adjacencyResult] = await Promise.allSettled([nodesTask, adjacencyTask]);
+      // Provenance is best-effort: the "as of" label is nice to have, the map
+      // must never wait on it or fail because of it.
+      const metaTask = needMeta
+        ? (async () => {
+            try {
+              const response = await fetch(networkDataUrl('sharing-network-meta.json'));
+              if (!response.ok) return;
+              const meta = parseNetworkMeta(await response.json());
+              if (meta) set({ meta });
+            } catch (err) {
+              console.warn('[NetworkStore] Network meta unavailable:', err);
+            }
+          })()
+        : Promise.resolve();
+
+      const [nodesResult, adjacencyResult] = await Promise.allSettled([nodesTask, adjacencyTask, metaTask]);
       _initPromise = null;
 
       const failure = [nodesResult, adjacencyResult].find(
