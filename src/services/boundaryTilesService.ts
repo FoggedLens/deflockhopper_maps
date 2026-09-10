@@ -1,6 +1,8 @@
+import { getTilesHost } from '../store/tilesHostStore';
+
 /**
  * US administrative boundaries served as a plain vector tileset (MVT) from the
- * flockhopper-tiles worker. One archive, three source-layers, all polygons.
+ * active DeFlock tile host. One tileset, three source-layers, all polygons.
  *
  * Consumed via the TileJSON URL only — MapLibre reads the tile template and
  * zoom range from it (never hardcode the {z}/{x}/{y}.mvt path).
@@ -11,7 +13,7 @@
  *  - municipalities z5–12  fields: name, type, state ("IL"), county (nullable), fips
  *  - fips is unique within each layer → used as the feature id (promoteId).
  */
-export const BOUNDARY_TILES_URL = 'https://tiles.dontgetflocked.com/boundaries-us.json';
+export const boundaryTileJsonUrl = () => `${getTilesHost()}/boundaries-us.json`;
 
 export type BoundaryLevel = 'states' | 'counties' | 'municipalities';
 

@@ -1,4 +1,5 @@
-import { CAMERA_TILES_HOST, type CameraTileCountry } from './cameraTilesService';
+import { loadCameraTileJson, type CameraTileCountry } from './cameraTilesService';
+import { getTilesHost } from '../store/tilesHostStore';
 
 /**
  * Camera positions index — the counting companion to the tile archives.
@@ -37,10 +38,13 @@ export interface CameraIndex {
   order: Uint32Array;
 }
 
+/** Unversioned aliases on the active tile host (latest hourly build). The
+ *  primary host's camera TileJSON also names build-pinned copies, which
+ *  ensureCameraIndex prefers so bin and sidecar always come from one build. */
 export const cameraIndexBinUrl = (country: CameraTileCountry) =>
-  `${CAMERA_TILES_HOST}/cameras-${country}-hourly-index.bin`;
+  `${getTilesHost()}/cameras-${country}-hourly-index.bin`;
 export const cameraIndexSidecarUrl = (country: CameraTileCountry) =>
-  `${CAMERA_TILES_HOST}/cameras-${country}-hourly-index.json`;
+  `${getTilesHost()}/cameras-${country}-hourly-index.json`;
 
 /** Grid cell edge in degrees — matches cameraStore's spatial grid. */
 const CELL_DEG = 0.5;
@@ -370,9 +374,22 @@ export function ensureCameraIndex(country: CameraTileCountry): Promise<CameraInd
   if (hit !== undefined) return Promise.resolve(hit);
   const p = (async (): Promise<CameraIndex | null> => {
     try {
+      // Build-pinned pair from the camera TileJSON when the host publishes one
+      // (immutable, coherent). Otherwise the hourly aliases, fetched no-cache so
+      // bin and sidecar revalidate together rather than skewing across builds.
+      // Aliases are resolved only after the TileJSON lookup settles — that
+      // lookup is what fails the app over to the backup host.
+      const tileJson = await loadCameraTileJson(country);
+      const pinned = tileJson?.index_bin && tileJson?.index_json
+        ? { bin: tileJson.index_bin, sidecar: tileJson.index_json, init: undefined }
+        : {
+            bin: cameraIndexBinUrl(country),
+            sidecar: cameraIndexSidecarUrl(country),
+            init: { cache: 'no-cache' as const },
+          };
       const [binRes, sideRes] = await Promise.all([
-        fetch(cameraIndexBinUrl(country)),
-        fetch(cameraIndexSidecarUrl(country)),
+        fetch(pinned.bin, pinned.init),
+        fetch(pinned.sidecar, pinned.init),
       ]);
       if (!binRes.ok || !sideRes.ok) return null;
       const [bin, sidecar] = await Promise.all([

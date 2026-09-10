@@ -71,28 +71,17 @@ export interface MapLibreViewHandle {
 }
 
 import { layers as pmLayers, namedFlavor } from '@protomaps/basemaps';
-import { ensurePMTilesProtocol, setPMTilesFailureHandler, CAMERA_POINTS_MINZOOM, cameraTilesUrl, cameraFilterTilesUrl } from '../../services/cameraTilesService';
+import { CAMERA_POINTS_MINZOOM, cameraTileJsonUrl, cameraFilterTileJsonUrl, tilesTransformRequest } from '../../services/cameraTilesService';
+import { useTilesHostStore, failoverTilesHost } from '../../store/tilesHostStore';
+import { planTileError } from '../../utils/tileErrorPolicy';
+import { useCameraTileJson } from '../../hooks/useCameraTileJson';
 import { loadStateGeometry } from '../../services/stateFilterService';
 import { buildCameraTileFilter } from '../../utils/cameraTileFilter';
-
-const TILES_URL = 'https://tiles.dontgetflocked.com';
 
 // Both tile paths (default + filtered) render the same points layer shape;
 // accept either id so click handling doesn't need to know which instance is
 // currently mounted/interactive.
 const CAMERA_POINT_LAYER_IDS = ['camera-tile-points', 'camera-tile-points-filtered'];
-
-// Camera tiles still use the pmtiles:// protocol (raw archive + Range); only the
-// basemap moved back to the per-tile TileJSON route.
-ensurePMTilesProtocol();
-
-// Wire pmtiles archive-load failures to the store here (not inside the service)
-// to avoid a store<->service import cycle. A failure before an archive ever
-// loaded flips the flag the retry pill reads.
-setPMTilesFailureHandler((kind) => {
-  if (kind === 'filter') useCameraStore.getState().setFilterTilesFailed(true);
-  else useCameraStore.getState().setTilesFailed(true);
-});
 
 // Map our style IDs to Protomaps flavor names (must match R2 sprites at /sprites/v4/{flavor})
 const FLAVOR_MAP: Record<MapTileStyleId, string> = {
@@ -101,20 +90,22 @@ const FLAVOR_MAP: Record<MapTileStyleId, string> = {
 };
 
 
-function buildMapStyle(tileStyleId: MapTileStyleId): maplibregl.StyleSpecification {
+// Everything the basemap needs comes from the active tile host (tilesHostStore):
+// a failover rebuilds the style on the backup host and MapLibre swaps sources.
+function buildMapStyle(tileStyleId: MapTileStyleId, tilesHost: string): maplibregl.StyleSpecification {
   const flavorName = FLAVOR_MAP[tileStyleId];
   const mapLayers = pmLayers('protomaps', namedFlavor(flavorName), { lang: 'en' });
 
   return {
     version: 8,
-    glyphs: `${TILES_URL}/fonts/{fontstack}/{range}.pbf`,
-    sprite: `${TILES_URL}/sprites/v4/${flavorName}`,
+    glyphs: `${tilesHost}/fonts/{fontstack}/{range}.pbf`,
+    sprite: `${tilesHost}/sprites/v4/${flavorName}`,
     sources: {
       protomaps: {
         type: 'vector',
-        // TileJSON → per-tile /planet/{z}/{x}/{y}.mvt URLs. Unlike raw pmtiles
-        // Range requests, these are edge-cacheable (URL-keyed, no Range header).
-        url: `${TILES_URL}/planet.json`,
+        // TileJSON → per-tile /planet/{z}/{x}/{y}.mvt URLs (edge-cacheable,
+        // URL-keyed). The tile template is always read from the TileJSON.
+        url: `${tilesHost}/planet.json`,
         attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
       },
     },
@@ -210,7 +201,12 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   const heatmapSettings = useAppModeStore(s => s.heatmapSettings);
   const mapTileStyle = useAppModeStore(s => s.mapTileStyle);
   const isTimelineActive = appMode === 'explore';
-  const mapStyle = useMemo(() => buildMapStyle(mapTileStyle), [mapTileStyle]);
+  // Active tile host + its epoch: a failover rebuilds the basemap style and
+  // remounts the keyed camera/boundary sources against the backup host.
+  const tilesHost = useTilesHostStore(s => s.host);
+  const tilesEpoch = useTilesHostStore(s => s.epoch);
+  const cameraTileJson = useCameraTileJson(country);
+  const mapStyle = useMemo(() => buildMapStyle(mapTileStyle, tilesHost), [mapTileStyle, tilesHost]);
   const isExploreMode = appMode === 'explore';
   const isDensityMode = appMode === 'density';
   const isNetworkMode = appMode === 'network';
@@ -227,6 +223,10 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   // session (visibility toggles instead) so its tiles stay cached. Never
   // mounted for users who never filter — zero filter-tileset bytes for them.
   const [filterLayersMounted, setFilterLayersMounted] = useState(false);
+  // Build-pinned filter TileJSON from the camera TileJSON when the host names
+  // one (coherent with the manifest by construction); the alias otherwise.
+  // Part of the filtered source's key, so a late resolution remounts it.
+  const filterSourceUrl = cameraTileJson?.filter_tilejson ?? cameraFilterTileJsonUrl(country);
   useEffect(() => {
     if (isFilterTilesMode) setFilterLayersMounted(true);
   }, [isFilterTilesMode]);
@@ -815,14 +815,15 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   const filterTileLoadSeenRef = useRef(false);
   const filterTileErrorCountRef = useRef(0);
 
-  // Fresh map instance per remount (mapKey bumps on retry) ⇒ fresh counters.
+  // Fresh map instance per remount (mapKey bumps on retry) or fresh sources
+  // per tile-host failover (tilesEpoch) ⇒ fresh counters.
   useEffect(() => {
     tileLoadSeenRef.current = false;
     tileErrorCountRef.current = 0;
     filterTileLoadSeenRef.current = false;
     filterTileErrorCountRef.current = 0;
     setFilterTilesReady(false);
-  }, [mapKey]);
+  }, [mapKey, tilesEpoch]);
 
   const handleTileSourceData = useCallback((e: maplibregl.MapSourceDataEvent) => {
     if (!e.isSourceLoaded) return;
@@ -838,24 +839,41 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     }
   }, [renderMode]);
 
-  const handleMapError = useCallback((e: maplibregl.ErrorEvent & { sourceId?: string }) => {
+  // Tile-source errors. A TileJSON failure, or the third pre-load tile failure
+  // on a camera source, fails the app over to the backup host while on primary
+  // (the epoch bump remounts every tile source); the same failures on backup
+  // surface the retry pill. Rules live in tileErrorPolicy. Host state is read
+  // at dispatch time, never captured, so the handler is never stale.
+  const handleMapError = useCallback((e: maplibregl.ErrorEvent & { sourceId?: string; tile?: unknown }) => {
     const sourceId = e?.sourceId ?? (e as { source?: { id?: string } })?.source?.id;
-    if (sourceId === 'camera-tiles') {
-      if (tileLoadSeenRef.current) return;
-      tileErrorCountRef.current += 1;
-      if (tileErrorCountRef.current >= 3) {
-        console.warn('[MapLibre] Camera tiles failing; surfacing the retry pill');
-        useCameraStore.getState().setTilesFailed(true);
-      }
-      return;
-    }
-    if (sourceId === 'camera-tiles-filtered') {
-      if (filterTileLoadSeenRef.current) return;
-      filterTileErrorCountRef.current += 1;
-      if (filterTileErrorCountRef.current >= 3) {
-        console.warn('[MapLibre] Filter tiles failing; showing all cameras unfiltered');
-        useCameraStore.getState().setFilterTilesFailed(true);
-      }
+    const isFilter = sourceId === 'camera-tiles-filtered';
+    const action = planTileError({
+      sourceId,
+      // MapLibre attaches the tile to per-tile failures; a TileJSON failure has none.
+      tileLevel: e?.tile != null,
+      loadSeen: isFilter ? filterTileLoadSeenRef.current : tileLoadSeenRef.current,
+      errorCount: isFilter ? filterTileErrorCountRef.current : tileErrorCountRef.current,
+      onBackup: useTilesHostStore.getState().hostId === 'backup',
+    });
+    switch (action.kind) {
+      case 'count':
+        if (isFilter) filterTileErrorCountRef.current += 1;
+        else tileErrorCountRef.current += 1;
+        return;
+      case 'failover':
+        failoverTilesHost(action.reason);
+        return;
+      case 'fail':
+        if (action.source === 'filter') {
+          console.warn('[MapLibre] Filter tiles failing on the backup host; showing all cameras unfiltered');
+          useCameraStore.getState().setFilterTilesFailed(true);
+        } else {
+          console.warn('[MapLibre] Camera tiles failing on the backup host; surfacing the retry pill');
+          useCameraStore.getState().setTilesFailed(true);
+        }
+        return;
+      default:
+        return;
     }
   }, []);
 
@@ -1345,6 +1363,8 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       }}
       style={{ width: '100%', height: '100%' }}
       mapStyle={mapStyle}
+      // Alias TileJSON docs revalidate on reload; tile URLs stay immutably cached.
+      transformRequest={tilesTransformRequest}
       onMove={onMove}
       onMoveEnd={handleMoveEnd}
       onLoad={onLoad}
@@ -1386,10 +1406,11 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           visible through filter-tiles warmup (until filterTilesReady) so the
           camera layer never blanks while the filtered source streams in.
           Keyed by country so a switch remounts source + layers cleanly on the
-          other country's archive. */}
+          other country's tileset, and by tile-host epoch so a failover remounts
+          them against the backup host. */}
       <CameraTileLayers
-        key={country}
-        sourceUrl={cameraTilesUrl(country)}
+        key={`${country}-${tilesEpoch}`}
+        sourceUrl={cameraTileJsonUrl(country)}
         visible={
           (isTilesMode || (isFilterTilesMode && !filterTilesReady)) &&
           showCameraMarkers && showCameraLayer
@@ -1400,10 +1421,10 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           Users who never filter never mount this source. */}
       {filterLayersMounted && (
         <CameraTileLayers
-          key={`filtered-${country}`}
+          key={`filtered-${country}-${tilesEpoch}-${filterSourceUrl}`}
           visible={isFilterTilesMode && showCameraMarkers && showCameraLayer}
           sourceId="camera-tiles-filtered"
-          sourceUrl={cameraFilterTilesUrl(country)}
+          sourceUrl={filterSourceUrl}
           idSuffix="-filtered"
           filter={tileFilterExpr}
         />

@@ -4,8 +4,9 @@ import type { MapLayerMouseEvent } from 'react-map-gl/maplibre';
 import { useAppModeStore } from '../../../store';
 import { useBoundaryStore, type BoundaryInfo } from '../../../store/boundaryStore';
 import type { MapTileStyleId } from '../../../store/appModeStore';
+import { useTilesHostStore } from '../../../store/tilesHostStore';
 import {
-  BOUNDARY_TILES_URL,
+  boundaryTileJsonUrl,
   BOUNDARY_TILES_MAXZOOM,
   BOUNDARY_LEVEL_MINZOOM,
   BOUNDARY_PROMOTE_ID,
@@ -78,6 +79,8 @@ export function BoundaryOverlayLayers() {
   const levels = useBoundaryStore((s) => s.levels);
   const anyOn = useBoundaryStore((s) => s.anyOn);
   const theme = useAppModeStore((s) => s.mapTileStyle);
+  // Remount the source against the backup host after a tile-host failover.
+  const tilesEpoch = useTilesHostStore((s) => s.epoch);
 
   // Track the currently-hovered feature so we can clear its highlight state.
   const hovered = useRef<{ level: BoundaryLevel; id: string | number } | null>(null);
@@ -149,9 +152,10 @@ export function BoundaryOverlayLayers() {
 
   return (
     <Source
+      key={tilesEpoch}
       id={SOURCE_ID}
       type="vector"
-      url={BOUNDARY_TILES_URL}
+      url={boundaryTileJsonUrl()}
       maxzoom={BOUNDARY_TILES_MAXZOOM}
       promoteId={BOUNDARY_PROMOTE_ID}
     >

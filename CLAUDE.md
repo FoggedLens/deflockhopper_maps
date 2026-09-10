@@ -32,15 +32,26 @@ npm run preview   # Preview production build
 ### Key Data Flow
 
 1. **Camera Rendering**: Default path renders straight from per-country hourly
-   PMTiles archives (`tiles.dontgetflocked.com/cameras-{us,ca}-hourly.pmtiles`,
-   source-layer `cameras`, attributes at z9+, zero tile buffer) via the
-   client-side pmtiles protocol — no dataset download. Both US and Canada use
-   tiles; the full GeoJSON (`cameraStore`) loads lazily only when Explore/
-   timeline or heatmap need per-camera attributes at all zooms, or as the
-   filter fallback (`useCameraRenderMode` decides which path is visible).
-   The dots→points handoff runs over z9–10 (approved 2026-07-18); cones from
-   z10. Filter archives + manifests are per-country and build-paired
-   (`cameras-{us,ca}-hourly-filter.pmtiles`, `cameras-{us,ca}-hourly-manifest.json`).
+   vector tilesets addressed by TileJSON (`<TILES_HOST>/cameras-{us,ca}-hourly.json`,
+   source-layer `cameras`, attributes at z9+, zero tile buffer) — no dataset
+   download, no pmtiles protocol (byte-range requests never edge-cache). Both
+   US and Canada use tiles; the full GeoJSON (`cameraStore`) loads lazily only
+   when Explore/timeline or heatmap need per-camera attributes at all zooms,
+   or as the filter fallback (`useCameraRenderMode` decides which path is
+   visible). The dots→points handoff runs over z9–10 (approved 2026-07-18);
+   cones from z10. Filter tilesets + manifests are per-country and
+   build-paired (`cameras-{us,ca}-hourly-filter.json`,
+   `cameras-{us,ca}-hourly-manifest.json`); the primary host's camera TileJSON
+   names build-pinned copies (`manifest`, `filter_tilejson`, `index_bin`,
+   `index_json`) which are preferred over the aliases.
+
+   **Tile hosts** (`src/store/tilesHostStore.ts`): PRIMARY
+   `deflock.dontgetflocked.com` (Hetzner origin behind Cloudflare), BACKUP
+   `tiles.dontgetflocked.com` (old Worker + R2). Every tile URL is built from
+   the active host. A TileJSON fetch failure, or the existing pre-load camera
+   tile error threshold, or the 15s map-init deadline, fails over to BACKUP
+   once per page load and remounts the tile sources (epoch-keyed); the choice
+   is never persisted, so every page load retries PRIMARY.
 
 2. **Route Calculation** (`src/services/apiClient.ts`): Calls `api.dontgetflocked.com/api/v1/route` with origin, destination, and options. API handles all camera-aware routing. Returns both normal and avoidance routes with comparison metrics.
 
@@ -59,7 +70,9 @@ The map has 4 modes, selectable via the header tabs:
 | `src/services/apiClient.ts` | API client — calls FlockHopper routing API |
 | `src/services/routingConfig.ts` | Visualization constants for camera cones on map |
 | `src/services/cameraDataService.ts` | Camera data fetching and processing |
-| `src/services/cameraTilesService.ts` | PMTiles protocol registration + camera tile source/archive constants |
+| `src/services/cameraTilesService.ts` | Camera TileJSON URLs on the active host, TileJSON catalog loader, MapLibre transformRequest |
+| `src/store/tilesHostStore.ts` | PRIMARY/BACKUP tile host selection + failover epoch |
+| `src/utils/tileErrorPolicy.ts` | Pure rules: which MapLibre source errors fail over vs. surface the retry pill |
 | `src/services/boundaryDataService.ts` | Boundary geometry data loading |
 | `src/services/densityDataService.ts` | Density visualization data loading |
 | `src/hooks/useCameraRenderMode.ts` | Decides tiles vs. GeoJSON camera rendering path |
@@ -68,7 +81,7 @@ The map has 4 modes, selectable via the header tabs:
 | `src/store/mapModeStore.ts` | Map style/mode management |
 | `src/pages/MapPage.tsx` | Main application page container |
 | `src/components/map/MapLibreContainer.tsx` | Map rendering, camera markers, route layers |
-| `src/components/map/layers/CameraTileLayers.tsx` | Default camera rendering — dots/points/cones from PMTiles vector tiles |
+| `src/components/map/layers/CameraTileLayers.tsx` | Default camera rendering — dots/points/cones from the camera vector tiles |
 | `src/components/panels/MapPanel.tsx` | Main panel container component |
 | `src/components/panels/TabbedPanel.tsx` | Tab navigation for mode panels |
 
@@ -118,7 +131,7 @@ Found in .env file. Environment variables are prefixed with `VITE_` for Vite to 
 | Variable | Description |
 |----------|-------------|
 | `VITE_API_URL` | FlockHopper routing API URL |
-| `VITE_TILES_URL` | Protomaps vector tile server URL |
+| `VITE_TILES_URL` | Legacy, unused — tile hosts are fixed in `src/store/tilesHostStore.ts` |
 | `VITE_DATA_API_URL` | Cloudflare Worker data API URL |
 | `VITE_PERF_LOGGING` | Enable performance logging |
 ## Important Patterns
@@ -127,17 +140,17 @@ Found in .env file. Environment variables are prefixed with `VITE_` for Vite to 
 The spatial grid (0.5° cells) is critical for performance. Always use `getCamerasInBounds()` or `getCamerasInBoundsFromGrid()` rather than filtering the full camera array.
 
 ### Map Rendering
-`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default PMTiles rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DensityLayers, DotDensityLayers, HeatmapLayers, NetworkLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active.
+`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default vector-tile rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DensityLayers, DotDensityLayers, HeatmapLayers, NetworkLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active.
 
 ### Code Splitting
 Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, state, deck-vendor. MapPage uses React lazy loading with Suspense. Path alias `@/` maps to `src/`.
 
 ## Data Sources
 
-- **Camera Tiles**: `tiles.dontgetflocked.com/cameras-{us,ca}-hourly.pmtiles` (+ `-filter` companions and `-manifest.json` dictionaries) — hourly PMTiles archives, Range requests via `flockhopper-tiles` worker
+- **Camera Tiles**: `<TILES_HOST>/cameras-{us,ca}-hourly.json` TileJSON (+ `-filter` companions, `-manifest.json` dictionaries, `-index.{bin,json}` counters) — hourly MVT tilesets; tile URLs always come from the TileJSON. Hosts: primary `deflock.dontgetflocked.com`, backup `tiles.dontgetflocked.com` (see Key Data Flow)
 - **Camera Data (attributes)**: `data.dontgetflocked.com/cameras.geojson.gz` — lazy-loaded for filters/timeline/heatmap/Canada; ~114k (July 2026) cameras
 - **ZIP Codes**: `/public/zipcodes-us.json` — local lookup, no API needed
-- **Map Tiles**: Protomaps vector tiles via `VITE_TILES_URL`
+- **Map Tiles**: Protomaps basemap via `<TILES_HOST>/planet.json` (+ `/fonts`, `/sprites`); `boundaries-us.json` for the boundary overlay
 - **Geocoding**: Nominatim (OSM) with Photon fallback
 - **Density Data**: GeoJSON files in `/public/geo/` (states-metrics, counties-metrics)
 - **Network Data**: `/public/sharing-network-adjacency.json` and `/public/sharing-network-nodes.geojson`
