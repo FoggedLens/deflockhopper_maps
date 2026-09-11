@@ -71,3 +71,19 @@ export function formatBytes(bytes: number): string {
   return `${kb} KB`;
 }
 
+
+/**
+ * "As of" label for a published snapshot: an ISO timestamp rendered as a
+ * short UTC calendar date ("Sep 10, 2026"). Fixed locale and UTC so the label
+ * matches the publisher's date everywhere. Null when unparseable.
+ */
+export function formatAsOfDate(iso: string): string | null {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  return new Date(t).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}

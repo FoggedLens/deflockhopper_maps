@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useNetworkStore, type NetworkNode } from './networkStore';
 
-const NODES_URL = '/sharing-network-nodes.geojson';
-const ADJ_URL = '/sharing-network-adjacency.json';
+const CDN = 'https://deflockdata.dontgetflocked.com';
+const NODES_PATH = '/sharing-network-nodes.geojson';
+const ADJ_PATH = '/sharing-network-adjacency.json';
+const META_PATH = '/sharing-network-meta.json';
 
 function nodeFeature(id: string, lng = -84.4, lat = 33.7) {
   return {
@@ -17,21 +19,41 @@ const NODES_BODY = JSON.stringify({
   features: [nodeFeature('a'), nodeFeature('b'), nodeFeature('c')],
 });
 const ADJ_BODY = JSON.stringify({ a: ['b'], b: ['a', 'c'] });
+const META_BODY = JSON.stringify({
+  generatedAt: '2026-09-10T18:40:19Z',
+  featureCount: 3,
+  portalCount: 3,
+  adjacencyKeys: 2,
+  directedEdges: 3,
+  runId: 'test',
+});
 
-/** fetch stub with a manually-resolvable adjacency response */
-function stubFetch(opts: { adjacencyDelayed?: boolean; failAdjacency?: boolean; failNodes?: boolean } = {}) {
+/** fetch stub matching on the path suffix so the base URL stays configurable */
+function stubFetch(opts: {
+  adjacencyDelayed?: boolean;
+  failAdjacency?: boolean;
+  failNodes?: boolean;
+  failMeta?: boolean;
+  malformedMeta?: boolean;
+} = {}) {
   let releaseAdjacency: () => void = () => {};
   const adjacencyGate = new Promise<void>(resolve => { releaseAdjacency = resolve; });
 
-  const fetchMock = vi.fn(async (url: string) => {
-    if (url === NODES_URL) {
+  const fetchMock = vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith(NODES_PATH)) {
       if (opts.failNodes) return new Response('', { status: 500 });
       return new Response(NODES_BODY, { status: 200 });
     }
-    if (url === ADJ_URL) {
+    if (url.endsWith(ADJ_PATH)) {
       if (opts.adjacencyDelayed) await adjacencyGate;
       if (opts.failAdjacency) return new Response('', { status: 500 });
       return new Response(ADJ_BODY, { status: 200 });
+    }
+    if (url.endsWith(META_PATH)) {
+      if (opts.failMeta) throw new TypeError('Failed to fetch');
+      if (opts.malformedMeta) return new Response('{"nope":true}', { status: 200 });
+      return new Response(META_BODY, { status: 200 });
     }
     throw new Error(`Unexpected fetch: ${url}`);
   });
@@ -39,6 +61,9 @@ function stubFetch(opts: { adjacencyDelayed?: boolean; failAdjacency?: boolean; 
   vi.stubGlobal('fetch', fetchMock);
   return { fetchMock, releaseAdjacency };
 }
+
+const fetchedUrls = () =>
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map(c => String(c[0]));
 
 /** Poll until the store satisfies a predicate (progressive commits are async). */
 async function waitFor(predicate: () => boolean, timeoutMs = 1000) {
@@ -63,8 +88,13 @@ beforeEach(() => {
     selectedArcs: [],
     nodesProgress: null,
     adjacencyProgress: null,
+    meta: null,
     error: null,
   });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('loadNetworkData progressive commits', () => {
@@ -116,8 +146,8 @@ describe('loadNetworkData progressive commits', () => {
     stubFetch({});
     await useNetworkStore.getState().loadNetworkData();
 
-    const retried = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
-    expect(retried).toEqual([ADJ_URL]);
+    const retried = fetchedUrls();
+    expect(retried).toEqual([`${CDN}${ADJ_PATH}`]);
     expect(useNetworkStore.getState().adjacencyReady).toBe(true);
     expect(useNetworkStore.getState().error).toBeNull();
   });
@@ -129,6 +159,73 @@ describe('loadNetworkData progressive commits', () => {
 
     expect(useNetworkStore.getState().loadPhase).toBe('error');
     expect(useNetworkStore.getState().error).toMatch(/Nodes/);
+  });
+});
+
+describe('loadNetworkData source', () => {
+  it('fetches nodes, adjacency and meta from the deflock-data CDN in parallel, never from /public', async () => {
+    stubFetch();
+    await useNetworkStore.getState().loadNetworkData();
+    const urls = fetchedUrls().sort();
+    expect(urls).toEqual([
+      `${CDN}${ADJ_PATH}`,
+      `${CDN}${META_PATH}`,
+      `${CDN}${NODES_PATH}`,
+    ]);
+    expect(urls.some(u => u.startsWith('/'))).toBe(false);
+    expect(urls.some(u => u.includes('?'))).toBe(false);
+  });
+
+  it('honors VITE_NETWORK_DATA_BASE for every file', async () => {
+    vi.stubEnv('VITE_NETWORK_DATA_BASE', 'http://localhost:8787');
+    stubFetch();
+    await useNetworkStore.getState().loadNetworkData();
+    for (const u of fetchedUrls()) expect(u.startsWith('http://localhost:8787/')).toBe(true);
+  });
+
+  it('reads the data files as compressed (indeterminate percent, byte counts only)', async () => {
+    stubFetch();
+    const seen: Array<number | null> = [];
+    const unsub = useNetworkStore.subscribe((s) => {
+      if (s.nodesProgress) seen.push(s.nodesProgress.percent);
+      if (s.adjacencyProgress) seen.push(s.adjacencyProgress.percent);
+    });
+    await useNetworkStore.getState().loadNetworkData();
+    unsub();
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every(p => p === null || p === 100)).toBe(true);
+  });
+
+  it('surfaces generatedAt from meta once loaded', async () => {
+    stubFetch();
+    await useNetworkStore.getState().loadNetworkData();
+    expect(useNetworkStore.getState().meta?.generatedAt).toBe('2026-09-10T18:40:19Z');
+    expect(useNetworkStore.getState().meta?.featureCount).toBe(3);
+  });
+
+  it('treats meta as optional: a failed meta fetch leaves the map loaded with no error', async () => {
+    stubFetch({ failMeta: true });
+    await useNetworkStore.getState().loadNetworkData();
+    expect(useNetworkStore.getState().loadPhase).toBe('ready');
+    expect(useNetworkStore.getState().adjacencyReady).toBe(true);
+    expect(useNetworkStore.getState().error).toBeNull();
+    expect(useNetworkStore.getState().meta).toBeNull();
+  });
+
+  it('treats malformed meta as absent', async () => {
+    stubFetch({ malformedMeta: true });
+    await useNetworkStore.getState().loadNetworkData();
+    expect(useNetworkStore.getState().error).toBeNull();
+    expect(useNetworkStore.getState().meta).toBeNull();
+  });
+
+  it('does not refetch meta on a retry once it is loaded', async () => {
+    stubFetch({ failAdjacency: true });
+    await useNetworkStore.getState().loadNetworkData();
+    expect(useNetworkStore.getState().meta).not.toBeNull();
+    stubFetch({});
+    await useNetworkStore.getState().loadNetworkData();
+    expect(fetchedUrls()).toEqual([`${CDN}${ADJ_PATH}`]);
   });
 });
 
@@ -206,9 +303,13 @@ describe('inferred-connection gating', () => {
   });
 
   it('toggling the flag off clears arcs for the selected non-portal node', () => {
-    useNetworkStore.setState({ inferredConnectionsEnabled: true });
     useNetworkStore.getState().setSelectedNodeId('plainB');
+    // Non-portal click resets inferredConnectionsEnabled and starts with no arcs
+    expect(useNetworkStore.getState().selectedArcs).toHaveLength(0);
+    // Toggle on to populate inferred arcs
+    useNetworkStore.getState().toggleInferredConnections();
     expect(useNetworkStore.getState().selectedArcs).toHaveLength(1);
+    // Toggle off clears them
     useNetworkStore.getState().toggleInferredConnections();
     expect(useNetworkStore.getState().selectedArcs).toHaveLength(0);
   });

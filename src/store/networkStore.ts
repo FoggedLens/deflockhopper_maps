@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { readBodyWithProgress, type DownloadProgress } from '../services/cameraDataService';
+import { networkDataUrl, parseNetworkMeta, type NetworkMeta } from '../services/networkDataService';
 
 export interface NetworkNode {
   id: string;
@@ -96,6 +97,9 @@ interface NetworkState {
   adjacencyReady: boolean;
   nodesProgress: DownloadProgress | null;
   adjacencyProgress: DownloadProgress | null;
+  /** Provenance of the loaded snapshot (weekly publish). Optional: null when
+   *  the meta file is unavailable; the map loads regardless. */
+  meta: NetworkMeta | null;
   nodesMap: Map<string, NetworkNode>;
   nodesArray: NetworkNode[];
   adjacency: Record<string, string[]>;
@@ -110,8 +114,10 @@ interface NetworkState {
   searchQuery: string;
   typeFilter: Set<string>; // empty = show all
   portalOnly: boolean;
-  /** When false, non-portal selections get no arcs (their data is inferred). */
+  /** When false, non-portal hover arcs are suppressed and click triggers ghost reveal. */
   inferredConnectionsEnabled: boolean;
+  /** Incremented each time a ghost reveal animation should play (non-portal click). */
+  ghostRevealSeq: number;
   error: string | null;
 
   loadNetworkData: () => Promise<void>;
@@ -204,6 +210,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   adjacencyReady: false,
   nodesProgress: null,
   adjacencyProgress: null,
+  meta: null,
   nodesMap: new Map(),
   nodesArray: [],
   adjacency: {},
@@ -219,6 +226,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   typeFilter: new Set(),
   portalOnly: false,
   inferredConnectionsEnabled: false,
+  ghostRevealSeq: 0,
   error: null,
 
   loadNetworkData: async () => {
@@ -227,6 +235,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
     const needNodes = get().nodesArray.length === 0;
     const needAdjacency = !get().adjacencyReady;
+    const needMeta = get().meta === null;
     if (!needNodes && !needAdjacency) return;
 
     _initPromise = (async () => {
@@ -235,13 +244,16 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       // Each file commits the moment it lands: nodes unlock the dot layer
       // (and flip loadPhase to 'ready'); adjacency arrives later and
       // backfills arcs for any selection made in the meantime.
+      // Files come from the deflock-data CDN (weekly publish; see
+      // networkDataService). They are stored gzip, which a cross-origin fetch
+      // cannot see in the headers, so progress is byte counts, not percent.
       const nodesTask = needNodes
         ? (async () => {
-            const response = await fetch('/sharing-network-nodes.geojson');
+            const response = await fetch(networkDataUrl('sharing-network-nodes.geojson'));
             if (!response.ok) throw new Error(`Nodes fetch failed: ${response.status}`);
             const text = await readBodyWithProgress(response, (percent, loadedBytes) => {
               set({ nodesProgress: { percent, loadedBytes } });
-            });
+            }, { assumeCompressed: true });
             const { nodesMap, nodesArray } = parseGeoJSON(JSON.parse(text));
             set({ nodesMap, nodesArray, loadPhase: 'ready', nodesProgress: null });
           })()
@@ -249,11 +261,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
       const adjacencyTask = needAdjacency
         ? (async () => {
-            const response = await fetch('/sharing-network-adjacency.json');
+            const response = await fetch(networkDataUrl('sharing-network-adjacency.json'));
             if (!response.ok) throw new Error(`Adjacency fetch failed: ${response.status}`);
             const text = await readBodyWithProgress(response, (percent, loadedBytes) => {
               set({ adjacencyProgress: { percent, loadedBytes } });
-            });
+            }, { assumeCompressed: true });
             const adjacency = JSON.parse(text) as Record<string, string[]>;
             const reverseAdjacency = buildReverseAdjacency(adjacency);
             set({ adjacency, reverseAdjacency, adjacencyReady: true, adjacencyProgress: null });
@@ -269,7 +281,22 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           })()
         : Promise.resolve();
 
-      const [nodesResult, adjacencyResult] = await Promise.allSettled([nodesTask, adjacencyTask]);
+      // Provenance is best-effort: the "as of" label is nice to have, the map
+      // must never wait on it or fail because of it.
+      const metaTask = needMeta
+        ? (async () => {
+            try {
+              const response = await fetch(networkDataUrl('sharing-network-meta.json'));
+              if (!response.ok) return;
+              const meta = parseNetworkMeta(await response.json());
+              if (meta) set({ meta });
+            } catch (err) {
+              console.warn('[NetworkStore] Network meta unavailable:', err);
+            }
+          })()
+        : Promise.resolve();
+
+      const [nodesResult, adjacencyResult] = await Promise.allSettled([nodesTask, adjacencyTask, metaTask]);
       _initPromise = null;
 
       const failure = [nodesResult, adjacencyResult].find(
@@ -291,20 +318,23 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   },
 
   setSelectedNodeId: (id) => {
-    const { nodesMap } = get();
     if (!id) {
-      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all' });
+      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all', ghostRevealSeq: 0 });
       return;
     }
+    const { nodesMap } = get();
     const sourceNode = nodesMap.get(id);
     if (!sourceNode) return;
 
-    const arcs = gatedArcs(sourceNode, get());
+    const needsGhostReveal = !sourceNode.isPortal;
+    const arcs = needsGhostReveal ? [] : gatedArcs(sourceNode, get());
 
     set({
       selectedNodeId: id,
       selectedNode: sourceNode,
       selectedArcs: arcs,
+      ghostRevealSeq: needsGhostReveal ? get().ghostRevealSeq + 1 : 0,
+      inferredConnectionsEnabled: needsGhostReveal ? false : get().inferredConnectionsEnabled,
       activeTab: 'all',
     });
   },
@@ -340,5 +370,5 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     }
   },
 
-  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all' }),
+  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all', ghostRevealSeq: 0 }),
 }));

@@ -10,7 +10,7 @@ export {
 // API client - FlockHopper routing API
 export * from './apiClient';
 
-// Camera vector tiles - shared pmtiles protocol + archive constants
+// Camera vector tiles - TileJSON URLs on the active tile host + tileset constants
 export * from './cameraTilesService';
 
 // Geocoding - Nominatim + Photon based service

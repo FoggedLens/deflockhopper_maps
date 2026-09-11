@@ -5,6 +5,34 @@ import { ScatterplotLayer, ArcLayer } from '@deck.gl/layers';
 import { useNetworkStore, classifyArcs } from '../../../store/networkStore';
 import type { NetworkNode, Direction, DirectionalArc } from '../../../store/networkStore';
 import { useMapStore } from '../../../store/mapStore';
+import { ArcFlowExtension } from './arcFlowExtension';
+import type { ArcFlowExtensionProps } from './arcFlowExtension';
+import { GhostCallout } from './GhostCallout';
+
+// Single shared instance — the extension carries no per-layer state of its own.
+const arcFlowExtension = new ArcFlowExtension();
+
+// Lets the callout's orange branches mostly draw before the real inferred arcs appear.
+const INFERRED_REVEAL_DELAY_MS = 700;
+
+// Outgoing sharing we can't see: no portal at all, or a portal (red ring) that
+// redacts its "Organizations shared with" list.
+const CALLOUT_COPY = {
+  noPortal: {
+    title: 'No transparency portal',
+    message: 'This agency doesn’t publish its sharing data. It’s likely sharing with agencies across the country.',
+  },
+  redacted: {
+    title: 'Sharing list redacted',
+    message: 'This agency’s portal hides who it shares with. It’s likely sharing with agencies across the country.',
+  },
+};
+
+function getFlowSign(d: DirectionalArc): number {
+  if (d.direction === 'outgoing') return 1;
+  if (d.direction === 'incoming') return -1;
+  return 0;
+}
 
 const NODE_COLORS: Record<string, [number, number, number]> = {
   pd:      [59, 130, 246],   // blue
@@ -28,6 +56,15 @@ const TYPE_LABELS: Record<string, string> = {
   other: 'Other Agency',
 };
 
+/** Bright at the sender's end, fading toward the receiver — direction reads
+ *  from which end of the arc glows, not just its hue. Mutual arcs have no
+ *  single sender, so both ends stay at full brightness. */
+function arcAlpha(direction: Direction, endpoint: 'source' | 'target', high: number, low: number): number {
+  if (direction === 'mutual') return high;
+  const senderEndpoint = direction === 'outgoing' ? 'source' : 'target';
+  return endpoint === senderEndpoint ? high : low;
+}
+
 export function NetworkLayers() {
   const { current: mapgl } = useMap();
   const overlayRef = useRef<MapboxOverlay | null>(null);
@@ -48,6 +85,8 @@ export function NetworkLayers() {
   const arcWidth = useNetworkStore(s => s.arcWidth);
   const hoverArcsEnabled = useNetworkStore(s => s.hoverArcsEnabled);
   const inferredConnectionsEnabled = useNetworkStore(s => s.inferredConnectionsEnabled);
+  const ghostRevealSeq = useNetworkStore(s => s.ghostRevealSeq);
+  const selectedNode = useNetworkStore(s => s.selectedNode);
   const activeTab = useNetworkStore(s => s.activeTab);
   const setSelectedNodeId = useNetworkStore(s => s.setSelectedNodeId);
   const setHoveredNode = useNetworkStore(s => s.setHoveredNode);
@@ -96,6 +135,18 @@ export function NetworkLayers() {
     if (selectedNodeId) setHoveredArcs([]);
   }, [selectedNodeId]);
 
+  // Non-portal click: the orange callout (GhostCallout, rendered below) branches
+  // out from the agency and stays, then its inferred connections switch on.
+  useEffect(() => {
+    if (ghostRevealSeq === 0) return;
+    const t = setTimeout(() => {
+      if (!useNetworkStore.getState().inferredConnectionsEnabled) {
+        useNetworkStore.getState().toggleInferredConnections();
+      }
+    }, INFERRED_REVEAL_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [ghostRevealSeq]);
+
   // Filter arcs by the active direction tab
   const visibleSelectedArcs = useMemo(
     () => activeTab === 'all' ? selectedArcs : selectedArcs.filter(a => a.direction === activeTab),
@@ -105,6 +156,35 @@ export function NetworkLayers() {
     () => activeTab === 'all' ? hoveredArcs : hoveredArcs.filter(a => a.direction === activeTab),
     [hoveredArcs, activeTab],
   );
+
+  // Traveling flow pulse along directional arcs — a uniform-driven clock, not
+  // a per-arc CPU update, so it stays cheap no matter how many arcs are
+  // visible (see arcFlowExtension.ts). Only runs while a directed (non-mutual)
+  // arc is actually on screen.
+  const [flowTime, setFlowTime] = useState(0);
+  const flowRafRef = useRef<number>();
+  const flowStartRef = useRef<number | null>(null);
+  const hasDirectedArcs = useMemo(
+    () => visibleSelectedArcs.some(a => a.direction !== 'mutual') || visibleHoveredArcs.some(a => a.direction !== 'mutual'),
+    [visibleSelectedArcs, visibleHoveredArcs],
+  );
+
+  useEffect(() => {
+    if (!hasDirectedArcs) {
+      if (flowRafRef.current != null) cancelAnimationFrame(flowRafRef.current);
+      flowStartRef.current = null;
+      return;
+    }
+    const tick = (now: number) => {
+      if (flowStartRef.current === null) flowStartRef.current = now;
+      setFlowTime(((now - flowStartRef.current) / 1000) % 1000);
+      flowRafRef.current = requestAnimationFrame(tick);
+    };
+    flowRafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (flowRafRef.current != null) cancelAnimationFrame(flowRafRef.current);
+    };
+  }, [hasDirectedArcs]);
 
   // Build layers
   const layers = useMemo(() => {
@@ -162,24 +242,27 @@ export function NetworkLayers() {
     // ArcLayer - selected node (full opacity, with dimming on scatterplot)
     if (visibleSelectedArcs.length > 0) {
       result.push(
-        new ArcLayer<DirectionalArc>({
+        new ArcLayer<DirectionalArc, ArcFlowExtensionProps<DirectionalArc>>({
           id: 'network-arcs',
           data: visibleSelectedArcs,
           getSourcePosition: (d) => d.source.coordinates,
           getTargetPosition: (d) => d.target.coordinates,
           getSourceColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            return [c[0], c[1], c[2], 230];
+            return [c[0], c[1], c[2], arcAlpha(d.direction, 'source', 230, 55)];
           },
           getTargetColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            return [c[0], c[1], c[2], 230];
+            return [c[0], c[1], c[2], arcAlpha(d.direction, 'target', 230, 55)];
           },
           getWidth: arcWidth * 4,
           getHeight: 1,
           greatCircle: true,
           widthMinPixels: 1,
           widthMaxPixels: Math.max(1, Math.ceil(arcWidth * 4)),
+          getFlowSign,
+          flowTime,
+          extensions: [arcFlowExtension],
         })
       );
     }
@@ -187,30 +270,33 @@ export function NetworkLayers() {
     // ArcLayer - hover preview (semi-transparent, no dimming)
     if (visibleHoveredArcs.length > 0 && !selectedNodeId) {
       result.push(
-        new ArcLayer<DirectionalArc>({
+        new ArcLayer<DirectionalArc, ArcFlowExtensionProps<DirectionalArc>>({
           id: 'network-hover-arcs',
           data: visibleHoveredArcs,
           getSourcePosition: (d) => d.source.coordinates,
           getTargetPosition: (d) => d.target.coordinates,
           getSourceColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            return [c[0], c[1], c[2], 130];
+            return [c[0], c[1], c[2], arcAlpha(d.direction, 'source', 180, 40)];
           },
           getTargetColor: (d) => {
             const c = DIRECTION_COLORS[d.direction];
-            return [c[0], c[1], c[2], 130];
+            return [c[0], c[1], c[2], arcAlpha(d.direction, 'target', 180, 40)];
           },
           getWidth: arcWidth * 3,
           getHeight: 1,
           greatCircle: true,
           widthMinPixels: 1,
           widthMaxPixels: Math.max(1, Math.ceil(arcWidth * 3)),
+          getFlowSign,
+          flowTime,
+          extensions: [arcFlowExtension],
         })
       );
     }
 
     return result;
-  }, [filteredNodes, selectedArcs, selectedNodeId, arcWidth, visibleSelectedArcs, visibleHoveredArcs, handleNodeClick, handleNodeHover, adjacency, adjacencyReady]);
+  }, [filteredNodes, selectedArcs, selectedNodeId, arcWidth, visibleSelectedArcs, visibleHoveredArcs, handleNodeClick, handleNodeHover, adjacency, adjacencyReady, flowTime]);
   // Note: selectedArcs kept in deps because ScatterplotLayer dimming uses it unfiltered (direction filter should not change which nodes dim).
   // adjacency/adjacencyReady kept in deps so the portal-ring ScatterplotLayer is rebuilt (not just
   // attribute-diffed) when adjacency finishes streaming in — see updateTriggers.getLineColor above.
@@ -315,21 +401,38 @@ export function NetworkLayers() {
     };
   }, [hoverInfo, mapgl]);
 
-  // Hover tooltip
-  if (!hoverInfo || !tooltipPos) return null;
+  // Same test as the red portal ring in the ScatterplotLayer above.
+  let calloutKind: keyof typeof CALLOUT_COPY | null = null;
+  if (selectedNode && !selectedNode.isPortal && ghostRevealSeq > 0) calloutKind = 'noPortal';
+  else if (selectedNode?.isPortal && adjacencyReady && (adjacency[selectedNode.id]?.length ?? 0) === 0) calloutKind = 'redacted';
 
   return (
-    <div
-      className="pointer-events-none fixed z-50"
-      style={{ left: tooltipPos.left, top: tooltipPos.top }}
-    >
-      <div className="bg-dark-800/90 rounded-md border border-dark-600 px-3 py-2 whitespace-nowrap">
-        <p className="text-sm font-medium text-white">{hoverInfo.node.name}</p>
-        <p className="text-xs text-dark-400">
-          {TYPE_LABELS[hoverInfo.node.type] || 'Other'}
-          {hoverInfo.node.state && ` · ${hoverInfo.node.state}`}
-        </p>
-      </div>
-    </div>
+    <>
+      {/* Hover tooltip */}
+      {hoverInfo && tooltipPos && (
+        <div
+          className="pointer-events-none fixed z-50"
+          style={{ left: tooltipPos.left, top: tooltipPos.top }}
+        >
+          <div className="bg-dark-800/90 rounded-md border border-dark-600 px-3 py-2 whitespace-nowrap">
+            <p className="text-sm font-medium text-white">{hoverInfo.node.name}</p>
+            <p className="text-xs text-dark-400">
+              {TYPE_LABELS[hoverInfo.node.type] || 'Other'}
+              {hoverInfo.node.state && ` · ${hoverInfo.node.state}`}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Keyed per agency and reveal so each new selection replays the branch-out */}
+      {mapgl && selectedNode && calloutKind && (
+        <GhostCallout
+          key={`${calloutKind}-${selectedNode.id}-${ghostRevealSeq}`}
+          map={mapgl.getMap()}
+          coordinates={selectedNode.coordinates}
+          {...CALLOUT_COPY[calloutKind]}
+        />
+      )}
+    </>
   );
 }

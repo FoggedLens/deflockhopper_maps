@@ -1,45 +1,45 @@
-import maplibregl from 'maplibre-gl';
-import { Protocol } from 'pmtiles';
+import type { RequestParameters, ResourceType } from 'maplibre-gl';
+import { getTilesHost, failoverTilesHost } from '../store/tilesHostStore';
 
 /**
- * Camera vector tiles served as a raw PMTiles archive from the
- * flockhopper-tiles worker (R2-backed, Range requests).
+ * Camera vector tiles — plain MVT tilesets addressed by TileJSON, served from
+ * the active DeFlock tile host (see tilesHostStore for primary/backup).
  *
- * Archive facts (from its TileJSON):
+ * Every vector source uses `url: <TileJSON>`. Never pmtiles:// and never a
+ * *.pmtiles archive: byte-range requests are not edge-cacheable on either
+ * host, whereas the per-tile URLs a TileJSON hands out are. Tile URLs are
+ * always read from the TileJSON, never hand-built.
+ *
+ * Archive facts (from the TileJSON):
  * - source-layer: 'cameras', zooms 0-14, rebuilt hourly
  * - z0-8 tiles are geometry-only (built with --exclude-all)
  * - z9+ tiles carry full attributes for popups/cones
  * - zero tile buffer — no duplicated points along tile seams, so
  *   translucent circle layers never double-blend
  */
-export const CAMERA_TILES_HOST = 'https://tiles.dontgetflocked.com';
 
-/** Countries with hourly tile archives (both main + filter companions). */
+/** Countries with hourly tilesets (both main + filter companions). */
 export type CameraTileCountry = 'us' | 'ca';
 
-export const cameraTilesUrl = (country: CameraTileCountry) =>
-  `pmtiles://${CAMERA_TILES_HOST}/cameras-${country}-hourly.pmtiles`;
+/** Main camera TileJSON (alias — always the latest hourly build). */
+export const cameraTileJsonUrl = (country: CameraTileCountry) =>
+  `${getTilesHost()}/cameras-${country}-hourly.json`;
 /**
- * Filter-enabled companion archive: same points, but with integer filter
+ * Filter-enabled companion tileset: same points, but with integer filter
  * codes (b/o/z/m) at ALL zooms — z9+ additionally carries the full
- * attributes, mirroring the main archive. Only attached to the map once a
+ * attributes, mirroring the main tileset. Only attached to the map once a
  * filter activates; idle users never fetch it.
  */
-export const cameraFilterTilesUrl = (country: CameraTileCountry) =>
-  `pmtiles://${CAMERA_TILES_HOST}/cameras-${country}-hourly-filter.pmtiles`;
-/** TileJSON endpoint for the filter archive — used to verify the manifest and
- *  tileset came from the same pipeline build (build-scoped ids). */
 export const cameraFilterTileJsonUrl = (country: CameraTileCountry) =>
-  `${CAMERA_TILES_HOST}/cameras-${country}-hourly-filter.json`;
-/** Filter dictionary paired with the filter archive — ids are build-scoped,
+  `${getTilesHost()}/cameras-${country}-hourly-filter.json`;
+/** Filter dictionary paired with the filter tileset — ids are build-scoped,
  *  so it is served alongside the tiles and must be fetched fresh with them. */
 export const cameraManifestUrl = (country: CameraTileCountry) =>
-  `${CAMERA_TILES_HOST}/cameras-${country}-hourly-manifest.json`;
+  `${getTilesHost()}/cameras-${country}-hourly-manifest.json`;
 
-export const CAMERA_TILES_URL = cameraTilesUrl('us');
 export const CAMERA_TILES_SOURCE_LAYER = 'cameras';
 export const CAMERA_TILES_MAXZOOM = 14;
-/** Documents the published tile archives' attribute threshold: attributes exist
+/** Documents the published tilesets' attribute threshold: attributes exist
  * in tiles from z9 up. Retained as the single named constant for the pipeline contract. */
 export const CAMERA_METADATA_MINZOOM = 9;
 /**
@@ -54,61 +54,83 @@ export const CAMERA_METADATA_MINZOOM = 9;
  */
 export const CAMERA_POINTS_MINZOOM = 9;
 
-let _protocol: Protocol | null = null;
-const _loadedArchives = new Set<string>();
-
-/** Failure sink wired up by the map composition layer (MapLibreContainer), so
- *  this service stays decoupled from the store (avoids an import cycle:
- *  cameraStore -> cameraManifestService -> cameraTilesService). */
-export type PMTilesArchiveKind = 'main' | 'filter';
-let _onArchiveFailure: ((kind: PMTilesArchiveKind) => void) | null = null;
-export function setPMTilesFailureHandler(
-  fn: ((kind: PMTilesArchiveKind) => void) | null,
-): void {
-  _onArchiveFailure = fn;
+/**
+ * The camera TileJSON as the primary host publishes it. Beyond the standard
+ * fields it carries build-pinned companion URLs (immutable, 1-year cache)
+ * from the same hourly build. Consumers prefer these over the unversioned
+ * aliases so manifest, filter tileset and index always form a coherent set.
+ * The backup host serves plain TileJSON: the companions are absent there.
+ */
+export interface CameraTileJson {
+  tiles: string[];
+  name?: string;
+  build?: string;
+  manifest?: string;
+  filter_tilejson?: string;
+  index_bin?: string;
+  index_json?: string;
 }
 
-/** Which camera archive a pmtiles request targets, or null for anything that
- *  is not a camera archive (the basemap uses the TileJSON route, not pmtiles). */
-export function archiveKey(url: string): string | null {
-  const m = url.match(/cameras-(?:us|ca)-hourly(?:-filter)?\.pmtiles/);
-  return m ? m[0] : null;
+const _tileJsonCache = new Map<string, Promise<CameraTileJson | null>>();
+
+/**
+ * Fetch the camera TileJSON alias from the active host. Resolves null when
+ * the document is unusable. A network error or non-2xx on the primary host
+ * fails the whole app over to the backup host (the source components remount
+ * on that); the same failure on backup is final. Cached per host + country,
+ * so a call after a failover fetches from the new host. Never throws.
+ */
+export function loadCameraTileJson(country: CameraTileCountry): Promise<CameraTileJson | null> {
+  const url = cameraTileJsonUrl(country);
+  const hit = _tileJsonCache.get(url);
+  if (hit) return hit;
+
+  const promise = (async (): Promise<CameraTileJson | null> => {
+    let res: Response;
+    try {
+      // Alias docs revalidate on every load so a reload picks up the hourly build.
+      res = await fetch(url, { cache: 'no-cache' });
+    } catch {
+      failoverTilesHost(`camera tilejson ${country}: network error`);
+      return null;
+    }
+    if (!res.ok) {
+      failoverTilesHost(`camera tilejson ${country}: HTTP ${res.status}`);
+      return null;
+    }
+    try {
+      const data = (await res.json()) as Partial<CameraTileJson> | null;
+      if (!data || !Array.isArray(data.tiles)) return null;
+      return data as CameraTileJson;
+    } catch {
+      return null;
+    }
+  })();
+
+  _tileJsonCache.set(url, promise);
+  // Only successes stay cached; a failed entry would pin the failure for the session.
+  void promise.then((doc) => {
+    if (!doc) _tileJsonCache.delete(url);
+  });
+  return promise;
 }
 
-/** Register the shared pmtiles protocol exactly once (camera archives only).
- *  A blocked or 404 archive presents to MapLibre as a loaded-but-empty source,
- *  so MapLibre error events are not a reliable failure signal. The protocol
- *  handler is: it reports a load failure that happens before that archive ever
- *  loaded successfully (ignoring aborts), which the UI turns into a retry pill. */
-export function ensurePMTilesProtocol(): Protocol {
-  if (!_protocol) {
-    _protocol = new Protocol();
-    const tileFn = _protocol.tile.bind(_protocol);
-    maplibregl.addProtocol('pmtiles', async (params, abortController) => {
-      const key = archiveKey(params.url);
-      try {
-        const result = await tileFn(params, abortController);
-        if (key) _loadedArchives.add(key);
-        return result;
-      } catch (err) {
-        const aborted =
-          abortController?.signal?.aborted || (err as Error)?.name === 'AbortError';
-        if (!aborted && key && !_loadedArchives.has(key)) {
-          _onArchiveFailure?.(key.includes('-filter') ? 'filter' : 'main');
-        }
-        throw err;
-      }
-    });
-  }
-  return _protocol;
+const SOURCE_RESOURCE = 'Source' as unknown as ResourceType;
+
+/**
+ * MapLibre transformRequest: TileJSON documents (resource type 'Source') are
+ * alias URLs that change hourly, so they must revalidate on reload. Tile
+ * URLs come from the TileJSON with immutable caching — leave them alone.
+ */
+export function tilesTransformRequest(
+  url: string,
+  resourceType?: ResourceType
+): RequestParameters | undefined {
+  if (resourceType === SOURCE_RESOURCE) return { url, cache: 'no-cache' };
+  return undefined;
 }
 
-/** Re-register a FRESH pmtiles protocol, discarding the header cache (pmtiles
- *  caches a rejected header fetch for the app's lifetime). The retry pill calls
- *  this so a genuine re-fetch is attempted after an outage clears. */
-export function resetPMTilesProtocol(): void {
-  maplibregl.removeProtocol('pmtiles');
-  _protocol = null;
-  _loadedArchives.clear();
-  ensurePMTilesProtocol();
+/** Test hook — not for app code. */
+export function _resetCameraTileJsonCacheForTests(): void {
+  _tileJsonCache.clear();
 }

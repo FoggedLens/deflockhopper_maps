@@ -608,6 +608,34 @@ button:focus-visible {
   }
 }
 
+/* Network: no-portal callout. Orange branches grow out to the message card. */
+@keyframes ghost-branch-grow {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes ghost-card-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.ghost-branch {
+  stroke-dasharray: 1;
+  animation: ghost-branch-grow 550ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+.ghost-callout-card {
+  animation: ghost-card-in 240ms cubic-bezier(0.25, 1, 0.5, 1) 420ms both;
+}
+
+/* The global rule above shortens durations but keeps delays; skip the staging entirely. */
+@media (prefers-reduced-motion: reduce) {
+  .ghost-branch,
+  .ghost-callout-card {
+    animation: none;
+  }
+}
+
 /* Hide scrollbar for carousels while maintaining scroll functionality */
 .no-scrollbar {
   -ms-overflow-style: none;  /* IE and Edge */

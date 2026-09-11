@@ -14,7 +14,7 @@ import { DensityLoadingPill } from '@/components/map/DensityLoadingPill';
 import { Seo, LegacyMapLink, ShareButton, LoadingPill } from '@/components/common';
 import { stateSlug, getStateName } from '@/services/stateFilterService';
 import { isModeAvailable } from '@/services/cameraDataService';
-import { resetPMTilesProtocol } from '@/services/cameraTilesService';
+import { useTilesHostStore, failoverTilesHost } from '@/store/tilesHostStore';
 import { isWebGLAvailable } from '@/utils/webgl';
 import { removeBootSplash } from '@/utils/bootSplash';
 import { useCameraStore, useAppModeStore } from '@/store';
@@ -31,6 +31,7 @@ import { CameraTileStatusPill } from '@/components/map/CameraTileStatusPill';
 import { TimelineBar } from '@/modes/timeline/TimelineBar';
 import { DensityFeaturePopup } from '@/modes/density/DensityFeaturePopup';
 import { Route, Compass, BarChart3, Network, Map as MapIcon } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { AppMode } from '@/store';
 
 const WEBGL_REQUIRED_MESSAGE =
@@ -121,17 +122,25 @@ export function MapPage() {
   // map init as failed and surface the existing error UI (Try Again + Legacy
   // Maps Link). Arms on either rendering path:
   // - geojson: after the dataset is hydrated (isInitialized && cameras)
-  // - tiles: immediately (!needsGeojson) — a silently stalled pmtiles load
-  //   emits neither sourcedata nor 'error' events, so without this the
-  //   loading screen would spin forever with no retry UI.
+  // - tiles: immediately (!needsGeojson) — a silently stalled TileJSON load
+  //   (hung connection) emits neither sourcedata nor 'error' events, so
+  //   without this the loading screen would spin forever with no retry UI.
+  // On the first miss the tile host fails over to backup and the map
+  // remounts; the deadline re-arms (tilesEpoch) and a second miss surfaces
+  // the error UI.
   // The inner retry pipeline in MapLibreContainer keeps event listeners
   // attached for the full duration, so a successful late init before the
   // deadline still clears markersReady (which also clears this timer).
+  const tilesEpoch = useTilesHostStore(s => s.epoch);
   useEffect(() => {
     const watchdogArmed = !needsGeojson || (isInitialized && cameras.length > 0);
     if (watchdogArmed && !markersReady && !mapInitError) {
       mapInitDeadlineRef.current = setTimeout(() => {
         if (!markersReady) {
+          if (failoverTilesHost('map init deadline')) {
+            setMapKey(k => k + 1);
+            return;
+          }
           setMapInitError('Map failed to initialize. Please try again.');
           if (import.meta.env.DEV) {
             console.warn('[MapPage] Map init deadline exceeded (15s) — surfacing error UI');
@@ -145,7 +154,7 @@ export function MapPage() {
         }
       };
     }
-  }, [needsGeojson, isInitialized, cameras.length, markersReady, mapInitError]);
+  }, [needsGeojson, isInitialized, cameras.length, markersReady, mapInitError, tilesEpoch]);
 
   // Handle markers ready callback from MapLibreView
   const handleMarkersReady = useCallback((ready: boolean) => {
@@ -180,11 +189,12 @@ export function MapPage() {
     // path for a stalled tile source. The (multi-MB) GeoJSON refetch only
     // helps when a feature actually needs it (filters/timeline/heatmap/Canada);
     // skip it in tiles mode where the remount alone drives recovery.
-    // Clear a prior camera-tile failure and discard the pmtiles header cache so
-    // the remount genuinely re-fetches the archive (the retry pill's point).
+    // Clear a prior camera-tile failure so the remount re-requests the
+    // tileset (the retry pill's point). The tile host is left as is: every
+    // page load starts on primary, and a mid-session retry stays on whichever
+    // host the app already failed over to.
     useCameraStore.getState().setTilesFailed(false);
     useCameraStore.getState().setFilterTilesFailed(false);
-    resetPMTilesProtocol();
     setMapKey(k => k + 1);
 
     if (needsGeojson) {
@@ -344,6 +354,28 @@ export function MapPage() {
                 onMarkersReady={handleMarkersReady}
               />
             </div>
+
+            {/* The wrapper above holds the map at opacity-0 until markersReady, which
+                leaves a black void on slow connections. This indicator fills that gap:
+                delayed 400ms so fast loads never flash it, and its exit crossfades
+                with the map's own 300ms fade-in. AnimatePresence unmounts it after
+                the exit, so nothing keeps animating once the map is up. */}
+            <AnimatePresence>
+              {!markersReady && !mapInitError && (
+                <motion.div
+                  role="status"
+                  className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, transition: { delay: 0.4, duration: 0.3, ease: 'easeOut' } }}
+                  exit={{ opacity: 0, transition: { duration: 0.3 } }}
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-2 border-dark-400 border-t-accent rounded-full animate-spin" />
+                    <span className="text-dark-400 text-[11px] font-medium tracking-[0.2em] uppercase">Loading map</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Map Overlays */}
             {!isEmbed && (appMode === 'route' ? <FloatingRouteCard /> : <MapSearch />)}

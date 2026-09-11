@@ -3,7 +3,6 @@ import { Source, Layer, useMap } from 'react-map-gl/maplibre';
 import type maplibregl from 'maplibre-gl';
 import type { FilterSpecification } from 'maplibre-gl';
 import {
-  CAMERA_TILES_URL,
   CAMERA_TILES_SOURCE_LAYER,
   CAMERA_TILES_MAXZOOM,
   CAMERA_POINTS_MINZOOM,
@@ -170,7 +169,9 @@ interface CameraTileLayersProps {
   visible: boolean;
   /** Vector source id — must be unique per instance. */
   sourceId?: string;
-  sourceUrl?: string;
+  /** TileJSON URL on the active tile host (never pmtiles). The parent owns
+   *  host selection, so this is required rather than defaulted here. */
+  sourceUrl: string;
   /** Appended to every layer id — '' for the default instance. */
   idSuffix?: string;
   /** Attribute filter (filter tileset codes). Applied to glow/dots/points
@@ -181,7 +182,7 @@ interface CameraTileLayersProps {
 export function CameraTileLayers({
   visible,
   sourceId = 'camera-tiles',
-  sourceUrl = CAMERA_TILES_URL,
+  sourceUrl,
   idSuffix = '',
   filter,
 }: CameraTileLayersProps) {

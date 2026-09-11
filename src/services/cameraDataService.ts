@@ -20,6 +20,14 @@ export interface DownloadProgress {
   loadedBytes: number;
 }
 
+export interface ReadBodyOptions {
+  /** The publisher stores this file gzip. Cross-origin responses do not
+   *  expose Content-Encoding (it is not CORS-safelisted) while Content-Length
+   *  still reports the compressed size, so the header check below cannot see
+   *  the compression and the ratio would lie. Force indeterminate progress. */
+  assumeCompressed?: boolean;
+}
+
 /**
  * Read a response body as text, reporting download progress. Percent is only
  * determinate when Content-Length is present AND no Content-Encoding is set:
@@ -28,10 +36,12 @@ export interface DownloadProgress {
  */
 export async function readBodyWithProgress(
   response: Response,
-  onProgress?: DownloadProgressCallback
+  onProgress?: DownloadProgressCallback,
+  opts?: ReadBodyOptions
 ): Promise<string> {
   const total = Number(response.headers.get('Content-Length') ?? 0);
-  const determinate = total > 0 && !response.headers.get('Content-Encoding');
+  const determinate =
+    total > 0 && !response.headers.get('Content-Encoding') && !opts?.assumeCompressed;
 
   if (!response.body) {
     onProgress?.(null, 0);

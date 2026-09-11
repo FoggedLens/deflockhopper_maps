@@ -371,3 +371,65 @@ describe('brandStatsEqual', () => {
     expect(brandStatsEqual(a, a)).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Fetch orchestration against the tile host
+
+import { vi, beforeEach } from 'vitest';
+import { ensureCameraIndex, _resetCameraIndexCacheForTests } from './cameraIndexService';
+import { _resetCameraTileJsonCacheForTests } from './cameraTilesService';
+import { _resetTilesHostForTests } from '../store/tilesHostStore';
+import { fetchByUrl, jsonResponse, callsTo } from '../test/fetchByUrl';
+
+describe('ensureCameraIndex', () => {
+  const PRIMARY = 'https://deflock.dontgetflocked.com';
+  const BUILD = '63b8af37657d';
+  const records = [{ lat: 33.7, lng: -84.4, brand: 1 }];
+  const bin = () => makeBin(records);
+  const sidecar = sidecarFor(records);
+  const tilesOnly = { tiles: [`${PRIMARY}/cameras-us-hourly/{z}/{x}/{y}.mvt`] };
+
+  beforeEach(() => {
+    _resetCameraIndexCacheForTests();
+    _resetCameraTileJsonCacheForTests();
+    _resetTilesHostForTests();
+    vi.unstubAllGlobals();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  it('loads the build-pinned index pair named by the camera TileJSON', async () => {
+    const mock = fetchByUrl([
+      ['cameras-us-hourly.json', () => jsonResponse({
+        ...tilesOnly,
+        index_bin: `${PRIMARY}/cameras-us-hourly-index-${BUILD}.bin`,
+        index_json: `${PRIMARY}/cameras-us-hourly-index-${BUILD}.json`,
+      })],
+      [`index-${BUILD}.bin`, () => new Response(bin(), { status: 200 })],
+      [`index-${BUILD}.json`, () => jsonResponse(sidecar)],
+    ]);
+    const idx = await ensureCameraIndex('us');
+    expect(idx?.count).toBe(1);
+    expect(callsTo(mock, 'cameras-us-hourly-index.bin')).toHaveLength(0);
+    expect(callsTo(mock, 'cameras-us-hourly-index.json')).toHaveLength(0);
+  });
+
+  it('falls back to the alias pair, fetched no-cache, when the TileJSON has no companions', async () => {
+    const mock = fetchByUrl([
+      ['cameras-us-hourly.json', () => jsonResponse(tilesOnly)],
+      ['cameras-us-hourly-index.bin', () => new Response(bin(), { status: 200 })],
+      ['cameras-us-hourly-index.json', () => jsonResponse(sidecar)],
+    ]);
+    const idx = await ensureCameraIndex('us');
+    expect(idx?.count).toBe(1);
+    for (const match of ['cameras-us-hourly-index.bin', 'cameras-us-hourly-index.json']) {
+      const [call] = callsTo(mock, match);
+      expect(String(call[0])).toBe(`${PRIMARY}/${match}`);
+      expect(call[1]).toEqual(expect.objectContaining({ cache: 'no-cache' }));
+    }
+  });
+
+  it('resolves null when the index is unavailable', async () => {
+    fetchByUrl([['cameras-us-hourly.json', () => jsonResponse(tilesOnly)]]);
+    expect(await ensureCameraIndex('us')).toBeNull();
+  });
+});
