@@ -33,15 +33,18 @@ function branchPath(x: number, dir: number): string {
 interface GhostCalloutProps {
   map: MaplibreMap;
   coordinates: [number, number];
+  title: string;
+  message: string;
 }
 
 /**
- * Orange branches growing out of a no-portal agency into a message card. We
- * don't know who the agency shares with, so the lines end at the explanation
- * instead of at any real destination. Pinned to the agency by writing a
- * transform on map move (no React render in the gesture path).
+ * Orange branches growing out of an agency whose outgoing sharing is unknown
+ * (no portal, or a portal that redacts its list) into a message card. The
+ * lines end at the explanation instead of at any real destination. Pinned to
+ * the agency by writing a transform on map move (no React render in the
+ * gesture path).
  */
-export function GhostCallout({ map, coordinates }: GhostCalloutProps) {
+export function GhostCallout({ map, coordinates, title, message }: GhostCalloutProps) {
   const groupRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<Placement>(() => pickPlacement(map.project(coordinates).y));
 
@@ -87,10 +90,8 @@ export function GhostCallout({ map, coordinates }: GhostCalloutProps) {
         className="ghost-callout-card absolute rounded-md border border-orange-500/40 bg-dark-800/95 px-3 py-2 text-center shadow-lg backdrop-blur-sm"
         style={{ width: CARD_WIDTH, left: -CARD_WIDTH / 2, ...(dir < 0 ? { bottom: GAP } : { top: GAP }) }}
       >
-        <p className="text-xs font-semibold text-orange-300">No transparency portal</p>
-        <p className="mt-0.5 text-xs leading-snug text-dark-300">
-          This agency doesn&rsquo;t publish its sharing data. It&rsquo;s likely sharing with agencies across the country.
-        </p>
+        <p className="text-xs font-semibold text-orange-300">{title}</p>
+        <p className="mt-0.5 text-xs leading-snug text-dark-300">{message}</p>
       </div>
     </div>,
     map.getContainer(),

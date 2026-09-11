@@ -15,6 +15,19 @@ const arcFlowExtension = new ArcFlowExtension();
 // Lets the callout's orange branches mostly draw before the real inferred arcs appear.
 const INFERRED_REVEAL_DELAY_MS = 700;
 
+// Outgoing sharing we can't see: no portal at all, or a portal (red ring) that
+// redacts its "Organizations shared with" list.
+const CALLOUT_COPY = {
+  noPortal: {
+    title: 'No transparency portal',
+    message: 'This agency doesn’t publish its sharing data. It’s likely sharing with agencies across the country.',
+  },
+  redacted: {
+    title: 'Sharing list redacted',
+    message: 'This agency’s portal hides who it shares with. It’s likely sharing with agencies across the country.',
+  },
+};
+
 function getFlowSign(d: DirectionalArc): number {
   if (d.direction === 'outgoing') return 1;
   if (d.direction === 'incoming') return -1;
@@ -388,6 +401,11 @@ export function NetworkLayers() {
     };
   }, [hoverInfo, mapgl]);
 
+  // Same test as the red portal ring in the ScatterplotLayer above.
+  let calloutKind: keyof typeof CALLOUT_COPY | null = null;
+  if (selectedNode && !selectedNode.isPortal && ghostRevealSeq > 0) calloutKind = 'noPortal';
+  else if (selectedNode?.isPortal && adjacencyReady && (adjacency[selectedNode.id]?.length ?? 0) === 0) calloutKind = 'redacted';
+
   return (
     <>
       {/* Hover tooltip */}
@@ -406,9 +424,14 @@ export function NetworkLayers() {
         </div>
       )}
 
-      {/* Keyed by the reveal sequence so each new no-portal click replays the branch-out */}
-      {mapgl && ghostRevealSeq > 0 && selectedNode && !selectedNode.isPortal && (
-        <GhostCallout key={ghostRevealSeq} map={mapgl.getMap()} coordinates={selectedNode.coordinates} />
+      {/* Keyed per agency and reveal so each new selection replays the branch-out */}
+      {mapgl && selectedNode && calloutKind && (
+        <GhostCallout
+          key={`${calloutKind}-${selectedNode.id}-${ghostRevealSeq}`}
+          map={mapgl.getMap()}
+          coordinates={selectedNode.coordinates}
+          {...CALLOUT_COPY[calloutKind]}
+        />
       )}
     </>
   );
