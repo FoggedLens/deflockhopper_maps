@@ -56,8 +56,10 @@ const inject = {
       float phase = fract(localT / period - arcFlow.time * arcFlow.speed);
       float distFromDot = min(phase, 1.0 - phase);
       float dot = 1.0 - smoothstep(0.0, arcFlow.width, distFromDot);
-      color.rgb = mix(color.rgb, vec3(1.0), dot * 0.7);
-      color.a = clamp(color.a + dot * 0.4, 0.0, 1.0);
+      // Lighter shade of the arc's own hue, not white: with thousands of arcs
+      // on screen, white dots read as sparkle noise.
+      color.rgb = min(color.rgb * (1.0 + dot * 0.6), vec3(1.0));
+      color.a = clamp(color.a + dot * 0.25, 0.0, 1.0);
     }
   `,
 };
@@ -69,7 +71,7 @@ const arcFlowShaderModule = {
   inject,
   getUniforms: (opts?: ArcFlowModuleProps | Record<string, never>): ArcFlowModuleUniforms => {
     if (!opts || !('flowTime' in opts)) return {};
-    const { flowTime = 0, flowSpeed = 0.5, flowWidth = 0.15, flowDashCount = 5 } = opts as ArcFlowModuleProps;
+    const { flowTime = 0, flowSpeed = 0.15, flowWidth = 0.08, flowDashCount = 3 } = opts as ArcFlowModuleProps;
     return { time: flowTime, speed: flowSpeed, width: flowWidth, dashCount: flowDashCount };
   },
   uniformTypes: {
@@ -84,12 +86,12 @@ const defaultProps = {
   getFlowSign: { type: 'accessor', value: 0 },
   flowTime: { type: 'number', value: 0 },
   // speed is in dash-periods/sec; actual travel speed along the arc is
-  // speed / dashCount (arc-lengths/sec) — ~0.1 here, roughly 10s edge-to-edge.
-  flowSpeed: { type: 'number', value: 0.5 },
-  // dot half-width as a fraction of the spacing between dots — small relative
+  // speed / dashCount (arc-lengths/sec), 0.05 here, roughly 20s edge-to-edge.
+  flowSpeed: { type: 'number', value: 0.15 },
+  // dot half-width as a fraction of the spacing between dots. Small relative
   // to the gap so dots read as separate, not a solid moving band.
-  flowWidth: { type: 'number', value: 0.15 },
-  flowDashCount: { type: 'number', value: 5 },
+  flowWidth: { type: 'number', value: 0.08 },
+  flowDashCount: { type: 'number', value: 3 },
 };
 
 export type ArcFlowExtensionProps<DataT = unknown> = {
