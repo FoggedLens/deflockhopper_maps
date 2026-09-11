@@ -7,9 +7,13 @@ import type { NetworkNode, Direction, DirectionalArc } from '../../../store/netw
 import { useMapStore } from '../../../store/mapStore';
 import { ArcFlowExtension } from './arcFlowExtension';
 import type { ArcFlowExtensionProps } from './arcFlowExtension';
+import { GhostCallout } from './GhostCallout';
 
 // Single shared instance — the extension carries no per-layer state of its own.
 const arcFlowExtension = new ArcFlowExtension();
+
+// Lets the callout's orange branches mostly draw before the real inferred arcs appear.
+const INFERRED_REVEAL_DELAY_MS = 700;
 
 function getFlowSign(d: DirectionalArc): number {
   if (d.direction === 'outgoing') return 1;
@@ -69,6 +73,7 @@ export function NetworkLayers() {
   const hoverArcsEnabled = useNetworkStore(s => s.hoverArcsEnabled);
   const inferredConnectionsEnabled = useNetworkStore(s => s.inferredConnectionsEnabled);
   const ghostRevealSeq = useNetworkStore(s => s.ghostRevealSeq);
+  const selectedNode = useNetworkStore(s => s.selectedNode);
   const activeTab = useNetworkStore(s => s.activeTab);
   const setSelectedNodeId = useNetworkStore(s => s.setSelectedNodeId);
   const setHoveredNode = useNetworkStore(s => s.setHoveredNode);
@@ -117,70 +122,17 @@ export function NetworkLayers() {
     if (selectedNodeId) setHoveredArcs([]);
   }, [selectedNodeId]);
 
-  // Ghost reveal animation for non-portal nodes — arcs fan out to random
-  // agencies across the country, then fade, showing "connections unknown."
-  const [ghostProgress, setGhostProgress] = useState(-1);
-  const [ghostArcs, setGhostArcs] = useState<Array<{ source: [number, number]; target: [number, number] }>>([]);
-  const [showGhostToast, setShowGhostToast] = useState(false);
-
+  // Non-portal click: the orange callout (GhostCallout, rendered below) branches
+  // out from the agency and stays, then its inferred connections switch on.
   useEffect(() => {
-    if (ghostRevealSeq === 0) {
-      setGhostProgress(-1);
-      setGhostArcs([]);
-      setShowGhostToast(false);
-      return;
-    }
-
-    const source = useNetworkStore.getState().selectedNode;
-    if (!source) return;
-
-    const pool = nodesArray.filter(n => n.id !== source.id);
-    const count = Math.min(40, pool.length);
-    const picked: typeof ghostArcs = [];
-    const used = new Set<number>();
-    while (picked.length < count && used.size < pool.length) {
-      const idx = Math.floor(Math.random() * pool.length);
-      if (used.has(idx)) continue;
-      used.add(idx);
-      picked.push({ source: source.coordinates, target: pool[idx].coordinates });
-    }
-    setGhostArcs(picked);
-    setShowGhostToast(false);
-
-    const DURATION = 900;
-    const startTime = performance.now();
-    let raf: number;
-
-    const tick = (now: number) => {
-      const p = Math.min((now - startTime) / DURATION, 1);
-      setGhostProgress(p);
-      if (p < 1) {
-        raf = requestAnimationFrame(tick);
-      } else {
-        setGhostProgress(-1);
-        setGhostArcs([]);
-        setShowGhostToast(true);
-        if (!useNetworkStore.getState().inferredConnectionsEnabled) {
-          useNetworkStore.getState().toggleInferredConnections();
-        }
+    if (ghostRevealSeq === 0) return;
+    const t = setTimeout(() => {
+      if (!useNetworkStore.getState().inferredConnectionsEnabled) {
+        useNetworkStore.getState().toggleInferredConnections();
       }
-    };
-
-    setGhostProgress(0);
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [ghostRevealSeq, nodesArray]);
-
-  // Auto-dismiss ghost toast after 3 seconds or when selection changes
-  useEffect(() => {
-    if (!showGhostToast) return;
-    const t = setTimeout(() => setShowGhostToast(false), 3000);
+    }, INFERRED_REVEAL_DELAY_MS);
     return () => clearTimeout(t);
-  }, [showGhostToast]);
-
-  useEffect(() => {
-    if (!selectedNodeId) setShowGhostToast(false);
-  }, [selectedNodeId]);
+  }, [ghostRevealSeq]);
 
   // Filter arcs by the active direction tab
   const visibleSelectedArcs = useMemo(
@@ -224,26 +176,6 @@ export function NetworkLayers() {
   // Build layers
   const layers = useMemo(() => {
     const result = [];
-    const isGhosting = ghostProgress >= 0 && ghostProgress < 1;
-
-    // Ghost reveal phase calculations
-    let ghostAlpha = 0;
-    let ghostHeight = 0;
-
-    if (isGhosting) {
-      const p = ghostProgress;
-      if (p <= 0.35) {
-        ghostAlpha = (p / 0.35) * 90;
-        ghostHeight = p / 0.35;
-      } else if (p <= 0.55) {
-        ghostAlpha = 90;
-        ghostHeight = 1;
-      } else {
-        const fadeP = Math.min((p - 0.55) / 0.45, 1);
-        ghostAlpha = 90 * (1 - fadeP);
-        ghostHeight = 1;
-      }
-    }
 
     // ScatterplotLayer - always visible
     result.push(
@@ -293,26 +225,6 @@ export function NetworkLayers() {
         },
       })
     );
-
-    // Ghost ArcLayer - white arcs to random agencies, unfurl and fade
-    if (isGhosting && ghostArcs.length > 0) {
-      const ga = Math.round(ghostAlpha);
-      result.push(
-        new ArcLayer<{ source: [number, number]; target: [number, number] }>({
-          id: 'network-ghost-arcs',
-          data: ghostArcs,
-          getSourcePosition: (d) => d.source,
-          getTargetPosition: (d) => d.target,
-          getSourceColor: [255, 255, 255, ga],
-          getTargetColor: [255, 255, 255, ga],
-          getWidth: arcWidth * 2,
-          getHeight: ghostHeight,
-          greatCircle: true,
-          widthMinPixels: 1,
-          widthMaxPixels: Math.max(1, Math.ceil(arcWidth * 2)),
-        })
-      );
-    }
 
     // ArcLayer - selected node (full opacity, with dimming on scatterplot)
     if (visibleSelectedArcs.length > 0) {
@@ -371,7 +283,7 @@ export function NetworkLayers() {
     }
 
     return result;
-  }, [filteredNodes, selectedArcs, selectedNodeId, arcWidth, visibleSelectedArcs, visibleHoveredArcs, handleNodeClick, handleNodeHover, adjacency, adjacencyReady, ghostProgress, ghostArcs, flowTime]);
+  }, [filteredNodes, selectedArcs, selectedNodeId, arcWidth, visibleSelectedArcs, visibleHoveredArcs, handleNodeClick, handleNodeHover, adjacency, adjacencyReady, flowTime]);
   // Note: selectedArcs kept in deps because ScatterplotLayer dimming uses it unfiltered (direction filter should not change which nodes dim).
   // adjacency/adjacencyReady kept in deps so the portal-ring ScatterplotLayer is rebuilt (not just
   // attribute-diffed) when adjacency finishes streaming in — see updateTriggers.getLineColor above.
@@ -476,29 +388,6 @@ export function NetworkLayers() {
     };
   }, [hoverInfo, mapgl]);
 
-  // Project selected node to screen for ghost toast positioning
-  const [ghostToastPos, setGhostToastPos] = useState<{ left: number; top: number } | null>(null);
-
-  useEffect(() => {
-    if (!showGhostToast || !mapgl) {
-      setGhostToastPos(null);
-      return;
-    }
-    const node = useNetworkStore.getState().selectedNode;
-    if (!node) return;
-
-    const map = mapgl.getMap();
-    const update = () => {
-      const container = map.getContainer();
-      const rect = container.getBoundingClientRect();
-      const pt = map.project(node.coordinates as [number, number]);
-      setGhostToastPos({ left: rect.left + pt.x, top: rect.top + pt.y });
-    };
-    update();
-    map.on('move', update);
-    return () => { map.off('move', update); };
-  }, [showGhostToast, mapgl]);
-
   return (
     <>
       {/* Hover tooltip */}
@@ -517,16 +406,9 @@ export function NetworkLayers() {
         </div>
       )}
 
-      {/* Ghost reveal toast — anchored above the clicked node */}
-      {showGhostToast && ghostToastPos && (
-        <div
-          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full"
-          style={{ left: ghostToastPos.left, top: ghostToastPos.top - 16 }}
-        >
-          <div className="rounded-md border border-dark-500/60 bg-dark-800/90 px-3 py-1.5 text-center whitespace-nowrap shadow-md backdrop-blur-sm">
-            <p className="text-xs font-medium text-dark-300">No transparency portal. Showing inferred connections.</p>
-          </div>
-        </div>
+      {/* Keyed by the reveal sequence so each new no-portal click replays the branch-out */}
+      {mapgl && ghostRevealSeq > 0 && selectedNode && !selectedNode.isPortal && (
+        <GhostCallout key={ghostRevealSeq} map={mapgl.getMap()} coordinates={selectedNode.coordinates} />
       )}
     </>
   );
