@@ -114,8 +114,10 @@ interface NetworkState {
   searchQuery: string;
   typeFilter: Set<string>; // empty = show all
   portalOnly: boolean;
-  /** When false, non-portal selections get no arcs (their data is inferred). */
+  /** When false, non-portal hover arcs are suppressed and click triggers ghost reveal. */
   inferredConnectionsEnabled: boolean;
+  /** Incremented each time a ghost reveal animation should play (non-portal click). */
+  ghostRevealSeq: number;
   error: string | null;
 
   loadNetworkData: () => Promise<void>;
@@ -224,6 +226,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   typeFilter: new Set(),
   portalOnly: false,
   inferredConnectionsEnabled: false,
+  ghostRevealSeq: 0,
   error: null,
 
   loadNetworkData: async () => {
@@ -315,20 +318,23 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   },
 
   setSelectedNodeId: (id) => {
-    const { nodesMap } = get();
     if (!id) {
-      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all' });
+      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all', ghostRevealSeq: 0 });
       return;
     }
+    const { nodesMap } = get();
     const sourceNode = nodesMap.get(id);
     if (!sourceNode) return;
 
-    const arcs = gatedArcs(sourceNode, get());
+    const needsGhostReveal = !sourceNode.isPortal;
+    const arcs = needsGhostReveal ? [] : gatedArcs(sourceNode, get());
 
     set({
       selectedNodeId: id,
       selectedNode: sourceNode,
       selectedArcs: arcs,
+      ghostRevealSeq: needsGhostReveal ? get().ghostRevealSeq + 1 : 0,
+      inferredConnectionsEnabled: needsGhostReveal ? false : get().inferredConnectionsEnabled,
       activeTab: 'all',
     });
   },
@@ -364,5 +370,5 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     }
   },
 
-  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all' }),
+  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all', ghostRevealSeq: 0 }),
 }));

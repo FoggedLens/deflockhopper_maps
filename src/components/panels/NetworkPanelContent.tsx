@@ -568,29 +568,6 @@ export function NetworkPanelContent() {
               </button>
             </div>
 
-            {/* Inferred connections toggle */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <span className="text-xs text-dark-400 uppercase tracking-wider font-medium">Inferred Connections</span>
-                <p className="text-[11px] text-dark-500 mt-0.5">Explore agencies that only appear in other agencies' portals</p>
-              </div>
-              <button
-                onClick={toggleInferredConnections}
-                role="switch"
-                aria-checked={inferredConnectionsEnabled}
-                aria-label="Inferred connections"
-                className={`relative flex-shrink-0 w-10 h-[22px] rounded-full transition-colors ${
-                  inferredConnectionsEnabled ? 'bg-accent' : 'bg-dark-700'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-[18px] h-[18px] rounded-full bg-white transition-transform ${
-                    inferredConnectionsEnabled ? 'translate-x-[18px]' : ''
-                  }`}
-                />
-              </button>
-            </div>
-
             {/* Hover arcs toggle */}
             <div className="flex items-center justify-between">
               <span className="text-xs text-dark-400 uppercase tracking-wider font-medium">Hover Preview</span>

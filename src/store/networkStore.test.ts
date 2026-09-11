@@ -303,9 +303,13 @@ describe('inferred-connection gating', () => {
   });
 
   it('toggling the flag off clears arcs for the selected non-portal node', () => {
-    useNetworkStore.setState({ inferredConnectionsEnabled: true });
     useNetworkStore.getState().setSelectedNodeId('plainB');
+    // Non-portal click resets inferredConnectionsEnabled and starts with no arcs
+    expect(useNetworkStore.getState().selectedArcs).toHaveLength(0);
+    // Toggle on to populate inferred arcs
+    useNetworkStore.getState().toggleInferredConnections();
     expect(useNetworkStore.getState().selectedArcs).toHaveLength(1);
+    // Toggle off clears them
     useNetworkStore.getState().toggleInferredConnections();
     expect(useNetworkStore.getState().selectedArcs).toHaveLength(0);
   });
