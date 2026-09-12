@@ -409,10 +409,8 @@ input[type="range"]::-moz-range-thumb {
   left: 16px;
 }
 
-/* Theme (light/dark) pill — right column, above geolocate + zoom.
-   24px (ctrl offset) + 76px (zoom group) + 10px margin + 40px (geolocate) + 12px gap */
 .map-page .map-theme-control {
-  bottom: 162px;
+  bottom: 198px;
   right: 26px; /* 16px (ctrl container offset) + 10px (maplibregl-ctrl margin) */
 }
 
@@ -446,7 +444,8 @@ input[type="range"]::-moz-range-thumb {
   }
 
   /* Hide zoom +/- on touch layouts — pinch-to-zoom covers it */
-  .map-page .maplibregl-ctrl-group:has(.maplibregl-ctrl-zoom-in) {
+  .map-page .maplibregl-ctrl-zoom-in,
+  .map-page .maplibregl-ctrl-zoom-out {
     display: none;
   }
 
@@ -482,10 +481,8 @@ input[type="range"]::-moz-range-thumb {
     height: 38px;
   }
 
-  /* Theme pill floats above geolocate with a small gap.
-     Offset tracks --drawer-height: 12px gap + 40px geolocate + 8px gap. */
   .map-page .map-theme-control {
-    bottom: calc(var(--drawer-height, 80px) + 72px);
+    bottom: calc(var(--drawer-height, 80px) + 120px);
     right: 22px; /* 12px (ctrl container offset) + 10px (maplibregl-ctrl margin) */
   }
 
