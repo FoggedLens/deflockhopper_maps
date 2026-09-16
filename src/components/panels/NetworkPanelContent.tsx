@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNetworkStore } from '../../store/networkStore';
 import { useMapStore } from '../../store';
 import { Search, X, ChevronDown, ChevronUp, Camera, ScanSearch, Car, AlertTriangle, Link2, Users, ArrowUpRight, ArrowDownLeft, ExternalLink } from 'lucide-react';
-import { TYPE_LABELS, type NetworkNode, type Direction } from '../../store/networkStore';
+import { TYPE_LABELS, countNetworkHeadline, type NetworkNode, type Direction } from '../../store/networkStore';
 import { Skeleton } from '../common';
 import { useDelayedFlag } from '../../hooks/useDelayedFlag';
 import { formatAsOfDate } from '../../utils/formatting';
@@ -101,7 +101,7 @@ export function NetworkPanelContent() {
     activeTab, setActiveTab,
     clearSelection, arcWidth, setArcWidth, hoverArcsEnabled, setHoverArcsEnabled,
     portalOnly, togglePortalOnly, typeFilter, toggleTypeFilter, clearTypeFilter, error,
-    adjacencyReady, inferredConnectionsEnabled, toggleInferredConnections,
+    adjacency, adjacencyReady, inferredConnectionsEnabled, toggleInferredConnections,
   } = useNetworkStore();
 
   // Non-portal agency selected while inferred connections are off: no arcs,
@@ -156,6 +156,11 @@ export function NetworkPanelContent() {
 
   const isLoading = loadPhase === 'idle' || loadPhase === 'fetching';
   const showSkeleton = useDelayedFlag(isLoading);
+  const headline = useMemo(
+    () => countNetworkHeadline(nodesArray, adjacency, adjacencyReady),
+    [nodesArray, adjacency, adjacencyReady],
+  );
+  const showDisclosingPending = useDelayedFlag(headline.disclosing === null);
   const byDirection = useMemo(() => {
     const buckets: Record<Direction, NetworkNode[]> = { mutual: [], outgoing: [], incoming: [] };
     for (const arc of selectedArcs) buckets[arc.direction].push(arc.target);
@@ -472,14 +477,21 @@ export function NetworkPanelContent() {
           ) : (
             <div>
               <p className="text-sm text-dark-300 leading-relaxed mb-3">
-                Law enforcement agencies that run Flock Safety license plate readers can share their ALPR data with each other. This map shows that network: {nodesArray.length.toLocaleString()}+ agencies and the sharing relationships between them. Click an agency to see who they share data with.
+                Law enforcement agencies that run Flock Safety license plate readers can share their ALPR data with each other. This map shows that network: {headline.agencies.toLocaleString()} agencies and the sharing relationships between them. Click an agency to see who they share data with.
               </p>
               <div role="alert" className="mb-3 flex gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/40">
                 <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" aria-hidden />
                 <div className="text-xs text-amber-100/90 leading-relaxed">
                   <p className="font-semibold text-amber-300 mb-1">Most of the network is hidden.</p>
                   <p>
-                    Of <span className="font-semibold text-amber-200">6,400+ agencies</span> using Flock, only about <span className="font-semibold text-amber-200">900</span> run a public transparency portal. Just <span className="font-semibold text-amber-200">~530</span> of those actually disclose who they share data with. The rest redact their sharing list or don&rsquo;t publish one at all.
+                    Of <span className="font-semibold text-amber-200">{headline.agencies.toLocaleString()} agencies</span> using Flock, only <span className="font-semibold text-amber-200">{headline.portals.toLocaleString()}</span> run a public transparency portal. Just{' '}
+                    {headline.disclosing === null ? (
+                      // Disclosure is read from the sharing file, which lands after the agency dots
+                      <span aria-hidden className={`inline-block h-3 w-8 rounded align-middle ${showDisclosingPending ? 'animate-pulse bg-amber-200/20' : ''}`} />
+                    ) : (
+                      <span className="font-semibold text-amber-200">{headline.disclosing.toLocaleString()}</span>
+                    )}{' '}
+                    of those disclose who they share data with. The rest redact their sharing list or don&rsquo;t publish one at all.
                   </p>
                 </div>
               </div>

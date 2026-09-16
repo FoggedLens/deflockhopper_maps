@@ -86,6 +86,8 @@ export function NetworkLayers() {
   const hoverArcsEnabled = useNetworkStore(s => s.hoverArcsEnabled);
   const inferredConnectionsEnabled = useNetworkStore(s => s.inferredConnectionsEnabled);
   const ghostRevealSeq = useNetworkStore(s => s.ghostRevealSeq);
+  const calloutDismissed = useNetworkStore(s => s.calloutDismissed);
+  const dismissCallout = useNetworkStore(s => s.dismissCallout);
   const selectedNode = useNetworkStore(s => s.selectedNode);
   const activeTab = useNetworkStore(s => s.activeTab);
   const setSelectedNodeId = useNetworkStore(s => s.setSelectedNodeId);
@@ -425,11 +427,12 @@ export function NetworkLayers() {
       )}
 
       {/* Keyed per agency and reveal so each new selection replays the branch-out */}
-      {mapgl && selectedNode && calloutKind && (
+      {mapgl && selectedNode && calloutKind && !calloutDismissed && (
         <GhostCallout
           key={`${calloutKind}-${selectedNode.id}-${ghostRevealSeq}`}
           map={mapgl.getMap()}
           coordinates={selectedNode.coordinates}
+          onDismiss={dismissCallout}
           {...CALLOUT_COPY[calloutKind]}
         />
       )}
