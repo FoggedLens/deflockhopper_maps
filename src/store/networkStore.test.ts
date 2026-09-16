@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useNetworkStore, type NetworkNode } from './networkStore';
+import { useNetworkStore, countNetworkHeadline, type NetworkNode } from './networkStore';
 
 const CDN = 'https://deflockdata.dontgetflocked.com';
 const NODES_PATH = '/sharing-network-nodes.geojson';
@@ -90,6 +90,7 @@ beforeEach(() => {
     adjacencyProgress: null,
     meta: null,
     error: null,
+    calloutDismissed: false,
   });
 });
 
@@ -318,5 +319,74 @@ describe('inferred-connection gating', () => {
     useNetworkStore.getState().setSelectedNodeId('portalA');
     useNetworkStore.getState().toggleInferredConnections();
     expect(useNetworkStore.getState().selectedArcs).toHaveLength(1);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Headline counts (sidebar "Most of the network is hidden")          */
+/* ------------------------------------------------------------------ */
+
+describe('countNetworkHeadline', () => {
+  const disclosing = makeNode('disclosing', true);
+  const redacted = makeNode('redacted', true);
+  const plain = makeNode('plain', false);
+  const nodes = [disclosing, redacted, plain];
+
+  it('counts every agency and every portal from the loaded nodes', () => {
+    const counts = countNetworkHeadline(nodes, {}, false);
+    expect(counts.agencies).toBe(3);
+    expect(counts.portals).toBe(2);
+  });
+
+  it('counts disclosing portals the same way the green ring does', () => {
+    const adjacency = { disclosing: ['plain'], redacted: [], plain: ['disclosing'] };
+    expect(countNetworkHeadline(nodes, adjacency, true).disclosing).toBe(1);
+  });
+
+  it('leaves the disclosing count unknown while adjacency is still loading', () => {
+    expect(countNetworkHeadline(nodes, {}, false).disclosing).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Map callout dismissal                                              */
+/* ------------------------------------------------------------------ */
+
+describe('callout dismissal', () => {
+  const portalA = makeNode('portalA', true);
+  const plainB = makeNode('plainB', false);
+
+  beforeEach(() => {
+    useNetworkStore.setState({
+      nodesMap: new Map([
+        ['portalA', portalA],
+        ['plainB', plainB],
+      ]),
+      nodesArray: [portalA, plainB],
+      adjacency: {},
+      reverseAdjacency: {},
+      adjacencyReady: true,
+    });
+  });
+
+  it('hides the callout without clearing the selection', () => {
+    useNetworkStore.getState().setSelectedNodeId('plainB');
+    useNetworkStore.getState().dismissCallout();
+    expect(useNetworkStore.getState().calloutDismissed).toBe(true);
+    expect(useNetworkStore.getState().selectedNodeId).toBe('plainB');
+  });
+
+  it('shows the callout again when an agency is selected, including the same one', () => {
+    useNetworkStore.getState().setSelectedNodeId('portalA');
+    useNetworkStore.getState().dismissCallout();
+    useNetworkStore.getState().setSelectedNodeId('portalA');
+    expect(useNetworkStore.getState().calloutDismissed).toBe(false);
+  });
+
+  it('resets when the selection is cleared', () => {
+    useNetworkStore.getState().setSelectedNodeId('plainB');
+    useNetworkStore.getState().dismissCallout();
+    useNetworkStore.getState().clearSelection();
+    expect(useNetworkStore.getState().calloutDismissed).toBe(false);
   });
 });

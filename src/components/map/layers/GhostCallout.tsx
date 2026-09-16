@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Map as MaplibreMap } from 'maplibre-gl';
+import { X } from 'lucide-react';
 
 const BRANCH_COUNT = 9;
 const CARD_WIDTH = 224;
@@ -35,6 +36,7 @@ interface GhostCalloutProps {
   coordinates: [number, number];
   title: string;
   message: string;
+  onDismiss: () => void;
 }
 
 /**
@@ -44,7 +46,7 @@ interface GhostCalloutProps {
  * the agency by writing a transform on map move (no React render in the
  * gesture path).
  */
-export function GhostCallout({ map, coordinates, title, message }: GhostCalloutProps) {
+export function GhostCallout({ map, coordinates, title, message, onDismiss }: GhostCalloutProps) {
   const groupRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<Placement>(() => pickPlacement(map.project(coordinates).y));
 
@@ -90,7 +92,15 @@ export function GhostCallout({ map, coordinates, title, message }: GhostCalloutP
         className="ghost-callout-card absolute rounded-md border border-orange-500/40 bg-dark-800/95 px-3 py-2 text-center shadow-lg backdrop-blur-sm"
         style={{ width: CARD_WIDTH, left: -CARD_WIDTH / 2, ...(dir < 0 ? { bottom: GAP } : { top: GAP }) }}
       >
-        <p className="text-xs font-semibold text-orange-300">{title}</p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Close"
+          className="pointer-events-auto absolute right-0.5 top-0.5 flex h-7 w-7 items-center justify-center rounded text-dark-400 transition-colors hover:bg-dark-700 hover:text-white"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+        <p className="px-5 text-xs font-semibold text-orange-300">{title}</p>
         <p className="mt-0.5 text-xs leading-snug text-dark-300">{message}</p>
       </div>
     </div>,

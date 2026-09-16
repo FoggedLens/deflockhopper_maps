@@ -77,6 +77,29 @@ export function classifyArcs(
   return arcs;
 }
 
+export interface NetworkHeadline {
+  agencies: number;
+  portals: number;
+  /** Portals that publish who they share with (green ring). Null until adjacency lands. */
+  disclosing: number | null;
+}
+
+/** Headline counts for the loaded snapshot, measured the same way the map draws it. */
+export function countNetworkHeadline(
+  nodes: NetworkNode[],
+  adjacency: Record<string, string[]>,
+  adjacencyReady: boolean,
+): NetworkHeadline {
+  let portals = 0;
+  let disclosing = 0;
+  for (const node of nodes) {
+    if (!node.isPortal) continue;
+    portals++;
+    if ((adjacency[node.id]?.length ?? 0) > 0) disclosing++;
+  }
+  return { agencies: nodes.length, portals, disclosing: adjacencyReady ? disclosing : null };
+}
+
 /** Arcs for a selection, honoring the inferred-connections gate: non-portal
  *  agencies have no disclosures of their own, so their arcs (mentions in
  *  other agencies' portals) stay hidden until the user opts in. */
@@ -118,6 +141,8 @@ interface NetworkState {
   inferredConnectionsEnabled: boolean;
   /** Incremented each time a ghost reveal animation should play (non-portal click). */
   ghostRevealSeq: number;
+  /** User closed the map callout for the current selection; any new selection shows it again. */
+  calloutDismissed: boolean;
   error: string | null;
 
   loadNetworkData: () => Promise<void>;
@@ -131,6 +156,7 @@ interface NetworkState {
   clearTypeFilter: () => void;
   togglePortalOnly: () => void;
   toggleInferredConnections: () => void;
+  dismissCallout: () => void;
   clearSelection: () => void;
 }
 
@@ -227,6 +253,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   portalOnly: false,
   inferredConnectionsEnabled: false,
   ghostRevealSeq: 0,
+  calloutDismissed: false,
   error: null,
 
   loadNetworkData: async () => {
@@ -319,7 +346,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   setSelectedNodeId: (id) => {
     if (!id) {
-      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all', ghostRevealSeq: 0 });
+      set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all', ghostRevealSeq: 0, calloutDismissed: false });
       return;
     }
     const { nodesMap } = get();
@@ -336,6 +363,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       ghostRevealSeq: needsGhostReveal ? get().ghostRevealSeq + 1 : 0,
       inferredConnectionsEnabled: needsGhostReveal ? false : get().inferredConnectionsEnabled,
       activeTab: 'all',
+      calloutDismissed: false,
     });
   },
 
@@ -370,5 +398,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     }
   },
 
-  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all', ghostRevealSeq: 0 }),
+  dismissCallout: () => set({ calloutDismissed: true }),
+
+  clearSelection: () => set({ selectedNodeId: null, selectedNode: null, selectedArcs: [], activeTab: 'all', ghostRevealSeq: 0, calloutDismissed: false }),
 }));
