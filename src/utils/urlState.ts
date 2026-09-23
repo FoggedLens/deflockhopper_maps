@@ -24,25 +24,24 @@ export const MODE_PATHS: Record<AppMode, string> = {
   map: '/',
   route: '/route',
   explore: '/timeline',
-  density: '/analysis',
   network: '/network',
 };
 
 // Canonical paths plus legacy aliases, accepted as input only.
+// '/analysis' was the retired Analysis tab; old links land on the map.
 const PATH_MODES: Record<string, AppMode | undefined> = {
   '/': 'map',
   '/map': 'map',
   '/route': 'route',
   '/timeline': 'explore',
   '/explore': 'explore',
-  '/analysis': 'density',
+  '/analysis': 'map',
   '/network': 'network',
 };
 
 const LEGACY_MODE_PARAM: Record<string, AppMode | undefined> = {
   route: 'route',
   explore: 'explore',
-  density: 'density',
   network: 'network',
 };
 

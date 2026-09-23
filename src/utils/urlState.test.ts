@@ -12,7 +12,7 @@ describe('parseAppUrl — mode from path', () => {
     ['/route', 'route'],
     ['/timeline', 'explore'],
     ['/explore', 'explore'],
-    ['/analysis', 'density'],
+    ['/analysis', 'map'],
     ['/network', 'network'],
   ])('%s parses as %s', (path, mode) => {
     expect(parseAppUrl(path, '').mode).toBe(mode);
@@ -25,10 +25,16 @@ describe('parseAppUrl — mode from path', () => {
 
   it('legacy ?mode= applies on map paths', () => {
     expect(parseAppUrl('/', '?mode=route').mode).toBe('route');
-    expect(parseAppUrl('/map', '?mode=density').mode).toBe('density');
+    expect(parseAppUrl('/map', '?mode=density').mode).toBe('map');
     expect(parseAppUrl('/', '?mode=network').mode).toBe('network');
     expect(parseAppUrl('/', '?mode=explore').mode).toBe('explore');
     expect(parseAppUrl('/', '?mode=bogus').mode).toBe('map');
+  });
+
+  it('keeps the viewport of an old /analysis link while landing on map', () => {
+    const parsed = parseAppUrl('/analysis', '?lat=29.76&lng=-95.36&zoom=12');
+    expect(parsed.mode).toBe('map');
+    expect(parsed.viewport).toEqual({ lat: 29.76, lng: -95.36, zoom: 12 });
   });
 });
 
@@ -131,7 +137,6 @@ describe('buildAppUrl', () => {
     for (const [mode, path] of [
       ['route', '/route'],
       ['explore', '/timeline'],
-      ['density', '/analysis'],
       ['network', '/network'],
     ] as const) {
       useAppModeStore.setState({ appMode: mode });
@@ -164,7 +169,7 @@ describe('buildAppUrl', () => {
 
   it('round-trips through parseAppUrl for every mode', () => {
     useCameraStore.setState({ country: 'ca', filters: filters({ state: 'TX', showAll: false }) });
-    for (const mode of ['map', 'route', 'explore', 'density', 'network'] as const) {
+    for (const mode of ['map', 'route', 'explore', 'network'] as const) {
       useAppModeStore.setState({ appMode: mode });
       const { pathname, search } = buildAppUrl();
       const parsed = parseAppUrl(pathname, search);

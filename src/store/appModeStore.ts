@@ -1,23 +1,8 @@
 import { create } from 'zustand';
 import { TIMELINE_START } from '../modes/timeline/timelineUtils';
 
-export type AppMode = 'map' | 'route' | 'explore' | 'density' | 'network';
+export type AppMode = 'map' | 'route' | 'explore' | 'network';
 export type ExploreFeature = 'heatmap'; // extend: | 'density-3d' | 'timeline' | 'score' | 'demographics'
-
-export type DensityLevel = 'state' | 'county';
-export type DensityMetric = 'perCapita' | 'perRoadMile';
-export type DensityViewMode = '2d' | '3d';
-export type DensityColorScheme = 'warm' | 'inferno' | 'viridis' | 'magma';
-export type DensityHeightScale = 'sqrt' | 'log' | 'linear';
-
-export interface DensitySettings {
-  level: DensityLevel;
-  metric: DensityMetric;
-  viewMode: DensityViewMode;
-  opacity: number;
-  colorScheme: DensityColorScheme;
-  heightScale: DensityHeightScale;
-}
 
 export type ColorSchemeId = 'neon' | 'thermal' | 'inferno' | 'classic' | 'plasma' | 'viridis';
 export type MapVisualizationType = 'heatmap' | 'dots';
@@ -52,15 +37,6 @@ export interface TimelineSettings {
   isPlaying: boolean;     // Auto-advance animation state
   playSpeed: number;      // Days per second (7, 14, 28, 45)
 }
-
-const DEFAULT_DENSITY_SETTINGS: DensitySettings = {
-  level: 'county',
-  metric: 'perRoadMile',
-  viewMode: '2d',
-  opacity: 0.85,
-  colorScheme: 'warm',
-  heightScale: 'sqrt',
-};
 
 const DEFAULT_HEATMAP_SETTINGS: HeatmapSettings = {
   intensity: 1.0,
@@ -99,9 +75,6 @@ interface AppModeState {
 
   timelineSettings: TimelineSettings;
   updateTimelineSettings: (settings: Partial<TimelineSettings>) => void;
-
-  densitySettings: DensitySettings;
-  updateDensitySettings: (settings: Partial<DensitySettings>) => void;
 
   mapTileStyle: MapTileStyleId;
   setMapTileStyle: (style: MapTileStyleId) => void;
@@ -144,12 +117,6 @@ export const useAppModeStore = create<AppModeState>((set) => ({
   updateTimelineSettings: (settings) =>
     set((state) => ({
       timelineSettings: { ...state.timelineSettings, ...settings },
-    })),
-
-  densitySettings: DEFAULT_DENSITY_SETTINGS,
-  updateDensitySettings: (settings) =>
-    set((state) => ({
-      densitySettings: { ...state.densitySettings, ...settings },
     })),
 
   mapTileStyle: loadStoredTheme(),

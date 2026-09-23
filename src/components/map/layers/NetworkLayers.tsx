@@ -362,7 +362,7 @@ export function NetworkLayers() {
 
   // Fly to US overview with 3D pitch on mount.
   // Deferred by one frame so the deck.gl overlay is fully initialised and
-  // any prior pitch animation (e.g. from DensityLayers cleanup) has settled.
+  // any prior pitch animation has settled.
   // Skip the flyTo if URL had viewport params (share link) — just set the pitch.
   useEffect(() => {
     if (!mapgl) return;

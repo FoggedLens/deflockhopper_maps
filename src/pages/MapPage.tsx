@@ -3,14 +3,11 @@ import { MapLibreView, MapSearch, FloatingRouteCard, CameraStats, MapLoadingScre
 import { HeaderCameraCount } from '@/components/map/HeaderCameraCount';
 import { RoutePanel } from '@/components/panels';
 import { ExplorePanel } from '@/components/panels/ExplorePanel';
-import { DensityPanel } from '@/components/panels/DensityPanel';
 import { NetworkPanel } from '@/components/panels/NetworkPanel';
 import { MapPanel } from '@/components/panels/MapPanel';
 import { MobileTabDrawer } from '@/components/panels/MobileTabDrawer';
-import { DensityLegendBar } from '@/components/map/DensityLegendBar';
 import { NetworkAgencyCount } from '@/components/map/NetworkAgencyCount';
 import { NetworkLoadingPill } from '@/components/map/NetworkLoadingPill';
-import { DensityLoadingPill } from '@/components/map/DensityLoadingPill';
 import { Seo, LegacyMapLink, ShareButton, LoadingPill } from '@/components/common';
 import { stateSlug, getStateName } from '@/services/stateFilterService';
 import { isModeAvailable } from '@/services/cameraDataService';
@@ -29,8 +26,7 @@ import { BoundaryFeaturePopup } from '@/components/map/BoundaryFeaturePopup';
 import { MapThemeControl } from '@/components/map/MapThemeControl';
 import { CameraTileStatusPill } from '@/components/map/CameraTileStatusPill';
 import { TimelineBar } from '@/modes/timeline/TimelineBar';
-import { DensityFeaturePopup } from '@/modes/density/DensityFeaturePopup';
-import { Route, Compass, BarChart3, Network, Map as MapIcon } from 'lucide-react';
+import { Route, Compass, Network, Map as MapIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { AppMode } from '@/store';
 
@@ -41,7 +37,6 @@ const MODE_LABELS: Record<AppMode, { icon: typeof Route; label: string }> = {
   map: { icon: MapIcon, label: 'Map' },
   route: { icon: Route, label: 'Route' },
   explore: { icon: Compass, label: 'Timeline' },
-  density: { icon: BarChart3, label: 'Analysis' },
   network: { icon: Network, label: 'Network' },
 };
 
@@ -78,7 +73,7 @@ export function MapPage() {
     }
   }, [enterTimeline, setAppMode]);
 
-  // US-only modes (Route/Analysis/Network): bounce back to Map when Canada
+  // US-only modes (Route/Network): bounce back to Map when Canada
   // is active — covers the country switcher, deep links, and URL edits
   useEffect(() => {
     if (!isModeAvailable(appMode, country)) {
@@ -313,11 +308,10 @@ export function MapPage() {
                 })}
               </nav>
 
-              {/* Mobile: live count + share. No count on Timeline/Analysis/
-                  Network — "in view" ignores the timeline date, Analysis shows
-                  choropleths not cameras, and Network shows agencies. */}
+              {/* Mobile: live count + share. No count on Timeline/Network — "in view"
+                  ignores the timeline date, and Network shows agencies. */}
               <div className="lg:hidden flex items-center gap-2 h-full">
-                {appMode !== 'explore' && appMode !== 'density' && appMode !== 'network' && <HeaderCameraCount />}
+                {appMode !== 'explore' && appMode !== 'network' && <HeaderCameraCount />}
                 <ShareButton variant="icon" className="-mr-2" />
               </div>
 
@@ -340,7 +334,6 @@ export function MapPage() {
           {!isMobile && appMode === 'map' && <MapPanel />}
           {!isMobile && appMode === 'route' && <RoutePanel />}
           {!isMobile && appMode === 'explore' && <ExplorePanel />}
-          {!isMobile && appMode === 'density' && <DensityPanel />}
           {!isMobile && appMode === 'network' && <NetworkPanel />}
 
           {/* Map */}
@@ -380,31 +373,22 @@ export function MapPage() {
             {/* Map Overlays */}
             {!isEmbed && (appMode === 'route' ? <FloatingRouteCard /> : <MapSearch />)}
             {/* Camera-count overlay only where it's meaningful: route mode.
-                Timeline's count ignores the scrubbed date; Analysis renders
-                choropleths, not cameras. */}
+                Timeline's count ignores the scrubbed date. */}
             {appMode === 'network' ? <NetworkAgencyCount /> : appMode === 'route' ? <CameraStats /> : null}
             {/* Country switch only where switching countries is meaningful:
-                camera browse + Explore. Hidden on Route/Analysis/Network. */}
+                camera browse + Explore. Hidden on Route/Network. */}
             {(appMode === 'map' || appMode === 'explore') && <MapStyleControl />}
             {showCameraPill && <LoadingPill />}
             {(appMode === 'map' || appMode === 'route') && !needsGeojson && (
               <CameraTileStatusPill onRetryTiles={handleRetryWithRemount} />
             )}
             {appMode === 'network' && <NetworkLoadingPill />}
-            {appMode === 'density' && <DensityLoadingPill />}
             <MapThemeControl />
             <CameraFilterControl />
             {appMode === 'map' && <BoundaryControl />}
             {appMode === 'map' && <BoundaryFeaturePopup />}
 
-            {/* Density feature popup — floating stats card */}
-            {appMode === 'density' && <DensityFeaturePopup />}
-
-            {/* Density legend bar — horizontal bottom overlay */}
-            {appMode === 'density' && <DensityLegendBar />}
-
-
-            {/* Map Legend - route mode only (explore/density legends live in side panel) */}
+            {/* Map Legend - route mode only (explore legend lives in side panel) */}
             {appMode === 'route' && (
               <div className="absolute bottom-6 left-[68px] z-20 hidden lg:flex flex-col gap-2">
                 <div className="bg-dark-800/90 rounded-md px-3 py-2 border border-dark-600">
