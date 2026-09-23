@@ -60,7 +60,6 @@ npm run preview   # Preview production build
 The map has 4 modes, selectable via the header tabs:
 - **Route**: Camera-avoidance route planning
 - **Explore**: Dot density visualization with timeline playback
-- **Density (Analysis)**: Choropleth density analysis by state/county/tract
 - **Network**: Sharing network visualization between agencies
 
 ### Critical Files
@@ -74,7 +73,6 @@ The map has 4 modes, selectable via the header tabs:
 | `src/store/tilesHostStore.ts` | PRIMARY/BACKUP tile host selection + failover epoch |
 | `src/utils/tileErrorPolicy.ts` | Pure rules: which MapLibre source errors fail over vs. surface the retry pill |
 | `src/services/boundaryDataService.ts` | Boundary geometry data loading |
-| `src/services/densityDataService.ts` | Density visualization data loading |
 | `src/hooks/useCameraRenderMode.ts` | Decides tiles vs. GeoJSON camera rendering path |
 | `src/store/cameraStore.ts` | Camera data management + spatial grid indexing |
 | `src/store/routeStore.ts` | Route calculation state and UI state |
@@ -94,7 +92,6 @@ Zustand stores expose both state and actions. Key stores:
 - `mapStore`: Map bounds/viewport
 - `mapModeStore`: Map style and base layer mode
 - `appModeStore`: Current app mode, visualization settings
-- `densityStore`: Density visualization data
 - `networkStore`: Sharing network data (fetched from the deflock-data CDN, plus optional `meta` provenance)
 
 ### Directory Structure
@@ -106,21 +103,21 @@ src/
 │   ├── inputs/     # AddressSearch autocomplete
 │   ├── map/        # MapLibreContainer, MapSearch, CameraStats, MapLoadingScreen
 │   │   └── layers/ # CameraTileLayers (default), CameraMarkerLayers (lazy),
-│   │               # DensityLayers, DotDensityLayers, HeatmapLayers,
+│   │               # DotDensityLayers, HeatmapLayers,
 │   │               # NetworkLayers, BoundaryOverlayLayers
 │   ├── panels/     # MapPanel, TabbedPanel, RoutePanel, ExplorePanel,
-│   │               # DensityPanel, NetworkPanel, CustomRoutePanel,
+│   │               # NetworkPanel, CustomRoutePanel,
 │   │               # MobileTabDrawer, RouteComparison
 │   └── ui/         # Shadcn components (button, input)
 ├── hooks/          # useCameraRenderMode, useEmbedMode
 ├── lib/            # Utility helpers (cn)
-├── modes/          # Visualization modes (heatmap, timeline, dots, density)
+├── modes/          # Visualization modes (heatmap, timeline, dots)
 ├── pages/          # MapPage, NotFound
 ├── services/       # apiClient, cameraDataService, cameraTilesService,
-│                   # boundaryDataService, densityDataService, geocodingService,
+│                   # boundaryDataService, geocodingService,
 │                   # gpxService, zipCodeService, routingConfig, performanceLogger
 ├── store/          # Zustand stores
-├── types/          # TypeScript definitions (camera, density, route, map)
+├── types/          # TypeScript definitions (camera, route, map)
 └── utils/          # geo, polyline, formatting
 ```
 
@@ -141,7 +138,7 @@ Found in .env file. Environment variables are prefixed with `VITE_` for Vite to 
 The spatial grid (0.5° cells) is critical for performance. Always use `getCamerasInBounds()` or `getCamerasInBoundsFromGrid()` rather than filtering the full camera array.
 
 ### Map Rendering
-`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default vector-tile rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DensityLayers, DotDensityLayers, HeatmapLayers, NetworkLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active.
+`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default vector-tile rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DotDensityLayers, HeatmapLayers, NetworkLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active.
 
 ### Code Splitting
 Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, state, deck-vendor. MapPage uses React lazy loading with Suspense. Path alias `@/` maps to `src/`.
@@ -153,7 +150,6 @@ Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, stat
 - **ZIP Codes**: `/public/zipcodes-us.json` — local lookup, no API needed
 - **Map Tiles**: Protomaps basemap via `<TILES_HOST>/planet.json` (+ `/fonts`, `/sprites`); `boundaries-us.json` for the boundary overlay
 - **Geocoding**: Nominatim (OSM) with Photon fallback
-- **Density Data**: GeoJSON files in `/public/geo/` (states-metrics, counties-metrics)
 - **Network Data**: `deflockdata.dontgetflocked.com/sharing-network-{nodes.geojson,adjacency.json,meta.json}` — published every Monday by the deflock-data repo (schema frozen by the publisher, gzip-stored, CORS `*`, 1h cache, no edge cache). Base URL overridable with `VITE_NETWORK_DATA_BASE` (`src/services/networkDataService.ts`). Nothing is bundled in `/public/` any more, so the site cannot fall back to stale data.
 
 ## Deployment
