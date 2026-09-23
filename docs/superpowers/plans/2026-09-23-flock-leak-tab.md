@@ -1422,14 +1422,15 @@ git commit -m "feat(leak): leak store (view, divider, filters, TileJSON) and lay
 - Modify: `src/store/appModeStore.ts:4`
 - Modify: `src/utils/urlState.ts:23-47`
 - Modify: `src/utils/urlState.test.ts` (path table, legacy param test, buildAppUrl table, round-trip loop)
-- Modify: `src/services/cameraDataService.ts:120`
+- Modify: `src/services/cameraDataService.ts:120` (typed `ReadonlySet<AppMode>` since the Analysis-removal fix wave)
+- Modify: `src/main.tsx:58-66` (router: `/leak` and `/flock-leak` routes; without them the `*` route serves NotFound)
 - Create: `src/services/cameraDataService.modeAvailability.test.ts`
 - Modify: `src/pages/MapPage.tsx:33` (lucide import), `:40-45` (`MODE_LABELS`), `:263-275` (SEO)
 - Modify: `src/components/panels/MobileTabDrawer.tsx` (`TABS`, `PEEK`, `PEEK_MODES`, `IdentityRow` tint)
 
 **Interfaces:**
 - Consumes: nothing beyond Task 6's store export (not used yet here).
-- Produces: `AppMode` includes `'leak'`; `MODE_PATHS.leak === '/leak'`; `/flock-leak` alias; `isModeAvailable('leak', 'ca') === false`; desktop nav order Map, Route, Timeline, Flock Leak, Network; mobile tabs Map, Route, Timeline, Leak, Network; `PEEK.leak` with `tint: 'danger'`.
+- Produces: `AppMode` includes `'leak'`; `MODE_PATHS.leak === '/leak'`; `/flock-leak` alias; router routes for both paths; `isModeAvailable('leak', 'ca') === false`; desktop nav order Map, Route, Timeline, Flock Leak, Network; mobile tabs Map, Route, Timeline, Leak, Network; `PEEK.leak` with `tint: 'danger'`.
 
 - [ ] **Step 1: Write the failing URL and availability tests**
 
@@ -1527,10 +1528,17 @@ const LEGACY_MODE_PARAM: Record<string, AppMode | undefined> = {
 };
 ```
 
-`src/services/cameraDataService.ts`:
+`src/services/cameraDataService.ts` (the set is `ReadonlySet<AppMode>`, so `tsc` rejects a typo here):
 
 ```ts
-const US_ONLY_MODES = new Set(['route', 'leak', 'network']);
+const US_ONLY_MODES: ReadonlySet<AppMode> = new Set<AppMode>(['route', 'leak', 'network']);
+```
+
+`src/main.tsx`: the router is a third copy of the URL vocabulary that types do not police. Add both routes next to the existing mode routes, keeping the file's style:
+
+```tsx
+              <Route path="/leak" element={<MapPage />} />
+              <Route path="/flock-leak" element={<MapPage />} />
 ```
 
 - [ ] **Step 4: Header tab and SEO**
@@ -1637,13 +1645,13 @@ Expected: PASS. `tsc` may flag `Record<AppMode, ...>` objects elsewhere that now
 
 - [ ] **Step 7: Smoke it**
 
-Run `npm run dev`, open `http://localhost:3000/leak`. Expected: the header shows FLOCK LEAK selected, the map shows OSM cameras as usual (no Flock data yet), no console errors. On a 390 px wide window the drawer shows five tabs and a red-tinted Flock Leak identity row at peek.
+Run `npm run dev`, open `http://localhost:3000/leak` and then `http://localhost:3000/flock-leak`. Expected for both: the header shows FLOCK LEAK selected (not the NotFound page), the address bar settles on `/leak`, the map shows OSM cameras as usual (no Flock data yet), no console errors. On a 390 px wide window the drawer shows five tabs and a red-tinted Flock Leak identity row at peek.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/store/appModeStore.ts src/utils/urlState.ts src/utils/urlState.test.ts src/services/cameraDataService.ts src/services/cameraDataService.modeAvailability.test.ts src/pages/MapPage.tsx src/components/panels/MobileTabDrawer.tsx
-git commit -m "feat(leak): leak app mode with /leak path, US-only gate, header tab, drawer tab and peek"
+git add src/store/appModeStore.ts src/utils/urlState.ts src/utils/urlState.test.ts src/services/cameraDataService.ts src/services/cameraDataService.modeAvailability.test.ts src/main.tsx src/pages/MapPage.tsx src/components/panels/MobileTabDrawer.tsx
+git commit -m "feat(leak): leak app mode with /leak path, router routes, US-only gate, header tab, drawer tab and peek"
 ```
 
 ---
