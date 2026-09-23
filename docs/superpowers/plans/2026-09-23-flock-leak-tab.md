@@ -26,7 +26,7 @@
 ## Review Focus
 
 1. A device whose `type` is missing or an unexpected string must still render (as `other`) and still be counted; it must never vanish from the map. Pinned in Task 2 (normalizer and expression parity tests) and Task 6 (`flockLayerFilter` keeps `unknown` status visible).
-2. Dragging the divider to either edge must hide that side completely with no stray marks and must restore both sides when the view leaves Swipe. Pinned in Task 5 (`planSwipe` edge tests) and Task 9 (hook restore on disable).
+2. Dragging the divider to either edge must hide that side completely with no stray marks and must restore both sides when the view leaves Swipe, without the hook ever writing layer visibility (react-map-gl owns it). Pinned in Task 5 (`planSwipe` edge tests, `NEVER_MATCH`) and Task 9 (hook restores filters only).
 3. Leaving the Leak tab must re-enable map rotation and cone rendering on the Map tab. Pinned in Task 8 (effect cleanup) and checked in Task 12's browser script.
 4. A 404 on `flock-leak.json` on the primary host must show the Flock pill and leave the Map tab and host selection untouched. Pinned in Task 3 (no failover on error) and Task 4 (source-level error is `fail`).
 5. A tap on a Flock mark while OSM is hidden (Flock view) must not claim "Nothing on OSM within 50 m". Pinned in Task 5 (`flockNearbyHint` with `osmVisible: false` returns null).
@@ -735,7 +735,8 @@ git commit -m "feat(leak): tile error rule for the Flock source (fail locally, n
   - `halfPlaneRect(side: 'osm' | 'flock', dividerLon: number): GeoJSON.Polygon`
   - `withinFilter(side, dividerLon): FilterSpecification`
   - `combineFilters(...filters: Array<FilterSpecification | undefined>): FilterSpecification | undefined`
-  - `interface SwipeLayerState { visible: boolean; filter: FilterSpecification | undefined }`, `interface SwipePlan { osm: SwipeLayerState; flock: SwipeLayerState }`
+  - `NEVER_MATCH: FilterSpecification` (a filter no feature passes; hides a side without touching layer visibility)
+  - `interface SwipeLayerState { filter: FilterSpecification | undefined }`, `interface SwipePlan { osm: SwipeLayerState; flock: SwipeLayerState }`
   - `planSwipe(divider: number, dividerLon: number, base?: { osm?: FilterSpecification; flock?: FilterSpecification }): SwipePlan`
   - `interface DividerMapLike { getContainer(): { clientWidth: number; clientHeight: number }; unproject(p: [number, number]): { lng: number } }`, `dividerLongitude(map: DividerMapLike, divider: number): number`
 - Produces (flockNearby):
@@ -757,6 +758,7 @@ import {
   planSwipe,
   dividerLongitude,
   SWIPE_EDGE,
+  NEVER_MATCH,
 } from './swipeFilter';
 
 describe('clampDivider', () => {
@@ -798,28 +800,29 @@ describe('combineFilters', () => {
 describe('planSwipe', () => {
   const base = { osm: ['==', ['get', 'brand'], 'x'] as never, flock: ['==', ['get', 'type'], 'y'] as never };
 
-  it('hides OSM at the left edge and keeps Flock unfiltered beyond its base', () => {
+  it('hides OSM at the left edge with a never-matching filter and keeps Flock at its base', () => {
     const plan = planSwipe(0, -95, base);
-    expect(plan.osm.visible).toBe(false);
-    expect(plan.flock.visible).toBe(true);
+    expect(plan.osm.filter).toEqual(['all', base.osm, NEVER_MATCH]);
     expect(plan.flock.filter).toBe(base.flock);
   });
 
   it('hides Flock at the right edge', () => {
     const plan = planSwipe(1, -95, base);
-    expect(plan.flock.visible).toBe(false);
-    expect(plan.osm.visible).toBe(true);
+    expect(plan.flock.filter).toEqual(['all', base.flock, NEVER_MATCH]);
     expect(plan.osm.filter).toBe(base.osm);
   });
 
   it('treats values inside the edge band as the edge', () => {
-    expect(planSwipe(SWIPE_EDGE / 2, -95).osm.visible).toBe(false);
-    expect(planSwipe(1 - SWIPE_EDGE / 2, -95).flock.visible).toBe(false);
+    expect(planSwipe(SWIPE_EDGE / 2, -95).osm.filter).toEqual(NEVER_MATCH);
+    expect(planSwipe(1 - SWIPE_EDGE / 2, -95).flock.filter).toEqual(NEVER_MATCH);
+  });
+
+  it('never-match filter is a boolean expression MapLibre accepts', () => {
+    expect(NEVER_MATCH).toEqual(['literal', false]);
   });
 
   it('combines the within filter with each base filter in the middle', () => {
     const plan = planSwipe(0.5, -95, base);
-    expect(plan.osm.visible && plan.flock.visible).toBe(true);
     expect((plan.osm.filter as unknown[])[0]).toBe('all');
     expect((plan.osm.filter as unknown[])[1]).toBe(base.osm);
     expect(((plan.osm.filter as unknown[])[2] as unknown[])[0]).toBe('within');
@@ -917,9 +920,15 @@ import type { FilterSpecification } from 'maplibre-gl';
  */
 export type SwipeSide = 'osm' | 'flock';
 
-/** Inside this band from either edge the hidden side goes fully invisible
- *  instead of getting a sliver-thin polygon. */
+/** Inside this band from either edge the hidden side gets NEVER_MATCH
+ *  instead of a sliver-thin polygon. */
 export const SWIPE_EDGE = 0.005;
+
+/** A filter no feature passes. Used to hide a side of the swipe through the
+ *  filter alone: layer visibility stays declarative (react-map-gl owns it),
+ *  so leaving Swipe for the Flock-only view never fights a restored
+ *  'visible'. */
+export const NEVER_MATCH: FilterSpecification = ['literal', false] as unknown as FilterSpecification;
 
 export function clampDivider(v: number): number {
   if (!Number.isFinite(v)) return 0.5;
@@ -949,7 +958,6 @@ export function combineFilters(
 }
 
 export interface SwipeLayerState {
-  visible: boolean;
   filter: FilterSpecification | undefined;
 }
 
@@ -966,19 +974,19 @@ export function planSwipe(
   const d = clampDivider(divider);
   if (d <= SWIPE_EDGE) {
     return {
-      osm: { visible: false, filter: base.osm },
-      flock: { visible: true, filter: base.flock },
+      osm: { filter: combineFilters(base.osm, NEVER_MATCH) },
+      flock: { filter: base.flock },
     };
   }
   if (d >= 1 - SWIPE_EDGE) {
     return {
-      osm: { visible: true, filter: base.osm },
-      flock: { visible: false, filter: base.flock },
+      osm: { filter: base.osm },
+      flock: { filter: combineFilters(base.flock, NEVER_MATCH) },
     };
   }
   return {
-    osm: { visible: true, filter: combineFilters(base.osm, withinFilter('osm', dividerLon)) },
-    flock: { visible: true, filter: combineFilters(base.flock, withinFilter('flock', dividerLon)) },
+    osm: { filter: combineFilters(base.osm, withinFilter('osm', dividerLon)) },
+    flock: { filter: combineFilters(base.flock, withinFilter('flock', dividerLon)) },
   };
 }
 
@@ -2393,7 +2401,10 @@ const MIN_INTERVAL_MS = 50;
  * second, and sets `within` filters on the OSM and Flock point layers.
  * MapLibre's setFilter deep-compares, so re-applying an unchanged filter
  * (on idle, on moveend) costs nothing. On disable every layer gets its base
- * filter and visibility back.
+ * filter back. The hook never touches layer visibility: react-map-gl applies
+ * the declarative `layout.visibility` during render, and a cleanup that
+ * restored 'visible' would re-show the OSM layer after a switch from Swipe
+ * to the Flock-only view. A side is hidden through NEVER_MATCH instead.
  */
 export function useSwipeFilters(
   mapRef: RefObject<MapRef>,
@@ -2411,9 +2422,8 @@ export function useSwipeFilters(
     const osmIds = osmKey ? osmKey.split(',') : [];
     const flockIds = flockKey ? flockKey.split(',') : [];
 
-    const setState = (id: string, state: SwipeLayerState) => {
+    const applyFilter = (id: string, state: SwipeLayerState) => {
       if (!map.getLayer(id)) return;
-      map.setLayoutProperty(id, 'visibility', state.visible ? 'visible' : 'none', { validate: false });
       map.setFilter(id, state.filter ?? null, { validate: false });
     };
 
@@ -2422,8 +2432,8 @@ export function useSwipeFilters(
         osm: osmBaseFilter,
         flock: flockBaseFilter,
       });
-      for (const id of osmIds) setState(id, plan.osm);
-      for (const id of flockIds) setState(id, plan.flock);
+      for (const id of osmIds) applyFilter(id, plan.osm);
+      for (const id of flockIds) applyFilter(id, plan.flock);
     };
 
     let raf = 0;
@@ -2464,9 +2474,7 @@ export function useSwipeFilters(
       if (raf) cancelAnimationFrame(raf);
       const restore = (ids: string[], base: FilterSpecification | undefined) => {
         for (const id of ids) {
-          if (!map.getLayer(id)) continue;
-          map.setFilter(id, base ?? null, { validate: false });
-          map.setLayoutProperty(id, 'visibility', 'visible', { validate: false });
+          if (map.getLayer(id)) map.setFilter(id, base ?? null, { validate: false });
         }
       };
       restore(osmIds, osmBaseFilter);

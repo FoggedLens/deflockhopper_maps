@@ -94,8 +94,10 @@ Swipe mechanics (`src/utils/swipeFilter.ts`, pure):
   no basemap work; the old marks stay on screen until the new ones land). Updates are
   rAF-coalesced and capped at 20 per second during a drag, with one final update on
   release.
-- At the extremes (divider at 0 or 1) the hidden side switches to `visibility: none`
-  instead of a degenerate polygon.
+- At the extremes (divider at 0 or 1) the hidden side gets a filter no feature
+  passes instead of a degenerate polygon. The swipe never writes layer
+  visibility; that stays declarative (amended 2026-09-23 during pre-flight:
+  a restored `visible` on leaving Swipe would fight the Flock-only view).
 - Direction cones (client-built polygons) are hidden in Swipe and Overlay. `within` needs
   every vertex inside, so cones at the divider would flicker, and they are a Map-tab
   identity feature that adds nothing here. Cones stay off in Flock view too (OSM hidden).
