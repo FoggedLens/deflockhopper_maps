@@ -51,7 +51,6 @@ import type { MapTileStyleId } from '../../store/appModeStore';
 import { useMapModeStore, getActiveViewForZoom } from '../../store/mapModeStore';
 import { HeatmapLayers } from './layers/HeatmapLayers';
 import { DotDensityLayers } from './layers/DotDensityLayers';
-import { DensityLayers } from './layers/DensityLayers';
 import { NetworkLayers } from './layers/NetworkLayers';
 import { CameraMarkerLayers } from './layers/CameraMarkerLayers';
 import { BoundaryOverlayLayers } from './layers/BoundaryOverlayLayers';
@@ -59,8 +58,6 @@ import { CameraTileLayers } from './layers/CameraTileLayers';
 import { useCameraRenderMode } from '../../hooks/useCameraRenderMode';
 import { ensureCameraIndex, getCameraIndex, countInBounds, tallyInBounds, deriveBrandStats, brandStatsEqual } from '../../services/cameraIndexService';
 import { MOBILE_BREAKPOINT } from '../../hooks/useIsMobile';
-import { useDensityStore } from '../../store/densityStore';
-import type { DensityFeatureProperties } from '../../types';
 
 import type { ALPRCamera, Location } from '../../types';
 
@@ -209,7 +206,6 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   const cameraTileJson = useCameraTileJson(country);
   const mapStyle = useMemo(() => buildMapStyle(mapTileStyle, tilesHost), [mapTileStyle, tilesHost]);
   const isExploreMode = appMode === 'explore';
-  const isDensityMode = appMode === 'density';
   const isNetworkMode = appMode === 'network';
   const isMapMode = appMode === 'map';
   const mapModeViz = useMapModeStore(s => s.visualization);
@@ -266,11 +262,10 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   // when explicitly selected (isMapModeHeatmap below).
   // In heatmap explore, auto-show markers when zoomed past 13 (heatmap crossfades out 13-14),
   // or when the user explicitly toggles "Show Markers" at any zoom.
-  // In density mode, hide camera markers entirely to keep choropleth clean.
   // Timeline (dots) never shows markers: the dot layer carries every zoom, and the
   // markers it used to stack on top were never date-filtered past z13.
   const isMapModeHeatmap = isMapMode && mapModeViz === 'heatmap';
-  const showCameraMarkers = !isNetworkMode && !isDensityMode && !isMapModeHeatmap && (
+  const showCameraMarkers = !isNetworkMode && !isMapModeHeatmap && (
     appMode === 'route'
     || isMapMode
     || (isHeatmapMode && (heatmapSettings.showMarkers || zoom >= 13))
@@ -967,43 +962,12 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     }
   }, [setBounds, updateVisibleCameras]);
 
-  // Handle map clicks - density feature selection, location picking, or
-  // camera marker click to open its popup
+  // Handle map clicks - location picking, or camera marker click to open its popup
   const onClick = useCallback(async (event: MapLayerMouseEvent) => {
     if (!mapRef.current) return;
 
     // Network mode: deck.gl handles clicks via its own pickable layers
     if (isNetworkMode) return;
-
-    // Density mode: select clicked feature
-    // MapLibre serializes GeoJSON properties to strings in event features,
-    // so we must parse numeric fields back to numbers.
-    if (isDensityMode) {
-      const feature = event.features?.[0];
-      const p = feature?.properties;
-      if (p?.GEOID) {
-        const parsed: DensityFeatureProperties = {
-          GEOID: String(p.GEOID),
-          name: String(p.name),
-          level: String(p.level) as 'state' | 'county',
-          stateCode: Number(p.stateCode),
-          population: Number(p.population),
-          roadMiles: Number(p.roadMiles),
-          cameraCount: Number(p.cameraCount),
-          camerasPerCapita: Number(p.camerasPerCapita),
-          camerasPerRoadMile: Number(p.camerasPerRoadMile),
-          rankPerCapita: Number(p.rankPerCapita),
-          rankPerRoadMile: Number(p.rankPerRoadMile),
-          percentilePerCapita: Number(p.percentilePerCapita),
-          percentilePerRoadMile: Number(p.percentilePerRoadMile),
-        };
-        useDensityStore.getState().setSelectedFeature(parsed);
-      } else {
-        // Clicked empty area — clear selection
-        useDensityStore.getState().setSelectedFeature(null);
-      }
-      return;
-    }
 
     // If in location picking mode (for route origin/destination), handle click
     if (pickingLocation) {
@@ -1063,28 +1027,21 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       latitude: camera.lat,
       camera,
     });
-  }, [pickingLocation, setPickedLocation, isDensityMode, isNetworkMode, isTilesMode, isFilterTilesMode]);
+  }, [pickingLocation, setPickedLocation, isNetworkMode, isTilesMode, isFilterTilesMode]);
 
   // Cursor handling - crosshair when adding waypoints or picking location
-  const onMouseEnter = useCallback((e: MapLayerMouseEvent) => {
+  const onMouseEnter = useCallback(() => {
     if (pickingLocation) return; // Keep crosshair when picking
     setCursor('pointer');
-    // Density hover
-    if (isDensityMode && e.features?.[0]?.properties?.GEOID) {
-      useDensityStore.getState().setHoveredFeatureId(String(e.features[0].properties.GEOID));
-    }
-  }, [pickingLocation, isDensityMode]);
+  }, [pickingLocation]);
 
   const onMouseLeave = useCallback(() => {
-    if (isDensityMode) {
-      useDensityStore.getState().setHoveredFeatureId(null);
-    }
     if (pickingLocation) {
       setCursor('crosshair');
     } else {
       setCursor('');
     }
-  }, [pickingLocation, isDensityMode]);
+  }, [pickingLocation]);
   
   // Set crosshair cursor when in picking mode
   useEffect(() => {
@@ -1383,15 +1340,13 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       cursor={cursor}
       interactiveLayerIds={isNetworkMode
         ? []
-        : isDensityMode
-          ? ['density-states-fill', 'density-counties-fill', 'density-states-extrusion', 'density-counties-extrusion']
-          : showCameraMarkers
-            ? (isTilesMode
-                ? ['camera-tile-points']
-                : isFilterTilesMode
-                  ? ['camera-tile-points-filtered']
-                  : ['unclustered-point'])
-            : []}
+        : showCameraMarkers
+          ? (isTilesMode
+              ? ['camera-tile-points']
+              : isFilterTilesMode
+                ? ['camera-tile-points-filtered']
+                : ['unclustered-point'])
+          : []}
       attributionControl={false}
       // Removed reuseMaps to avoid stale reused instances
     >
@@ -1403,7 +1358,6 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       {isHeatmapMode && <HeatmapLayers />}
       {isMapMode && <HeatmapLayers visible={mapModeViz === 'heatmap'} />}
       {isDotsMode && <DotDensityLayers />}
-      {isDensityMode && <DensityLayers />}
       {isNetworkMode && <NetworkLayers />}
       {isMapMode && <BoundaryOverlayLayers />}
 
