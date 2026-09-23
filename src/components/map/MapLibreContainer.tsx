@@ -931,6 +931,13 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   const onLoad = useCallback(() => {
     if (mapRef.current) {
       const map = mapRef.current.getMap();
+
+      // Dev-only handle for the .superpowers harness scripts (perf spikes,
+      // swipe checks). Never set in production builds.
+      if (import.meta.env.DEV) {
+        (window as unknown as { __deflockMap?: maplibregl.Map }).__deflockMap = map;
+      }
+
       const bounds = map.getBounds();
       setBounds({
         north: bounds.getNorth(),
