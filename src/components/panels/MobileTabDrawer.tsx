@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouteStore, useAppModeStore, useCameraStore, useMapStore } from '../../store';
-import { useDensityStore } from '../../store/densityStore';
 import { TYPE_LABELS, useNetworkStore } from '../../store/networkStore';
 import type { AppMode } from '../../store';
 import { BottomSheet, type SnapPoint } from '../common/BottomSheet';
 import { LegacyMapLink } from '../common/LegacyMapLink';
 import { isModeAvailable } from '../../services/cameraDataService';
-import { AlertTriangle, ChevronUp, BarChart3, Navigation2, Share2, History, X, ExternalLink } from 'lucide-react';
+import { AlertTriangle, ChevronUp, Navigation2, Share2, History, X, ExternalLink } from 'lucide-react';
 import { TimelineBar } from '../../modes/timeline/TimelineBar';
 import { RoutePanelContent } from './RoutePanelContent';
 import { FlockHopperCTA } from './FlockHopperCTA';
@@ -15,11 +14,7 @@ import { MapTypeDropdown } from './MapTypeDropdown';
 import { HeatmapControls } from '../../modes/heatmap/HeatmapControls';
 import { HeatmapLegend } from '../../modes/heatmap/HeatmapLegend';
 import { DotDensityControls } from '../../modes/dots/DotDensityControls';
-import { DensityControls } from '../../modes/density/DensityControls';
-import { DensityLegend } from '../../modes/density/DensityLegend';
-import { DensityFeatureStats } from '../../modes/density/DensityFeatureStats';
 import { MapPanelContent } from './MapPanel';
-import { DENSITY_COLOR_RAMPS } from '../map/layers/DensityLayers';
 import { Skeleton } from '../common';
 import { useDelayedFlag } from '../../hooks/useDelayedFlag';
 import { BrandBreakdown } from '../map/BrandBreakdown';
@@ -37,7 +32,6 @@ const TABS: TabDef[] = [
   { mode: 'map', label: 'Map' },
   { mode: 'route', label: 'Route' },
   { mode: 'explore', label: 'Timeline' },
-  { mode: 'density', label: 'Analysis' },
   { mode: 'network', label: 'Network' },
 ];
 
@@ -70,19 +64,18 @@ function StopSheetDrag({ children }: { children: React.ReactNode }) {
   return <div ref={ref}>{children}</div>;
 }
 
-const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon: typeof BarChart3 }>> = {
+const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon: typeof Navigation2 }>> = {
   // route renders the FlockHopper start ad instead of IdentityRow; entry kept so the peek effects treat route as peekable
   route:   { title: 'Route', desc: 'Set a start and destination to see ALPR exposure along your route — and safer alternatives.', Icon: Navigation2 },
   explore: { title: 'Timeline', desc: 'Watch the ALPR camera network grow as volunteers documented it on OpenStreetMap.', Icon: History },
-  density: { title: 'Surveillance Analysis', desc: 'Tap any state or county to reveal its statistics.', Icon: BarChart3 },
   network: { title: 'Flock Sharing Network', desc: 'Law enforcement agencies sharing Flock ALPR data with each other, as publicly disclosed. Tap an agency to trace its connections.', Icon: Share2 },
 };
 
 /** One resting height for every content-mode peek — the sheet never changes
- *  height switching among Route/Timeline/Analysis/Network. Tune spacing to
+ *  height switching among Route/Timeline/Network. Tune spacing to
  *  fit content, never this number per-mode. */
 const UNIFORM_PEEK_HEIGHT = 180;
-const PEEK_MODES: ReadonlySet<AppMode> = new Set(['route', 'explore', 'density', 'network']);
+const PEEK_MODES: ReadonlySet<AppMode> = new Set(['route', 'explore', 'network']);
 
 /** Mode identity at peek. The whole row is the expand affordance — icon,
  *  real title, one-liner, chevron. */
@@ -111,26 +104,7 @@ function IdentityRow({ mode, onExpand, extra }: { mode: AppMode; onExpand: () =>
   );
 }
 
-/** Slim gradient legend inside the Analysis peek (replaces the floating
- *  legend bar on mobile). */
-function DensityPeekLegend() {
-  const { densitySettings } = useAppModeStore();
-  const label = densitySettings.metric === 'perCapita' ? 'Cameras per 10K residents' : 'Cameras per road mile';
-  const gradient = DENSITY_COLOR_RAMPS[densitySettings.colorScheme].gradient.replace('90deg', 'to right');
-  return (
-    <div className="mt-3">
-      <div className="flex items-center gap-2">
-        <span className="text-2xs text-dark-500 uppercase">Low</span>
-        <div className="h-2 rounded-full flex-1" style={{ background: gradient }} />
-        <span className="text-2xs text-dark-500 uppercase">High</span>
-      </div>
-      <p className="text-[10px] text-dark-500 mt-2">{label}</p>
-    </div>
-  );
-}
-
-/** Selected agency at peek — name, type, key counts; ✕ clears (same pattern
- *  as Analysis regions). */
+/** Selected agency at peek — name, type, key counts; ✕ clears. */
 function NetworkPeekSummary({ onExpand, onClear }: { onExpand: () => void; onClear: () => void }) {
   const node = useNetworkStore(s => s.selectedNode);
   const adjacency = useNetworkStore(s => s.adjacency);
@@ -195,11 +169,6 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
   const { normalRoute, avoidanceRoute } = useRouteStore();
   const hasRoutes = !!(normalRoute && avoidanceRoute);
 
-  // Density store
-  const { loadPhase: densityLoadPhase, loadAllLevels: loadDensity, retryLoad: retryDensity, error: densityError } = useDensityStore();
-  const selectedDensityFeature = useDensityStore(s => s.selectedFeature);
-  const setSelectedDensityFeature = useDensityStore(s => s.setSelectedFeature);
-
   // Network store — preload data when tab is selected (before drawer expands)
   const loadNetworkData = useNetworkStore(s => s.loadNetworkData);
   const selectedNode = useNetworkStore(s => s.selectedNode);
@@ -224,9 +193,8 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
 
   /* ---- load data on mode switch ---- */
   useEffect(() => {
-    if (appMode === 'density') loadDensity();
     if (appMode === 'network') loadNetworkData();
-  }, [appMode, loadDensity, loadNetworkData]);
+  }, [appMode, loadNetworkData]);
 
   /* ---- route auto-expand ---- */
   useEffect(() => {
@@ -254,27 +222,14 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appMode]);
 
-  // Tapping a region on the map surfaces its stats at the detail peek.
-  // Only ever raises: never yanks a deliberately-expanded (full) sheet down,
-  // including when re-entering Analysis with a lingering selection.
-  useEffect(() => {
-    if (appMode === 'density' && selectedDensityFeature && snapPoint !== 'full') {
-      setSnapPoint('peek');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDensityFeature, appMode]);
-
   // Tapping an agency node surfaces its summary at the peek. Only ever
-  // raises — same contract as the Analysis-region effect above.
+  // raises — never lowers a full one.
   useEffect(() => {
     if (appMode === 'network' && selectedNode && snapPoint !== 'full') {
       setSnapPoint('peek');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNode, appMode]);
-
-  const densityIsLoading = densityLoadPhase === 'fetching';
-  const showDensitySkeleton = useDelayedFlag(densityIsLoading);
 
   const exploresPending = !cameraIsInitialized && cameraLoadPhase !== 'error';
   const showExploreSkeleton = useDelayedFlag(exploresPending);
@@ -348,15 +303,7 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
   // Resting height feeds --drawer-height so map controls/attribution ride
   // above the sheet. Parked at the peek height while 'full' (controls are
   // behind the sheet then anyway; jumping them to 85vh would look broken).
-  // A selected Analysis region raises the peek to a detail height that fits
-  // the stats while keeping the map (and the tapped region) visible above.
-  const isDensityDetail = appMode === 'density' && !!selectedDensityFeature;
-  const densityDetailHeight = Math.min(430, Math.round(window.innerHeight * 0.62));
-  const peekHeightForMode = isDensityDetail
-    ? densityDetailHeight
-    : PEEK_MODES.has(appMode)
-      ? UNIFORM_PEEK_HEIGHT
-      : minimizedHeight;
+  const peekHeightForMode = PEEK_MODES.has(appMode) ? UNIFORM_PEEK_HEIGHT : minimizedHeight;
   const drawerRestHeight = snapPoint === 'minimized' ? minimizedHeight : peekHeightForMode;
 
   useEffect(() => {
@@ -441,14 +388,6 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
               <FlockHopperCTA variant="banner" />
             </div>
           )
-        ) : isDensityDetail ? (
-          <div className="mt-3 animate-fade-in">
-            <DensityFeatureStats
-              feature={selectedDensityFeature!}
-              onClose={() => setSelectedDensityFeature(null)}
-            />
-            <DensityPeekLegend />
-          </div>
         ) : appMode === 'network' && selectedNode ? (
           <NetworkPeekSummary
             onExpand={handleExpandSheet}
@@ -459,16 +398,14 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
             mode={appMode}
             onExpand={handleExpandSheet}
             extra={
-              appMode === 'density'
-                ? <DensityPeekLegend />
-                : appMode === 'network'
-                  ? (
-                    <div className="mt-3 flex items-center justify-center gap-1 text-dark-400">
-                      <ChevronUp className="w-3.5 h-3.5" />
-                      <span className="text-[11px] font-medium">Swipe up for details</span>
-                    </div>
-                  )
-                  : undefined
+              appMode === 'network'
+                ? (
+                  <div className="mt-3 flex items-center justify-center gap-1 text-dark-400">
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-medium">Swipe up for details</span>
+                  </div>
+                )
+                : undefined
             }
           />
         )
@@ -549,66 +486,6 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
               <div className="mt-6">
                 <HeatmapLegend />
               </div>
-            )}
-
-            <DrawerFooter />
-          </div>
-        );
-
-      /* ---------- DENSITY (Analysis) ---------- */
-      case 'density':
-        return (
-          <div className="pb-8">
-            {selectedDensityFeature && (
-              <div className="mb-5 pb-5 border-b border-hairline">
-                <DensityFeatureStats
-                  feature={selectedDensityFeature}
-                  onClose={() => setSelectedDensityFeature(null)}
-                />
-              </div>
-            )}
-
-            <p className="text-xs text-dark-400 mb-3 leading-relaxed">
-              Compare ALPR surveillance intensity by state or county. Data from{' '}
-              <a href="https://deflock.me" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">DeFlock</a>
-              {' '}&amp;{' '}
-              <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">OSM</a>
-              {' '}contributors. Tap any region on the map to reveal its statistics.
-            </p>
-
-            {densityIsLoading && showDensitySkeleton && (
-              <div className="space-y-3 py-2" aria-busy="true">
-                <Skeleton className="h-4 w-2/5" />
-                {[0, 1, 2, 3, 4].map(i => (
-                  <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="w-4 h-4" />
-                    <Skeleton className="h-3 flex-1" />
-                    <Skeleton className="h-3 w-8" />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {densityError && (
-              <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
-                <p className="text-sm text-red-400 mb-2">Failed to load density data</p>
-                <p className="text-xs text-dark-500 mb-3">{densityError}</p>
-                <button
-                  onClick={retryDensity}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {densityLoadPhase === 'ready' && (
-              <>
-                <DensityControls />
-                <div className="mt-6">
-                  <DensityLegend />
-                </div>
-              </>
             )}
 
             <DrawerFooter />
