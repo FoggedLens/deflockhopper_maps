@@ -211,8 +211,8 @@ feature and is untouched.
 Delete: `src/components/panels/DensityPanel.tsx`, `src/components/map/DensityLegendBar.tsx`,
 `src/components/map/DensityLoadingPill.tsx`, `src/components/map/layers/DensityLayers.tsx`,
 `src/modes/density/*`, `src/services/densityDataService.ts`, `src/store/densityStore.ts`
-and its test, `src/types/density.ts`, `public/geo/states-metrics.geojson`,
-`public/geo/counties-metrics.geojson`.
+and its test, `src/types/density.ts`, `public/geo/counties-metrics.geojson`.
+`public/geo/states-metrics.geojson` stays: the state filter fetches it.
 
 Edit: `appModeStore` (drop `density` mode, `DensitySettings` and defaults), `urlState`
 (drop the mode, keep `/analysis` and `density` as aliases for `map`), `cameraDataService`

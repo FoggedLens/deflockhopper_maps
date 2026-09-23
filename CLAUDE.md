@@ -149,6 +149,7 @@ Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, stat
 - **Camera Tiles**: `<TILES_HOST>/cameras-{us,ca}-hourly.json` TileJSON (+ `-filter` companions, `-manifest.json` dictionaries, `-index.{bin,json}` counters) — hourly MVT tilesets; tile URLs always come from the TileJSON. Hosts: primary `deflock.dontgetflocked.com`, backup `tiles.dontgetflocked.com` (see Key Data Flow)
 - **Camera Data (attributes)**: `data.dontgetflocked.com/cameras.geojson.gz` — lazy-loaded for filters/timeline/heatmap/Canada; ~114k (July 2026) cameras
 - **ZIP Codes**: `/public/zipcodes-us.json` — local lookup, no API needed
+- **State boundaries (state filter)**: `/public/geo/states-metrics.geojson` — fetched by `stateFilterService` for `/state/*` links and the state picker; not Analysis data, do not delete
 - **Map Tiles**: Protomaps basemap via `<TILES_HOST>/planet.json` (+ `/fonts`, `/sprites`); `boundaries-us.json` for the boundary overlay
 - **Geocoding**: Nominatim (OSM) with Photon fallback
 - **Network Data**: `deflockdata.dontgetflocked.com/sharing-network-{nodes.geojson,adjacency.json,meta.json}` — published every Monday by the deflock-data repo (schema frozen by the publisher, gzip-stored, CORS `*`, 1h cache, no edge cache). Base URL overridable with `VITE_NETWORK_DATA_BASE` (`src/services/networkDataService.ts`). Nothing is bundled in `/public/` any more, so the site cannot fall back to stale data.

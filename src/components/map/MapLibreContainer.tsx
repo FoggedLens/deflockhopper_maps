@@ -247,9 +247,13 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       return;
     }
     let cancelled = false;
-    void loadStateGeometry(stateCode).then((f) => {
-      if (!cancelled) setStateGeom(f ? f.geometry : null);
-    });
+    void loadStateGeometry(stateCode)
+      .then((f) => {
+        if (!cancelled) setStateGeom(f ? f.geometry : null);
+      })
+      .catch(() => {
+        if (!cancelled) setStateGeom(null);
+      });
     return () => { cancelled = true; };
   }, [stateCode]);
 

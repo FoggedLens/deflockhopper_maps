@@ -353,7 +353,9 @@ git commit -m "refactor: drop the Analysis tab from the mobile drawer"
 - Modify: `src/pages/MapPage.tsx:6, 10, 13, 32, 44, 320, 343, 394, 400-404`
 - Modify: `src/components/map/layers/NetworkLayers.tsx:365` (comment only)
 - Modify: `package.json:45, 60` (remove `d3-contour` and `@types/d3-contour`), `package-lock.json` (via npm)
-- Delete: `src/types/density.ts`, `src/components/panels/DensityPanel.tsx`, `src/components/map/DensityLegendBar.tsx`, `src/components/map/DensityLoadingPill.tsx`, `src/components/map/layers/DensityLayers.tsx`, `src/modes/density/DensityControls.tsx`, `src/modes/density/DensityFeatureInfo.tsx`, `src/modes/density/DensityFeaturePopup.tsx`, `src/modes/density/DensityFeatureStats.tsx`, `src/modes/density/DensityLegend.tsx`, `src/services/densityDataService.ts`, `src/store/densityStore.ts`, `src/store/densityStore.test.ts`, `public/geo/states-metrics.geojson`, `public/geo/counties-metrics.geojson`
+- Delete: `src/types/density.ts`, `src/components/panels/DensityPanel.tsx`, `src/components/map/DensityLegendBar.tsx`, `src/components/map/DensityLoadingPill.tsx`, `src/components/map/layers/DensityLayers.tsx`, `src/modes/density/DensityControls.tsx`, `src/modes/density/DensityFeatureInfo.tsx`, `src/modes/density/DensityFeaturePopup.tsx`, `src/modes/density/DensityFeatureStats.tsx`, `src/modes/density/DensityLegend.tsx`, `src/services/densityDataService.ts`, `src/store/densityStore.ts`, `src/store/densityStore.test.ts`, `public/geo/counties-metrics.geojson`
+
+`public/geo/states-metrics.geojson` is NOT deleted: `stateFilterService` fetches it for the state filter (found in the final review).
 
 This task is one commit on purpose: the density-only files import the types removed from `appModeStore`, and the page and barrels import the density-only files, so neither half compiles without the other.
 
@@ -574,9 +576,8 @@ git rm src/components/panels/DensityPanel.tsx \
   src/services/densityDataService.ts \
   src/store/densityStore.ts \
   src/store/densityStore.test.ts \
-  public/geo/states-metrics.geojson \
   public/geo/counties-metrics.geojson
-rmdir src/modes/density public/geo 2>/dev/null || true
+rmdir src/modes/density 2>/dev/null || true
 ```
 
 - [ ] **Step 9: Confirm nothing imports them**
@@ -626,7 +627,7 @@ Expected: all pass. If `tsc` names a file that still mentions `density`, it is a
 - [ ] **Step 14: Commit**
 
 ```bash
-git add -A src/store/appModeStore.ts src/store/index.ts src/types/index.ts src/types/density.ts src/utils/urlState.ts src/utils/urlState.test.ts src/services/cameraDataService.ts src/pages/MapPage.tsx src/components/panels/DensityPanel.tsx src/components/map/DensityLegendBar.tsx src/components/map/DensityLoadingPill.tsx src/components/map/layers/DensityLayers.tsx src/modes/density src/services/densityDataService.ts src/store/densityStore.ts src/store/densityStore.test.ts public/geo src/components/map/layers/NetworkLayers.tsx package.json package-lock.json
+git add -A src/store/appModeStore.ts src/store/index.ts src/types/index.ts src/types/density.ts src/utils/urlState.ts src/utils/urlState.test.ts src/services/cameraDataService.ts src/pages/MapPage.tsx src/components/panels/DensityPanel.tsx src/components/map/DensityLegendBar.tsx src/components/map/DensityLoadingPill.tsx src/components/map/layers/DensityLayers.tsx src/modes/density src/services/densityDataService.ts src/store/densityStore.ts src/store/densityStore.test.ts public/geo/counties-metrics.geojson src/components/map/layers/NetworkLayers.tsx package.json package-lock.json
 git commit -m "refactor: remove the Analysis (density) mode and its data; /analysis lands on map"
 ```
 
