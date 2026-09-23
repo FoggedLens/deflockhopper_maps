@@ -60,6 +60,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/state/:stateSlug" element={<MapPage />} />
               <Route path="/explore" element={<MapPage />} />
               <Route path="/timeline" element={<MapPage />} />
+              {/* Legacy alias for the retired Analysis tab; lands on Map (see urlState PATH_MODES) */}
               <Route path="/analysis" element={<MapPage />} />
               <Route path="/network" element={<MapPage />} />
               <Route path="/route" element={<MapPage />} />

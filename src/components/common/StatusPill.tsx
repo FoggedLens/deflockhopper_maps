@@ -17,7 +17,7 @@ interface StatusPillProps {
 }
 
 /**
- * Generic loading/error pill for mode data downloads (Network, Analysis).
+ * Generic loading/error pill for mode data downloads (Network).
  * Delayed appearance so fast loads never flash a spinner; error state is a
  * tap-to-retry button matching the camera LoadingPill's treatment.
  */
