@@ -58,6 +58,7 @@ npm run preview   # Preview production build
 ### App Modes
 
 The map has 4 modes, selectable via the header tabs:
+- **Map**: Camera browse view (default). Camera markers from the hourly tiles, OSM attribute filters, and the boundary overlay
 - **Route**: Camera-avoidance route planning
 - **Explore**: Dot density visualization with timeline playback
 - **Network**: Sharing network visualization between agencies
