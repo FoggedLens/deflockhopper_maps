@@ -89,6 +89,9 @@ import { SwipeOverlayMaps } from './SwipeOverlayMaps';
 // currently mounted/interactive.
 const CAMERA_POINT_LAYER_IDS = ['camera-tile-points', 'camera-tile-points-filtered'];
 
+// Half-width of the pixel box used to hit-test a click against a point layer.
+const CLICK_BOX_PX = 12;
+
 // Map our style IDs to Protomaps flavor names (must match R2 sprites at /sprites/v4/{flavor})
 const FLAVOR_MAP: Record<MapTileStyleId, string> = {
   dark: 'dark',
@@ -1066,7 +1069,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     const props = (feature.properties ?? {}) as Record<string, unknown>;
     const [flon, flat] = (feature.geometry as GeoJSON.Point).coordinates;
     const { x, y } = point;
-    const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
+    const box: [[number, number], [number, number]] = [[x - CLICK_BOX_PX, y - CLICK_BOX_PX], [x + CLICK_BOX_PX, y + CLICK_BOX_PX]];
     let devices: ReturnType<typeof parseDeviceRecord>[] = [];
     let lon = flon;
     let lat = flat;
@@ -1084,7 +1087,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         devices = groupDevicesAtCoordinate(nearby, target.lat, target.lon);
       }
     }
-    const osmLayer = isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points';
+    const osmLayer = isSwipe || !isFilterTilesMode ? 'camera-tile-points' : 'camera-tile-points-filtered';
     const osmMapForHint = isSwipe ? swipeOsmRef.current?.getMap() : (showCameraMarkers ? map : undefined);
     const osmNearby = osmMapForHint?.getLayer(osmLayer)
       ? osmMapForHint
@@ -1149,7 +1152,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         const width = main.getContainer().clientWidth || 1;
         const divider = useFlockLeakStore.getState().divider;
         const { x, y } = event.point;
-        const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
+        const box: [[number, number], [number, number]] = [[x - CLICK_BOX_PX, y - CLICK_BOX_PX], [x + CLICK_BOX_PX, y + CLICK_BOX_PX]];
         if (x / width >= divider) {
           const flockMap = swipeFlockRef.current?.getMap();
           const hit = flockMap?.getLayer(FLOCK_LEAK_POINTS_LAYER)
@@ -1165,6 +1168,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
             ? osmMap.queryRenderedFeatures(box, { layers: ['camera-tile-points'] })[0]
             : undefined;
           if (hit) {
+            useFlockLeakStore.getState().setSelection(null);
             openCameraPopup(hit);
             return;
           }
