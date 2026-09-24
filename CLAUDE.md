@@ -57,10 +57,11 @@ npm run preview   # Preview production build
 
 ### App Modes
 
-The map has 4 modes, selectable via the header tabs:
+The map has 5 modes, selectable via the header tabs:
 - **Map**: Camera browse view (default). Camera markers from the hourly tiles, OSM attribute filters, and the boundary overlay
 - **Route**: Camera-avoidance route planning
 - **Explore**: Dot density visualization with timeline playback
+- **Flock Leak**: the leaked Flock device inventory (Dec 2025 snapshot) next to OSM, with Flock / Swipe / Overlay views on one map (`src/store/flockLeakStore.ts`, `src/hooks/useSwipeFilters.ts`)
 - **Network**: Sharing network visualization between agencies
 
 ### Critical Files
@@ -81,6 +82,10 @@ The map has 4 modes, selectable via the header tabs:
 | `src/pages/MapPage.tsx` | Main application page container |
 | `src/components/map/MapLibreContainer.tsx` | Map rendering, camera markers, route layers |
 | `src/components/map/layers/CameraTileLayers.tsx` | Default camera rendering — dots/points/cones from the camera vector tiles |
+| `src/services/flockLeakTilesService.ts` | Flock TileJSON URL and loader, never fails the app over |
+| `src/store/flockLeakStore.ts` | view, divider, filters, TileJSON stats |
+| `src/hooks/useSwipeFilters.ts` | imperative `within` filters for the swipe, throttled to 20 per second |
+| `src/components/map/layers/FlockLeakLayers.tsx` | dots and runtime icons |
 | `src/components/panels/MapPanel.tsx` | Main panel container component |
 | `src/components/panels/TabbedPanel.tsx` | Tab navigation for mode panels |
 
@@ -94,6 +99,7 @@ Zustand stores expose both state and actions. Key stores:
 - `mapModeStore`: Map style and base layer mode
 - `appModeStore`: Current app mode, visualization settings
 - `networkStore`: Sharing network data (fetched from the deflock-data CDN, plus optional `meta` provenance)
+- `flockLeakStore`: Leak tab view, swipe divider, type/status filters, TileJSON stats, tile failure flag
 
 ### Directory Structure
 
@@ -104,18 +110,18 @@ src/
 │   ├── inputs/     # AddressSearch autocomplete
 │   ├── map/        # MapLibreContainer, MapSearch, CameraStats, MapLoadingScreen
 │   │   └── layers/ # CameraTileLayers (default), CameraMarkerLayers (lazy),
-│   │               # DotDensityLayers, HeatmapLayers,
+│   │               # DotDensityLayers, HeatmapLayers, FlockLeakLayers,
 │   │               # NetworkLayers, BoundaryOverlayLayers
 │   ├── panels/     # MapPanel, TabbedPanel, RoutePanel, ExplorePanel,
-│   │               # NetworkPanel, CustomRoutePanel,
+│   │               # FlockLeakPanel, NetworkPanel, CustomRoutePanel,
 │   │               # MobileTabDrawer, RouteComparison
 │   └── ui/         # Shadcn components (button, input)
 ├── hooks/          # useCameraRenderMode, useEmbedMode
-├── lib/            # Utility helpers (cn)
+├── lib/            # Utility helpers (cn), flockInventory (Flock group/status/quality labels + totals)
 ├── modes/          # Visualization modes (heatmap, timeline, dots)
 ├── pages/          # MapPage, NotFound
 ├── services/       # apiClient, cameraDataService, cameraTilesService,
-│                   # boundaryDataService, geocodingService,
+│                   # boundaryDataService, flockLeakTilesService, geocodingService,
 │                   # gpxService, zipCodeService, routingConfig, performanceLogger
 ├── store/          # Zustand stores
 ├── types/          # TypeScript definitions (camera, route, map)
@@ -139,7 +145,7 @@ Found in .env file. Environment variables are prefixed with `VITE_` for Vite to 
 The spatial grid (0.5° cells) is critical for performance. Always use `getCamerasInBounds()` or `getCamerasInBoundsFromGrid()` rather than filtering the full camera array.
 
 ### Map Rendering
-`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default vector-tile rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DotDensityLayers, HeatmapLayers, NetworkLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active.
+`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default vector-tile rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DotDensityLayers, HeatmapLayers, NetworkLayers, FlockLeakLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active. In leak mode the map is locked north-up and cones are off (`CameraTileLayers cones={false}`); the swipe divider is applied imperatively by `useSwipeFilters`, not through React props.
 
 ### Code Splitting
 Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, state, deck-vendor. MapPage uses React lazy loading with Suspense. Path alias `@/` maps to `src/`.
@@ -150,6 +156,7 @@ Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, stat
 - **Camera Data (attributes)**: `data.dontgetflocked.com/cameras.geojson.gz` — lazy-loaded for filters/timeline/heatmap/Canada; ~114k (July 2026) cameras
 - **ZIP Codes**: `/public/zipcodes-us.json` — local lookup, no API needed
 - **State boundaries (state filter)**: `/public/geo/states-metrics.geojson` — fetched by `stateFilterService` for `/state/*` links and the state picker; not Analysis data, do not delete
+- **Flock Leak Tiles**: `https://tiles.dontgetflocked.com/flock-inventory-v2.json` (fixed URL, not host-dependent; source layer `cameras`; `g`/`s`/`q` codes at every zoom, full device records from z9; 7-day cache). Contract: `docs/superpowers/specs/2026-09-23-flock-inventory-v2-contract.md`. Totals come from `FLOCK_INVENTORY` in `src/lib/flockInventory.ts`, never from rendered features. A failure shows a retry pill on the Leak tab and never fails the app over.
 - **Map Tiles**: Protomaps basemap via `<TILES_HOST>/planet.json` (+ `/fonts`, `/sprites`); `boundaries-us.json` for the boundary overlay
 - **Geocoding**: Nominatim (OSM) with Photon fallback
 - **Network Data**: `deflockdata.dontgetflocked.com/sharing-network-{nodes.geojson,adjacency.json,meta.json}` — published every Monday by the deflock-data repo (schema frozen by the publisher, gzip-stored, CORS `*`, 1h cache, no edge cache). Base URL overridable with `VITE_NETWORK_DATA_BASE` (`src/services/networkDataService.ts`). Nothing is bundled in `/public/` any more, so the site cannot fall back to stale data.
