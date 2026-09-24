@@ -11,4 +11,4 @@ export type { MapVisualization } from './mapModeStore';
 export { useBoundaryStore } from './boundaryStore';
 export type { BoundaryState } from './boundaryStore';
 export { useFlockLeakStore } from './flockLeakStore';
-export type { FlockLeakView, FlockDeviceSelection } from './flockLeakStore';
+export type { FlockLeakView, FlockSelection } from './flockLeakStore';

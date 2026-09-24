@@ -1,29 +1,27 @@
 import type { FilterSpecification } from 'maplibre-gl';
-import {
-  flockTypeExpression,
-  flockStatusExpression,
-  FLOCK_SELECTABLE_STATUSES,
-  type FlockDeviceType,
-  type FlockDeviceStatus,
-} from '../lib/flockTypeNormalization';
+import { FLOCK_SELECTABLE_STATUSES, type FlockGroup, type FlockStatus } from '../lib/flockInventory';
 import { combineFilters } from './swipeFilter';
 
 /**
- * Layer filter for the Flock layers from the user's chips. Empty `types`
- * means all types. Devices with an unknown status always pass the status
- * filter: the chips can hide Flock's labels, never Flock's silence.
+ * Layer filter for the Flock layers from the chips. Works at every zoom
+ * because g, s and q are present on every feature. Never triggers a tile
+ * request: it is a layer filter over tiles already loaded.
+ *
+ * - quality: q must be 0 unless suspect records are shown
+ * - groups: empty means all
+ * - statuses: all three selectable statuses on means no status clause
  */
 export function flockLayerFilter(
-  types: FlockDeviceType[],
-  statuses: FlockDeviceStatus[]
+  groups: FlockGroup[],
+  statuses: FlockStatus[],
+  showSuspect: boolean
 ): FilterSpecification | undefined {
-  const typeFilter =
-    types.length > 0
-      ? (['in', flockTypeExpression(), ['literal', types]] as unknown as FilterSpecification)
-      : undefined;
+  const quality = showSuspect ? undefined : (['==', ['get', 'q'], 0] as unknown as FilterSpecification);
+  const group =
+    groups.length > 0 ? (['in', ['get', 'g'], ['literal', groups]] as unknown as FilterSpecification) : undefined;
   const allStatuses = FLOCK_SELECTABLE_STATUSES.every((s) => statuses.includes(s));
-  const statusFilter = allStatuses
+  const status = allStatuses
     ? undefined
-    : (['in', flockStatusExpression(), ['literal', [...statuses, 'unknown']]] as unknown as FilterSpecification);
-  return combineFilters(typeFilter, statusFilter);
+    : (['in', ['get', 's'], ['literal', statuses]] as unknown as FilterSpecification);
+  return combineFilters(quality, group, status);
 }

@@ -1,5 +1,4 @@
 import { haversineDistance } from './geo';
-import type { FlockDeviceType } from '../lib/flockTypeNormalization';
 
 /** Half-size of the screen box queried around a tapped Flock mark. */
 export const NEARBY_QUERY_PX = 20;
@@ -25,7 +24,12 @@ export function nearestDistanceMeters(
  */
 export function flockNearbyHint(input: {
   zoom: number;
-  type: FlockDeviceType;
+  /** Flock's raw product type string (e.g. 'falcon'). Was constrained to a
+   *  canonical enum removed by the v2 contract rework (Task 8); kept as a
+   *  plain string here so this module has no dependency on that rework.
+   *  The map-wiring task should pass the device's group instead of a type
+   *  string once one is available (group 1 = plate readers = ALPR). */
+  type: string;
   nearestMeters: number | null;
   osmVisible: boolean;
 }): string | null {

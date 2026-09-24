@@ -3,36 +3,43 @@ import { clampDivider } from '../utils/swipeFilter';
 import { loadFlockLeakTileJson, type FlockLeakTileJson } from '../services/flockLeakTilesService';
 import {
   FLOCK_SELECTABLE_STATUSES,
-  type FlockDeviceType,
-  type FlockDeviceStatus,
-} from '../lib/flockTypeNormalization';
+  type FlockGroup,
+  type FlockStatus,
+  type FlockQuality,
+  type FlockDeviceRecord,
+} from '../lib/flockInventory';
 
 export type FlockLeakView = 'flock' | 'swipe' | 'overlay';
 export type FlockLeakLoadPhase = 'idle' | 'loading' | 'ready' | 'error';
 
-export interface FlockDeviceSelection {
+/** What a tap on the Flock layer resolved to. Below z9 the tiles carry only
+ *  codes, so `devices` is empty and g/s/q describe the merged point. */
+export interface FlockSelection {
   lon: number;
   lat: number;
-  type: FlockDeviceType;
-  status: FlockDeviceStatus;
-  rawType: string;
-  rawStatus: string;
-  /** Every other tile attribute, stringified, for the popup rows. */
-  extra: Array<[string, string]>;
-  /** Nearest rendered OSM camera at click time; null when none was found. */
-  nearestOsmMeters: number | null;
   zoom: number;
+  g: FlockGroup | null;
+  s: FlockStatus | null;
+  q: FlockQuality | null;
+  /** Devices at exactly this coordinate (z9+), deduped by id, lead device first. */
+  devices: FlockDeviceRecord[];
+  /** Nearest rendered OSM camera at click time; null when none or OSM hidden. */
+  nearestOsmMeters: number | null;
 }
 
-export const DEFAULT_FLOCK_STATUSES: readonly FlockDeviceStatus[] = ['active'];
+export const DEFAULT_FLOCK_STATUSES: readonly FlockStatus[] = [1];
 
 interface FlockLeakState {
   view: FlockLeakView;
   /** Swipe divider as a fraction of the map width, 0..1. The only value
    *  written during a gesture. */
   divider: number;
-  types: FlockDeviceType[];
-  statuses: FlockDeviceStatus[];
+  /** Empty means every selectable group. */
+  groups: FlockGroup[];
+  statuses: FlockStatus[];
+  /** Reveal q > 0 records (unknown status, fixtures, placeholder stacks, outside NA). */
+  showSuspect: boolean;
+  selection: FlockSelection | null;
   tileJson: FlockLeakTileJson | null;
   loadPhase: FlockLeakLoadPhase;
   error: string | null;
@@ -40,14 +47,14 @@ interface FlockLeakState {
   tilesFailed: boolean;
   /** Bumped by retry so the map remounts the Flock source. */
   sourceEpoch: number;
-  selectedDevice: FlockDeviceSelection | null;
 
   setView: (view: FlockLeakView) => void;
   setDivider: (divider: number) => void;
-  toggleType: (type: FlockDeviceType) => void;
-  clearTypes: () => void;
-  toggleStatus: (status: FlockDeviceStatus) => void;
-  setSelectedDevice: (selection: FlockDeviceSelection | null) => void;
+  toggleGroup: (group: FlockGroup) => void;
+  clearGroups: () => void;
+  toggleStatus: (status: FlockStatus) => void;
+  setShowSuspect: (show: boolean) => void;
+  setSelection: (selection: FlockSelection | null) => void;
   setTilesFailed: (failed: boolean) => void;
   ensureTileJsonLoaded: () => Promise<void>;
   retry: () => void;
@@ -56,14 +63,15 @@ interface FlockLeakState {
 const INITIAL = {
   view: 'flock' as FlockLeakView,
   divider: 0.5,
-  types: [] as FlockDeviceType[],
+  groups: [] as FlockGroup[],
   statuses: [...DEFAULT_FLOCK_STATUSES],
+  showSuspect: false,
+  selection: null as FlockSelection | null,
   tileJson: null as FlockLeakTileJson | null,
   loadPhase: 'idle' as FlockLeakLoadPhase,
   error: null as string | null,
   tilesFailed: false,
   sourceEpoch: 0,
-  selectedDevice: null as FlockDeviceSelection | null,
 };
 
 export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
@@ -76,12 +84,12 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
     const next = clampDivider(divider);
     if (next !== get().divider) set({ divider: next });
   },
-  toggleType: (type) =>
+  toggleGroup: (group) =>
     set((s) => ({
-      types: s.types.includes(type) ? s.types.filter((t) => t !== type) : [...s.types, type],
+      groups: s.groups.includes(group) ? s.groups.filter((g) => g !== group) : [...s.groups, group],
     })),
-  clearTypes: () => {
-    if (get().types.length > 0) set({ types: [] });
+  clearGroups: () => {
+    if (get().groups.length > 0) set({ groups: [] });
   },
   toggleStatus: (status) =>
     set((s) => ({
@@ -89,7 +97,10 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
         ? s.statuses.filter((x) => x !== status)
         : [...s.statuses, status],
     })),
-  setSelectedDevice: (selectedDevice) => set({ selectedDevice }),
+  setShowSuspect: (showSuspect) => {
+    if (get().showSuspect !== showSuspect) set({ showSuspect });
+  },
+  setSelection: (selection) => set({ selection }),
   setTilesFailed: (tilesFailed) => {
     if (get().tilesFailed !== tilesFailed) set({ tilesFailed });
   },
@@ -109,15 +120,21 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
   },
 }));
 
-/** Badge count for the filter button. The Active-only default is a filter
- *  the user can see (Planned and Decommissioned are hidden), so it counts. */
-export function activeFlockFilterCount(s: { types: FlockDeviceType[]; statuses: FlockDeviceStatus[] }): number {
-  const typeActive = s.types.length > 0 ? 1 : 0;
+/** Badge count for the filter button. The In-service-only default is a
+ *  filter the user can see (Planned and Decommissioned are hidden), so it
+ *  counts; so does revealing suspect records. */
+export function activeFlockFilterCount(s: {
+  groups: FlockGroup[];
+  statuses: FlockStatus[];
+  showSuspect: boolean;
+}): number {
+  const groupActive = s.groups.length > 0 ? 1 : 0;
   const allStatuses = FLOCK_SELECTABLE_STATUSES.every((x) => s.statuses.includes(x));
-  return typeActive + (allStatuses ? 0 : 1);
+  return groupActive + (allStatuses ? 0 : 1) + (s.showSuspect ? 1 : 0);
 }
 
 /** Test hook — not for app code. */
 export function _resetFlockLeakStoreForTests(): void {
-  useFlockLeakStore.setState({ ...INITIAL, statuses: [...DEFAULT_FLOCK_STATUSES], types: [] });
+  // Fresh arrays every time: INITIAL's arrays must never be shared across resets.
+  useFlockLeakStore.setState({ ...INITIAL, statuses: [...DEFAULT_FLOCK_STATUSES], groups: [] });
 }

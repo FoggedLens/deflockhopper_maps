@@ -14,12 +14,13 @@ beforeEach(() => {
 });
 
 describe('defaults', () => {
-  it('lands on the Flock view, divider centered, active only', () => {
+  it('lands on the Flock view, divider centered, in service only', () => {
     const s = useFlockLeakStore.getState();
     expect(s.view).toBe('flock');
     expect(s.divider).toBe(0.5);
-    expect(s.types).toEqual([]);
-    expect(s.statuses).toEqual(['active']);
+    expect(s.groups).toEqual([]);
+    expect(s.statuses).toEqual([1]);
+    expect(s.showSuspect).toBe(false);
     expect(s.loadPhase).toBe('idle');
   });
 });
@@ -37,39 +38,44 @@ describe('setDivider', () => {
 });
 
 describe('filters', () => {
-  it('toggles types and clears back to all', () => {
+  it('toggles groups and clears back to all', () => {
     const s = useFlockLeakStore.getState();
-    s.toggleType('condor');
-    s.toggleType('alpr');
-    expect(useFlockLeakStore.getState().types).toEqual(['condor', 'alpr']);
-    s.toggleType('condor');
-    expect(useFlockLeakStore.getState().types).toEqual(['alpr']);
-    s.clearTypes();
-    expect(useFlockLeakStore.getState().types).toEqual([]);
+    s.toggleGroup(2);
+    s.toggleGroup(1);
+    expect(useFlockLeakStore.getState().groups).toEqual([2, 1]);
+    s.toggleGroup(2);
+    expect(useFlockLeakStore.getState().groups).toEqual([1]);
+    s.clearGroups();
+    expect(useFlockLeakStore.getState().groups).toEqual([]);
   });
 
-  it('toggles statuses', () => {
-    useFlockLeakStore.getState().toggleStatus('planned');
-    expect(useFlockLeakStore.getState().statuses).toEqual(['active', 'planned']);
-    useFlockLeakStore.getState().toggleStatus('active');
-    expect(useFlockLeakStore.getState().statuses).toEqual(['planned']);
+  it('toggles statuses and the suspect switch', () => {
+    useFlockLeakStore.getState().toggleStatus(2);
+    expect(useFlockLeakStore.getState().statuses).toEqual([1, 2]);
+    useFlockLeakStore.getState().toggleStatus(1);
+    expect(useFlockLeakStore.getState().statuses).toEqual([2]);
+    const before = useFlockLeakStore.getState();
+    useFlockLeakStore.getState().setShowSuspect(false);
+    expect(useFlockLeakStore.getState()).toBe(before);
+    useFlockLeakStore.getState().setShowSuspect(true);
+    expect(useFlockLeakStore.getState().showSuspect).toBe(true);
   });
 
-  it('counts the Active-only default as one filter, all statuses as none', () => {
-    expect(activeFlockFilterCount({ types: [], statuses: ['active'] })).toBe(1);
-    expect(activeFlockFilterCount({ types: [], statuses: ['active', 'planned', 'decommissioned'] })).toBe(0);
-    expect(activeFlockFilterCount({ types: ['alpr'], statuses: ['active', 'planned', 'decommissioned'] })).toBe(1);
-    expect(activeFlockFilterCount({ types: ['alpr'], statuses: ['active'] })).toBe(2);
+  it('counts the In-service-only default as one filter, all statuses as none, suspect as one', () => {
+    expect(activeFlockFilterCount({ groups: [], statuses: [1], showSuspect: false })).toBe(1);
+    expect(activeFlockFilterCount({ groups: [], statuses: [1, 2, 3], showSuspect: false })).toBe(0);
+    expect(activeFlockFilterCount({ groups: [1], statuses: [1, 2, 3], showSuspect: false })).toBe(1);
+    expect(activeFlockFilterCount({ groups: [1], statuses: [1], showSuspect: true })).toBe(3);
   });
 });
 
 describe('ensureTileJsonLoaded', () => {
   it('stores the document and goes ready', async () => {
-    loadMock.mockResolvedValue({ tiles: ['x'], stats: { total: 5 } });
+    loadMock.mockResolvedValue({ tiles: ['x'], name: 'v2' });
     await useFlockLeakStore.getState().ensureTileJsonLoaded();
     const s = useFlockLeakStore.getState();
     expect(s.loadPhase).toBe('ready');
-    expect(s.tileJson?.stats?.total).toBe(5);
+    expect(s.tileJson?.name).toBe('v2');
   });
 
   it('loads once', async () => {

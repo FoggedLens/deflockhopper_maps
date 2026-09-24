@@ -6,34 +6,48 @@ function passes(filter: unknown, properties: Record<string, unknown>): boolean {
   if (filter === undefined) return true;
   const parsed = createExpression(filter as never);
   if (parsed.result !== 'success') throw new Error(JSON.stringify(parsed.value));
-  return Boolean(parsed.value.evaluate({ zoom: 10 }, { type: 1, properties, geometry: null } as never));
+  return Boolean(parsed.value.evaluate({ zoom: 4 }, { type: 1, properties, geometry: null } as never));
 }
 
 describe('flockLayerFilter', () => {
-  it('is undefined when every type and every selectable status is on', () => {
-    expect(flockLayerFilter([], ['active', 'planned', 'decommissioned'])).toBeUndefined();
+  it('default (clean, in service) at a national zoom with only g/s/q present', () => {
+    const f = flockLayerFilter([], [1], false);
+    expect(passes(f, { g: 1, s: 1, q: 0 })).toBe(true);
+    expect(passes(f, { g: 1, s: 2, q: 0 })).toBe(false);
+    expect(passes(f, { g: 1, s: 1, q: 3 })).toBe(false);
   });
 
-  it('default (Active only) keeps active and unknown, drops planned and decommissioned', () => {
-    const f = flockLayerFilter([], ['active']);
-    expect(passes(f, { type: 'Falcon', status: 'Active' })).toBe(true);
-    expect(passes(f, { type: 'Falcon' })).toBe(true); // unknown status never vanishes
-    expect(passes(f, { type: 'Falcon', status: 'Planned' })).toBe(false);
-    expect(passes(f, { type: 'Falcon', status: 'Removed' })).toBe(false);
+  it('is undefined only when suspect records are shown, every status is on and no group is picked', () => {
+    expect(flockLayerFilter([], [1, 2, 3], true)).toBeUndefined();
+    expect(flockLayerFilter([], [1, 2, 3], false)).toEqual(['==', ['get', 'q'], 0]);
   });
 
-  it('type filter matches canonical types', () => {
-    const f = flockLayerFilter(['condor', 'raven'], ['active', 'planned', 'decommissioned']);
-    expect(passes(f, { type: 'Condor PTZ', status: 'Active' })).toBe(true);
-    expect(passes(f, { type: 'Raven', status: 'Active' })).toBe(true);
-    expect(passes(f, { type: 'Falcon', status: 'Active' })).toBe(false);
-    expect(passes(f, { status: 'Active' })).toBe(false); // other is not selected
+  it('shows suspect records when asked', () => {
+    const f = flockLayerFilter([], [1, 2, 3], true);
+    expect(passes(f, { g: 8, s: 1, q: 2 })).toBe(true);
+    expect(passes(f, { g: 1, s: 4, q: 1 })).toBe(true);
   });
 
-  it('combines type and status', () => {
-    const f = flockLayerFilter(['alpr'], ['planned']);
-    expect(passes(f, { type: 'Falcon', status: 'Planned' })).toBe(true);
-    expect(passes(f, { type: 'Falcon', status: 'Active' })).toBe(false);
-    expect(passes(f, { type: 'Condor', status: 'Planned' })).toBe(false);
+  it('filters by group', () => {
+    const f = flockLayerFilter([1, 3], [1, 2, 3], false);
+    expect(passes(f, { g: 1, s: 1, q: 0 })).toBe(true);
+    expect(passes(f, { g: 3, s: 3, q: 0 })).toBe(true);
+    expect(passes(f, { g: 2, s: 1, q: 0 })).toBe(false);
+  });
+
+  it('combines group and status', () => {
+    const f = flockLayerFilter([5], [2], false);
+    expect(passes(f, { g: 5, s: 2, q: 0 })).toBe(true);
+    expect(passes(f, { g: 5, s: 1, q: 0 })).toBe(false);
+    expect(passes(f, { g: 1, s: 2, q: 0 })).toBe(false);
+  });
+
+  it('matches the contract example shape', () => {
+    expect(flockLayerFilter([1, 3], [1], false)).toEqual([
+      'all',
+      ['==', ['get', 'q'], 0],
+      ['in', ['get', 'g'], ['literal', [1, 3]]],
+      ['in', ['get', 's'], ['literal', [1]]],
+    ]);
   });
 });

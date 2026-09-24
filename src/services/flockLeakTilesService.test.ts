@@ -4,18 +4,15 @@ import {
   loadFlockLeakTileJson,
   _resetFlockLeakTileJsonCacheForTests,
   FLOCK_LEAK_SOURCE_ID,
+  FLOCK_LEAK_SOURCE_LAYER,
+  FLOCK_LEAK_TILEJSON_URL,
 } from './flockLeakTilesService';
 import { useTilesHostStore, failoverTilesHost, _resetTilesHostForTests } from '../store/tilesHostStore';
 
-const PRIMARY = 'https://deflock.dontgetflocked.com';
-const BACKUP = 'https://tiles.dontgetflocked.com';
-
 const doc = {
   tilejson: '3.0.0',
-  tiles: [`${PRIMARY}/flock-leak-abc123/{z}/{x}/{y}.mvt`],
-  snapshot: '2025-12',
-  source_url: 'https://flocksurveillance.org',
-  stats: { total: 84120, byType: { Falcon: 80000, Condor: 4120 }, byStatus: { Active: 84120 } },
+  name: 'flock-inventory-v2 2025-12-14',
+  tiles: ['https://tiles.dontgetflocked.com/flock-inventory-v2/{z}/{x}/{y}.mvt'],
 };
 
 beforeEach(() => {
@@ -25,29 +22,35 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
-describe('flockLeakTileJsonUrl', () => {
-  it('builds the alias on the active host', () => {
-    expect(flockLeakTileJsonUrl()).toBe(`${PRIMARY}/flock-leak.json`);
+describe('constants', () => {
+  it('uses the fixed v2 URL regardless of the active tile host', () => {
+    expect(FLOCK_LEAK_TILEJSON_URL).toBe('https://tiles.dontgetflocked.com/flock-inventory-v2.json');
+    expect(flockLeakTileJsonUrl()).toBe(FLOCK_LEAK_TILEJSON_URL);
     failoverTilesHost('test');
-    expect(flockLeakTileJsonUrl()).toBe(`${BACKUP}/flock-leak.json`);
+    expect(flockLeakTileJsonUrl()).toBe(FLOCK_LEAK_TILEJSON_URL);
   });
 
-  it('source id is stable (map error handling keys on it)', () => {
+  it('never points at the v1 tileset', () => {
+    expect(FLOCK_LEAK_TILEJSON_URL).not.toMatch(/flock-inventory\.json/);
+  });
+
+  it('source id and layer are stable (map wiring keys on them)', () => {
     expect(FLOCK_LEAK_SOURCE_ID).toBe('flock-leak-tiles');
+    expect(FLOCK_LEAK_SOURCE_LAYER).toBe('cameras');
   });
 });
 
 describe('loadFlockLeakTileJson', () => {
-  it('fetches with cache: no-cache and returns the stats', async () => {
+  it('fetches with cache: no-cache and returns the document', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(doc), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     const result = await loadFlockLeakTileJson();
-    expect(fetchMock).toHaveBeenCalledWith(`${PRIMARY}/flock-leak.json`, expect.objectContaining({ cache: 'no-cache' }));
-    expect(result?.stats?.total).toBe(84120);
-    expect(result?.snapshot).toBe('2025-12');
+    expect(fetchMock).toHaveBeenCalledWith(FLOCK_LEAK_TILEJSON_URL, expect.objectContaining({ cache: 'no-cache' }));
+    expect(result?.tiles).toEqual(doc.tiles);
+    expect(result?.name).toBe(doc.name);
   });
 
-  it('caches a success (one fetch for repeated calls)', async () => {
+  it('caches a success', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(doc), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     await loadFlockLeakTileJson();
@@ -74,20 +77,12 @@ describe('loadFlockLeakTileJson', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(doc), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     expect(await loadFlockLeakTileJson()).toBeNull();
-    expect((await loadFlockLeakTileJson())?.stats?.total).toBe(84120);
+    expect((await loadFlockLeakTileJson())?.tiles).toEqual(doc.tiles);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('rejects a document without a tiles array', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ stats: { total: 1 } }), { status: 200 })));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ name: 'x' }), { status: 200 })));
     expect(await loadFlockLeakTileJson()).toBeNull();
-  });
-
-  it('drops malformed stats but keeps the tiles', async () => {
-    const bad = { ...doc, stats: { total: 'lots' } };
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(bad), { status: 200 })));
-    const result = await loadFlockLeakTileJson();
-    expect(result?.tiles).toEqual(doc.tiles);
-    expect(result?.stats).toBeUndefined();
   });
 });

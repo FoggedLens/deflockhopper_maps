@@ -1,49 +1,33 @@
-import { getTilesHost } from '../store/tilesHostStore';
-
 /**
- * The leaked Flock device inventory tileset (December 2025 snapshot). Same
- * hosts and TileJSON addressing as the camera tiles. Contract in
- * docs/superpowers/specs/2026-09-23-flock-leak-tab-design.md section 2.
+ * The leaked Flock device inventory tileset (flock-inventory-v2, the
+ * December 14, 2025 export). Unlike the camera tiles it lives at ONE fixed
+ * URL, not on whichever tile host is active, and a failure here never fails
+ * the app over: a missing leak file must not degrade the Map tab.
+ * Contract: docs/superpowers/specs/2026-09-23-flock-inventory-v2-contract.md
  */
 export const FLOCK_LEAK_SOURCE_ID = 'flock-leak-tiles';
-export const FLOCK_LEAK_SOURCE_LAYER = 'devices';
+export const FLOCK_LEAK_SOURCE_LAYER = 'cameras';
 export const FLOCK_LEAK_MAXZOOM = 14;
-/** Icons take over from the density dots here (dots run to maxzoom 10). */
+/** Full device records start here; below it the tiles carry merged points. */
 export const FLOCK_LEAK_POINTS_MINZOOM = 9;
-export const FLOCK_LEAK_SNAPSHOT_LABEL = 'Dec 2025';
+export const FLOCK_LEAK_SNAPSHOT_LABEL = 'Dec 14, 2025';
 export const FLOCK_LEAK_STORY_URL = 'https://flocksurveillance.org';
+export const FLOCK_LEAK_TILEJSON_URL = 'https://tiles.dontgetflocked.com/flock-inventory-v2.json';
 
-export const flockLeakTileJsonUrl = (): string => `${getTilesHost()}/flock-leak.json`;
-
-export interface FlockLeakStats {
-  total: number;
-  byType?: Record<string, number>;
-  byStatus?: Record<string, number>;
-}
+/** Kept as a function so callers read like the camera tile URLs. */
+export const flockLeakTileJsonUrl = (): string => FLOCK_LEAK_TILEJSON_URL;
 
 export interface FlockLeakTileJson {
   tiles: string[];
-  snapshot?: string;
-  source_url?: string;
-  stats?: FlockLeakStats;
+  name?: string;
+  description?: string;
 }
 
 const _cache = new Map<string, Promise<FlockLeakTileJson | null>>();
 
-function parseStats(raw: unknown): FlockLeakStats | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const r = raw as Record<string, unknown>;
-  if (typeof r.total !== 'number' || !Number.isFinite(r.total)) return undefined;
-  const counts = (v: unknown): Record<string, number> | undefined =>
-    v && typeof v === 'object' ? (v as Record<string, number>) : undefined;
-  return { total: r.total, byType: counts(r.byType), byStatus: counts(r.byStatus) };
-}
-
 /**
- * Fetch the Flock TileJSON from the active host. Resolves null when missing
- * or unusable. Unlike the camera TileJSON this NEVER fails the app over: a
- * missing leak file must not degrade the Map tab. The Leak tab shows its own
- * retry pill instead. Successes are cached per host; failures are not.
+ * Fetch the TileJSON. Resolves null when missing or unusable; never throws,
+ * never fails the app over. Successes are cached; failures are not.
  */
 export function loadFlockLeakTileJson(): Promise<FlockLeakTileJson | null> {
   const url = flockLeakTileJsonUrl();
@@ -66,10 +50,8 @@ export function loadFlockLeakTileJson(): Promise<FlockLeakTileJson | null> {
       const data = (await res.json()) as Record<string, unknown> | null;
       if (!data || !Array.isArray(data.tiles)) return null;
       const doc: FlockLeakTileJson = { tiles: data.tiles as string[] };
-      if (typeof data.snapshot === 'string') doc.snapshot = data.snapshot;
-      if (typeof data.source_url === 'string') doc.source_url = data.source_url;
-      const stats = parseStats(data.stats);
-      if (stats) doc.stats = stats;
+      if (typeof data.name === 'string') doc.name = data.name;
+      if (typeof data.description === 'string') doc.description = data.description;
       return doc;
     } catch {
       return null;
