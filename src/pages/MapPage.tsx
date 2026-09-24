@@ -22,6 +22,7 @@ import { useUrlSync } from '@/hooks/useUrlSync';
 import { MapStyleControl } from '@/components/map/MapStyleControl';
 import { CameraFilterControl } from '@/components/map/CameraFilterControl';
 import { BoundaryControl } from '@/components/map/BoundaryControl';
+import { FlockLeakFilterControl } from '@/components/map/FlockLeakFilterControl';
 import { BoundaryFeaturePopup } from '@/components/map/BoundaryFeaturePopup';
 import { MapThemeControl } from '@/components/map/MapThemeControl';
 import { SwipeTrack } from '@/components/map/SwipeTrack';
@@ -400,6 +401,7 @@ export function MapPage() {
               </div>
             )}
             <CameraFilterControl />
+            {appMode === 'leak' && <FlockLeakFilterControl />}
             {appMode === 'map' && <BoundaryControl />}
             {appMode === 'map' && <BoundaryFeaturePopup />}
 

@@ -473,7 +473,9 @@ export function CameraFilterControl() {
     }
   };
 
-  if (appMode !== 'map') return null;
+  // Map and Flock Leak: on the Leak tab the OSM filters narrow the OSM side of
+  // the compare (for example, OSM cameras tagged Flock).
+  if (appMode !== 'map' && appMode !== 'leak') return null;
 
   const filterGroups = (roomy: boolean) => (
     <FilterDataGate>
