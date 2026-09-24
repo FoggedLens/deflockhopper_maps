@@ -207,6 +207,29 @@ export function groupDevicesAtCoordinate(records: FlockDeviceRecord[], lat: numb
   return [...lead, ...rest];
 }
 
+/** Among records already within the click box, the exact coordinate nearest
+ *  the click. Stacks and near neighbours share render pixels at z14, so the
+ *  topmost feature is not what the user tapped; the nearest coordinate is. */
+export function nearestCoordinateGroup(
+  records: FlockDeviceRecord[],
+  clickLat: number,
+  clickLon: number
+): { lat: number; lon: number } | null {
+  const cosLat = Math.cos((clickLat * Math.PI) / 180);
+  let best: { lat: number; lon: number; d2: number } | null = null;
+  const seen = new Set<string>();
+  for (const r of records) {
+    const key = `${r.lat},${r.lon}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const dLat = r.lat - clickLat;
+    const dLon = (r.lon - clickLon) * cosLat;
+    const d2 = dLat * dLat + dLon * dLon;
+    if (!best || d2 < best.d2) best = { lat: r.lat, lon: r.lon, d2 };
+  }
+  return best ? { lat: best.lat, lon: best.lon } : null;
+}
+
 /** "2 Drone Dock · 2 Picard", in order of first appearance. */
 export function typeCountLine(records: FlockDeviceRecord[]): string {
   const counts = new Map<string, number>();

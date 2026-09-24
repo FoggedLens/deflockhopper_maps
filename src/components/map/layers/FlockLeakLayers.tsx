@@ -12,6 +12,7 @@ import { flockLayerFilter } from '../../../utils/flockLeakFilter';
 import { useFlockLeakStore } from '../../../store/flockLeakStore';
 import { FLOCK_GROUPS } from '../../../lib/flockInventory';
 import { ensureFlockIcons, FLOCK_GROUP_COLOR } from './flockLeakIcons';
+import { zoomOpacityByStatus } from './flockLeakStyle';
 
 export const FLOCK_LEAK_DOTS_LAYER = 'flock-leak-dots';
 export const FLOCK_LEAK_POINTS_LAYER = 'flock-leak-points';
@@ -26,27 +27,6 @@ const groupColorExpression = (): unknown[] => [
 
 /** In service above planned above decommissioned where points coincide. */
 const STATUS_SORT_KEY = ['-', 5, ['coalesce', ['get', 's'], 4]];
-
-const IS_DECOMMISSIONED = ['==', ['coalesce', ['get', 's'], 4], 3];
-
-/**
- * A zoom-ramped opacity, halved for decommissioned devices (q=3 dimming).
- * MapLibre allows only one zoom-based `step`/`interpolate` subexpression
- * anywhere in an expression tree — not one, but two, even split across
- * `case` branches. Multiplying an interpolate's result by a `case` (the
- * spec's literal expression) trips the same rule from the other side. Both
- * shapes are rejected at style-validation time with no thrown exception,
- * so the layer silently never gets added. The fix: a SINGLE top-level
- * interpolate over zoom, whose per-stop output is a feature-data `case`
- * (data-driven stop values are fine; it's a second zoom curve that isn't).
- */
-function zoomOpacityByStatus(stops: number[], decommissionedScale: number): unknown[] {
-  const args: unknown[] = ['interpolate', ['linear'], ['zoom']];
-  for (let i = 0; i < stops.length; i += 2) {
-    args.push(stops[i], ['case', IS_DECOMMISSIONED, stops[i + 1] * decommissionedScale, stops[i + 1]]);
-  }
-  return args;
-}
 
 /**
  * The leaked Flock inventory: colored density dots to z10 (one point per

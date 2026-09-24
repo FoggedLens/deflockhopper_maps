@@ -80,7 +80,7 @@ import { FlockLeakPopup } from './FlockLeakPopup';
 import { useFlockLeakStore } from '../../store/flockLeakStore';
 import { flockLeakTileJsonUrl, FLOCK_LEAK_SOURCE_ID, FLOCK_LEAK_POINTS_MINZOOM } from '../../services/flockLeakTilesService';
 import { planLeakTileError } from '../../utils/tileErrorPolicy';
-import { parseGroup, parseStatus, parseQuality, parseDeviceRecord, groupDevicesAtCoordinate } from '../../lib/flockInventory';
+import { parseGroup, parseStatus, parseQuality, parseDeviceRecord, groupDevicesAtCoordinate, nearestCoordinateGroup } from '../../lib/flockInventory';
 import { nearestDistanceMeters, NEARBY_QUERY_PX } from '../../utils/flockNearby';
 
 // Both tile paths (default + filtered) render the same points layer shape;
@@ -1079,10 +1079,12 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
             .queryRenderedFeatures(box, { layers: [FLOCK_LEAK_POINTS_LAYER] })
             .map((f) => parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>))
             .filter((r): r is NonNullable<typeof r> => r !== null);
-          if (clicked) {
-            lon = clicked.lon;
-            lat = clicked.lat;
-            devices = groupDevicesAtCoordinate(nearby, clicked.lat, clicked.lon);
+          const target = nearestCoordinateGroup(nearby, event.lngLat.lat, event.lngLat.lng)
+            ?? (clicked ? { lat: clicked.lat, lon: clicked.lon } : null);
+          if (target) {
+            lon = target.lon;
+            lat = target.lat;
+            devices = groupDevicesAtCoordinate(nearby, target.lat, target.lon);
           }
         }
 

@@ -15,6 +15,7 @@ import {
   parseFeatures,
   parseDeviceRecord,
   groupDevicesAtCoordinate,
+  nearestCoordinateGroup,
   typeCountLine,
 } from './flockInventory';
 
@@ -140,6 +141,16 @@ describe('groupDevicesAtCoordinate and typeCountLine', () => {
     expect(typeCountLine(group)).toBe('2 Drone Dock · 2 Picard');
     expect(typeCountLine([at(1, 'falcon', 1)])).toBe('1 Falcon');
     expect(typeCountLine([])).toBe('');
+  });
+
+  it('nearestCoordinateGroup picks the coordinate closest to the click, not the first record', () => {
+    const stack = [at(1, 'droneDockingStation', 5), at(2, 'droneDockingStation', 5)];
+    const drone = at(3, 'drone', 5, 37.7795, -122.5026);
+    // click 1 m from the stack: the drone record comes first in the list but the stack wins
+    expect(nearestCoordinateGroup([drone, ...stack], 37.779465, -122.50264)).toEqual({ lat: 37.77946, lon: -122.50264 });
+    // click on the drone's spot
+    expect(nearestCoordinateGroup([...stack, drone], 37.7795, -122.5026)).toEqual({ lat: 37.7795, lon: -122.5026 });
+    expect(nearestCoordinateGroup([], 0, 0)).toBeNull();
   });
 });
 
