@@ -24,25 +24,23 @@ describe('compare defaults', () => {
     expect(LEAK_OSM_DEFAULT_BRAND).toBe('Flock Safety');
   });
 
-  it('Swipe and Overlay are compare views, Flock is not', () => {
+  it('Overlay is the compare view, Flock is not', () => {
     expect(isCompareView('flock')).toBe(false);
-    expect(isCompareView('swipe')).toBe(true);
     expect(isCompareView('overlay')).toBe(true);
   });
 });
 
 describe('shouldSeedCompare', () => {
-  it('seeds when leaving the Flock view for a compare view the first time', () => {
-    expect(shouldSeedCompare('flock', 'swipe', false)).toBe(true);
+  it('seeds when leaving the Flock view for Overlay the first time', () => {
     expect(shouldSeedCompare('flock', 'overlay', false)).toBe(true);
   });
 
   it('never seeds twice in one visit', () => {
-    expect(shouldSeedCompare('flock', 'swipe', true)).toBe(false);
+    expect(shouldSeedCompare('flock', 'overlay', true)).toBe(false);
   });
 
-  it('does not seed when moving between compare views or back to Flock', () => {
-    expect(shouldSeedCompare('swipe', 'overlay', false)).toBe(false);
+  it('does not seed when staying in Overlay or going back to Flock', () => {
+    expect(shouldSeedCompare('overlay', 'overlay', false)).toBe(false);
     expect(shouldSeedCompare('overlay', 'flock', false)).toBe(false);
     expect(shouldSeedCompare('flock', 'flock', false)).toBe(false);
   });

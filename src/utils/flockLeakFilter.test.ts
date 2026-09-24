@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createExpression } from '@maplibre/maplibre-gl-style-spec';
-import { flockLayerFilter } from './flockLeakFilter';
+import { combineFilters, flockLayerFilter } from './flockLeakFilter';
 
 function passes(filter: unknown, properties: Record<string, unknown>): boolean {
   if (filter === undefined) return true;
@@ -49,5 +49,16 @@ describe('flockLayerFilter', () => {
       ['in', ['get', 'g'], ['literal', [1, 3]]],
       ['in', ['get', 's'], ['literal', [1]]],
     ]);
+  });
+});
+
+describe('combineFilters', () => {
+  it('returns undefined for nothing, the filter itself for one, and all-of for many', () => {
+    expect(combineFilters()).toBeUndefined();
+    const a = ['==', ['get', 'a'], 1] as never;
+    const b = ['==', ['get', 'b'], 2] as never;
+    expect(combineFilters(a)).toBe(a);
+    expect(combineFilters(undefined, a)).toBe(a);
+    expect(combineFilters(a, b)).toEqual(['all', a, b]);
   });
 });

@@ -17,6 +17,7 @@ import {
   groupDevicesAtCoordinate,
   nearestCoordinateGroup,
   typeCountLine,
+  cleanPointsFor,
 } from './flockInventory';
 
 describe('codes', () => {
@@ -161,5 +162,19 @@ describe('FLOCK_INVENTORY totals', () => {
     expect(s.inService + s.planned + s.decommissioned).toBe(FLOCK_INVENTORY.nationalPointsClean);
     const byGroup = Object.values(FLOCK_INVENTORY.cleanByGroup).reduce((a, [i, p, d]) => a + i + p + d, 0);
     expect(byGroup).toBe(FLOCK_INVENTORY.nationalPointsClean);
+  });
+});
+
+describe('cleanPointsFor', () => {
+  it('sums the clean points for the selected statuses', () => {
+    expect(cleanPointsFor(1, [1])).toBe(117_959);
+    expect(cleanPointsFor(1, [1, 2, 3])).toBe(117_959 + 39_701 + 18_196);
+    expect(cleanPointsFor(4, [2, 3])).toBe(6_429 + 4_961);
+  });
+
+  it('is zero with no statuses, for unknown status and for fixtures', () => {
+    expect(cleanPointsFor(1, [])).toBe(0);
+    expect(cleanPointsFor(1, [4])).toBe(0);
+    expect(cleanPointsFor(8, [1, 2, 3])).toBe(0);
   });
 });

@@ -61,7 +61,7 @@ The map has 5 modes, selectable via the header tabs:
 - **Map**: Camera browse view (default). Camera markers from the hourly tiles, OSM attribute filters, and the boundary overlay
 - **Route**: Camera-avoidance route planning
 - **Explore**: Dot density visualization with timeline playback
-- **Flock Leak**: the leaked Flock device inventory (Dec 2025 snapshot) next to OSM, with Flock / Swipe / Overlay views on one map (`src/store/flockLeakStore.ts`, `src/components/map/SwipeOverlayMaps.tsx`)
+- **Flock Leak**: Flock's own device records (the Dec 14, 2025 export published by researcher Joshua Michael) on one map, with a switch that lays the OSM cameras underneath to compare (`src/store/flockLeakStore.ts`, `src/components/panels/FlockLeakPanelContent.tsx`). There is no swipe view (removed 2026-09-24, see the spec's section 19)
 - **Network**: Sharing network visualization between agencies
 
 ### Critical Files
@@ -83,8 +83,8 @@ The map has 5 modes, selectable via the header tabs:
 | `src/components/map/MapLibreContainer.tsx` | Map rendering, camera markers, route layers |
 | `src/components/map/layers/CameraTileLayers.tsx` | Default camera rendering — dots/points/cones from the camera vector tiles |
 | `src/services/flockLeakTilesService.ts` | Flock TileJSON URL and loader, never fails the app over |
-| `src/store/flockLeakStore.ts` | view, divider, filters, TileJSON stats, per-visit filter snapshot and compare seeding |
-| `src/components/map/SwipeOverlayMaps.tsx` | Swipe view: two transparent overlay maps clipped by CSS, camera-locked to the main map |
+| `src/store/flockLeakStore.ts` | view (`flock` or `overlay`), filters, TileJSON load state, per-visit filter snapshot and compare seeding |
+| `src/components/panels/FlockLeakPanelContent.tsx` | Every Leak tab string, the explainer with the researcher's links, the layer list with the compare switch and key |
 | `src/components/map/layers/FlockLeakLayers.tsx` | density dots plus the filled or hollow marks from flockCompareStyle; keeps itself above the OSM layers |
 | `src/components/panels/MapPanel.tsx` | Main panel container component |
 | `src/components/panels/TabbedPanel.tsx` | Tab navigation for mode panels |
@@ -99,7 +99,7 @@ Zustand stores expose both state and actions. Key stores:
 - `mapModeStore`: Map style and base layer mode
 - `appModeStore`: Current app mode, visualization settings
 - `networkStore`: Sharing network data (fetched from the deflock-data CDN, plus optional `meta` provenance)
-- `flockLeakStore`: Leak tab view, swipe divider, type/status filters, TileJSON load state, tile failure flag
+- `flockLeakStore`: Leak tab view (Flock alone or the OSM comparison), type/status filters, TileJSON load state, tile failure flag
 
 ### Directory Structure
 
@@ -145,7 +145,7 @@ Found in .env file. Environment variables are prefixed with `VITE_` for Vite to 
 The spatial grid (0.5° cells) is critical for performance. Always use `getCamerasInBounds()` or `getCamerasInBoundsFromGrid()` rather than filtering the full camera array.
 
 ### Map Rendering
-`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default vector-tile rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DotDensityLayers, HeatmapLayers, NetworkLayers, FlockLeakLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active. In leak mode the map is locked north-up; the swipe cuts by pixels through two clipped overlay maps (SwipeOverlayMaps), never by layer filters, so a drag re-buckets no tiles. OSM direction cones stay on in Swipe and Overlay; the Flock side never gets cones (the contract's `rotationAngle` is a mount angle, not a heading). Entering Swipe or Overlay seeds the compare defaults once per tab visit (Flock plate readers, OSM brand Flock Safety; `src/utils/leakCompareDefaults.ts`), and leaving the tab restores both sides' filters. From z9 the Flock marks come from `flockCompareStyle.ts` in two modes: filled (the Flock view and Swipe, one picture: the OSM lens in red for plate readers, filled group icons for the rest) and hollow (Overlay: red ring for plate readers, outlined group icons, Raven keeps its dot). There is no separate landing mark language. The Flock layers are kept above the OSM layers by a `styledata`-driven `moveLayer` (`layersToRaise`), because the filtered OSM tiles mount lazily and would otherwise land on top of the rings.
+`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default vector-tile rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DotDensityLayers, HeatmapLayers, NetworkLayers, FlockLeakLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active. In leak mode the OSM comparison is superposition only (Overlay); there is no swipe. OSM direction cones stay on in Overlay; the Flock side never gets cones (the contract's `rotationAngle` is a mount angle, not a heading). Turning the comparison on seeds the compare defaults once per tab visit (Flock plate readers, OSM brand Flock Safety; `src/utils/leakCompareDefaults.ts`), and leaving the tab restores both sides' filters. From z9 the Flock marks come from `flockCompareStyle.ts` in two modes: filled (the Flock view: the OSM lens in red for plate readers, filled group icons for the rest) and hollow (Overlay: red ring for plate readers, outlined group icons, Raven keeps its dot). The panel key and legend draw the same marks from `FlockLeakMarks.tsx`. There is no separate landing mark language. The Flock layers are kept above the OSM layers by a `styledata`-driven `moveLayer` (`layersToRaise`), because the filtered OSM tiles mount lazily and would otherwise land on top of the rings.
 
 ### Code Splitting
 Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, state, deck-vendor. MapPage uses React lazy loading with Suspense. Path alias `@/` maps to `src/`.

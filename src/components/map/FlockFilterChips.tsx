@@ -6,10 +6,14 @@ import {
   FLOCK_GROUP_SHORT,
   FLOCK_STATUS_LABEL,
   FLOCK_INVENTORY,
+  cleanPointsFor,
   type FlockGroup,
+  type FlockStatus,
 } from '../../lib/flockInventory';
 import { FLOCK_GROUP_COLOR, FLOCK_GROUP_SHAPE } from './layers/flockLeakIcons';
 import { FLOCK_COMPARE_COLOR } from './layers/flockCompareStyle';
+import { FlockLensMark, FlockPlannedMark } from './FlockLeakMarks';
+import { Switch } from './FlockCompareToggle';
 
 /** Legend and chip swatch: the same shape language as the map icons. */
 export function GroupSwatch({ g, size = 8 }: { g: FlockGroup; size?: number }) {
@@ -47,7 +51,7 @@ function Chip({ on, onClick, children, count }: { on: boolean; onClick: () => vo
       role="checkbox"
       aria-checked={on}
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+      className={`flex items-center gap-1.5 min-h-8 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors ${
         on ? 'border-white/40 bg-white/[0.06] text-white' : 'border-hairline text-dark-400 hover:text-dark-200'
       }`}
     >
@@ -57,12 +61,19 @@ function Chip({ on, onClick, children, count }: { on: boolean; onClick: () => vo
   );
 }
 
-/** Clean national points in the group across the three lifecycle statuses. */
-const groupTotal = (g: FlockGroup): number | undefined => {
-  const row = FLOCK_INVENTORY.cleanByGroup[g as Exclude<FlockGroup, 8>];
-  return row ? row[0] + row[1] + row[2] : undefined;
+/** The map mark for each lifecycle status, so the chips double as the key. */
+const STATUS_MARK: Record<FlockStatus, ReactNode> = {
+  1: <FlockLensMark size={14} />,
+  2: <FlockPlannedMark size={14} />,
+  3: <FlockLensMark size={14} dimmed />,
+  4: null,
 };
 
+const SUSPECT_COUNT = FLOCK_INVENTORY.devicesFlagged.toLocaleString();
+
+/** Device group and status chips (they are also the legend: each carries its
+ *  map mark) and the suspect-records switch. Counts follow the status
+ *  selection, so a chip says what the map is drawing. */
 export function FlockFilterChips({ showCounts = false }: { showCounts?: boolean }) {
   const groups = useFlockLeakStore((s) => s.groups);
   const statuses = useFlockLeakStore((s) => s.statuses);
@@ -73,44 +84,46 @@ export function FlockFilterChips({ showCounts = false }: { showCounts?: boolean 
   const setShowSuspect = useFlockLeakStore((s) => s.setShowSuspect);
 
   return (
-    <div className="space-y-3">
-      <div>
-        <p className="text-2xs uppercase text-dark-500 mb-1.5">Device group</p>
+    <div className="space-y-4">
+      <div role="group" aria-label="Device type">
+        <p className="text-xs text-dark-400 mb-2">Device type</p>
         <div className="flex flex-wrap gap-1.5">
           <Chip on={groups.length === 0} onClick={clearGroups}>All</Chip>
           {FLOCK_SELECTABLE_GROUPS.map((g) => (
-            <Chip key={g} on={groups.includes(g)} onClick={() => toggleGroup(g)} count={showCounts ? groupTotal(g) : undefined}>
+            <Chip key={g} on={groups.includes(g)} onClick={() => toggleGroup(g)} count={showCounts ? cleanPointsFor(g, statuses) : undefined}>
               <GroupSwatch g={g} />
               {FLOCK_GROUP_SHORT[g]}
             </Chip>
           ))}
         </div>
       </div>
-      <div>
-        <p className="text-2xs uppercase text-dark-500 mb-1.5">Status</p>
+      <div role="group" aria-label="Status">
+        <p className="text-xs text-dark-400 mb-2">Status</p>
         <div className="flex flex-wrap gap-1.5">
           {FLOCK_SELECTABLE_STATUSES.map((s) => (
             <Chip key={s} on={statuses.includes(s)} onClick={() => toggleStatus(s)}>
+              {STATUS_MARK[s]}
               {FLOCK_STATUS_LABEL[s]}
             </Chip>
           ))}
         </div>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={showSuspect}
-        onClick={() => setShowSuspect(!showSuspect)}
-        className="w-full flex items-center justify-between py-1.5 text-left"
-      >
-        <span className="text-xs text-dark-300">Show suspect records</span>
-        <span className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${showSuspect ? 'bg-danger' : 'bg-dark-600'}`}>
-          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showSuspect ? 'translate-x-4' : 'translate-x-0'}`} />
-        </span>
-      </button>
-      <p className="text-[11px] text-dark-500 leading-snug">
-        Suspect records: unknown status, factory fixtures, placeholder locations with many devices on one point, and devices outside North America.
-      </p>
+      <div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={showSuspect}
+          onClick={() => setShowSuspect(!showSuspect)}
+          className="w-full min-h-9 flex items-center justify-between gap-3 text-left"
+        >
+          <span className="text-xs text-dark-200">Show suspect records</span>
+          <Switch on={showSuspect} />
+        </button>
+        <p className="mt-1 text-xs text-dark-500 leading-relaxed">
+          {SUSPECT_COUNT} records are hidden by default: unknown status, factory test units, placeholder
+          locations that stack many devices on one point, and positions outside North America.
+        </p>
+      </div>
     </div>
   );
 }

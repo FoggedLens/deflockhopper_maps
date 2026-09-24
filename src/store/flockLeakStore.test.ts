@@ -14,26 +14,13 @@ beforeEach(() => {
 });
 
 describe('defaults', () => {
-  it('lands on the Flock view, divider centered, in service only', () => {
+  it('lands on the Flock view, in service only', () => {
     const s = useFlockLeakStore.getState();
     expect(s.view).toBe('flock');
-    expect(s.divider).toBe(0.5);
     expect(s.groups).toEqual([]);
     expect(s.statuses).toEqual([1]);
     expect(s.showSuspect).toBe(false);
     expect(s.loadPhase).toBe('idle');
-  });
-});
-
-describe('setDivider', () => {
-  it('clamps and is equality-gated (no new state object for the same value)', () => {
-    const { setDivider } = useFlockLeakStore.getState();
-    setDivider(0.25);
-    const before = useFlockLeakStore.getState();
-    setDivider(0.25);
-    expect(useFlockLeakStore.getState()).toBe(before);
-    setDivider(7);
-    expect(useFlockLeakStore.getState().divider).toBe(1);
   });
 });
 

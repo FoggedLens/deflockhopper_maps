@@ -4,18 +4,21 @@ import { FLOCK_PLANNED_ICON, FLOCK_COMPARE_COLOR } from './flockCompareStyle';
 
 /**
  * Flock device marks by group, drawn on a canvas at runtime and registered
- * as map images (no sprite rebuild). Placeholder palette from the theme:
- * colors and shapes are decided elsewhere later; change them HERE only.
+ * as map images (no sprite rebuild). Change colors and shapes HERE only.
+ * Every group differs from the others in hue AND shape (redundant encoding,
+ * so the marks survive color-vision deficiency), and no group uses the OSM
+ * blue. Video, Wing and Trailer were three near-identical oranges until
+ * 2026-09-24; Wing (other people's cameras) is now pink and Trailer slate.
  * Planned (s = 2) is the same shape as a dashed outline; decommissioned is
  * the solid mark at reduced opacity (a paint property, not an image).
  */
 export const FLOCK_GROUP_COLOR: Record<FlockGroup, string> = {
   1: '#ef4444', // plate readers
   2: '#f59e0b', // video / PTZ
-  3: '#fb923c', // third-party cameras (Wing)
+  3: '#f472b6', // third-party cameras (Wing)
   4: '#a78bfa', // audio sensors
   5: '#34d399', // drones
-  6: '#e5a04d', // mobile trailers
+  6: '#cbd5e1', // mobile trailers
   7: '#9ca3af', // components / other
   8: '#6b7280', // factory fixtures (q = 2, hidden by default)
 };

@@ -26,7 +26,7 @@ describe('buildFlockMarkSpecs', () => {
     }
   });
 
-  it('uses the same layer ids in both modes, so the Flock and Swipe views are one picture and Overlay its hollow twin', () => {
+  it('uses the same layer ids in both modes, so Overlay is the Flock view\'s hollow twin', () => {
     const filled = buildFlockMarkSpecs('filled').map((l) => l.id);
     const hollow = buildFlockMarkSpecs('hollow').map((l) => l.id);
     expect(filled).toContain(FLOCK_LEAK_CORE_LAYER);

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { clampDivider } from '../utils/swipeFilter';
 import { loadFlockLeakTileJson, type FlockLeakTileJson } from '../services/flockLeakTilesService';
 import { useCameraStore } from './cameraStore';
 import type { CameraFilters } from '../types';
@@ -12,7 +11,8 @@ import {
   type FlockDeviceRecord,
 } from '../lib/flockInventory';
 
-export type FlockLeakView = 'flock' | 'swipe' | 'overlay';
+/** Flock alone, or Flock over the OSM cameras (the compare view). */
+export type FlockLeakView = 'flock' | 'overlay';
 export type FlockLeakLoadPhase = 'idle' | 'loading' | 'ready' | 'error';
 
 /** What a tap on the Flock layer resolved to. Below z9 the tiles carry only
@@ -43,9 +43,6 @@ interface VisitSnapshot {
 
 interface FlockLeakState {
   view: FlockLeakView;
-  /** Swipe divider as a fraction of the map width, 0..1. The only value
-   *  written during a gesture. */
-  divider: number;
   /** Empty means every selectable group. */
   groups: FlockGroup[];
   statuses: FlockStatus[];
@@ -68,10 +65,9 @@ interface FlockLeakState {
   beginVisit: () => void;
   /** Tab left: restore the snapshot and land the next visit on Flock. */
   endVisit: () => void;
-  /** Changes the view; the first move from Flock into Swipe or Overlay in a
-   *  visit seeds the compare defaults on both sides. */
+  /** Changes the view; the first move from Flock into Overlay in a visit
+   *  seeds the compare defaults on both sides. */
   setView: (view: FlockLeakView) => void;
-  setDivider: (divider: number) => void;
   toggleGroup: (group: FlockGroup) => void;
   clearGroups: () => void;
   toggleStatus: (status: FlockStatus) => void;
@@ -84,7 +80,6 @@ interface FlockLeakState {
 
 const INITIAL = {
   view: 'flock' as FlockLeakView,
-  divider: 0.5,
   groups: [] as FlockGroup[],
   statuses: [...DEFAULT_FLOCK_STATUSES],
   showSuspect: false,
@@ -136,10 +131,6 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
     set({ view, groups: [...LEAK_COMPARE_FLOCK_GROUPS], compareSeeded: true });
     const cam = useCameraStore.getState();
     cam.setFilters(seedOsmFilters(cam.filters));
-  },
-  setDivider: (divider) => {
-    const next = clampDivider(divider);
-    if (next !== get().divider) set({ divider: next });
   },
   toggleGroup: (group) =>
     set((s) => ({

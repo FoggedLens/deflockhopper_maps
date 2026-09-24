@@ -4,7 +4,7 @@ import type { FlockLeakView } from '../store/flockLeakStore';
 
 /**
  * Defaults for the Leak tab's compare views (approved 2026-09-24). The
- * landing view shows every device; entering Swipe or Overlay narrows both
+ * landing view shows every device; turning on the OSM comparison narrows both
  * sides to the comparison that matters: Flock's plate readers against OSM
  * cameras tagged Flock Safety. Seeded once per tab visit; after that the
  * filters are the user's.
@@ -12,7 +12,7 @@ import type { FlockLeakView } from '../store/flockLeakStore';
 export const LEAK_OSM_DEFAULT_BRAND = 'Flock Safety';
 export const LEAK_COMPARE_FLOCK_GROUPS: readonly FlockGroup[] = [1];
 
-export const isCompareView = (view: FlockLeakView): boolean => view === 'swipe' || view === 'overlay';
+export const isCompareView = (view: FlockLeakView): boolean => view === 'overlay';
 
 export function shouldSeedCompare(prev: FlockLeakView, next: FlockLeakView, seededThisVisit: boolean): boolean {
   return !seededThisVisit && !isCompareView(prev) && isCompareView(next);

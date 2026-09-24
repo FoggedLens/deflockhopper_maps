@@ -16,10 +16,8 @@ const HIT_CANDIDATES = [FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_L
 /** Layers a tap or a count should query: whichever mark layers the map has
  *  right now. Naming a missing layer makes MapLibre log an error, so only
  *  mounted layers are listed. */
-export function flockHitLayers(map: { getLayer(id: string): unknown }, withDots = false): string[] {
-  const ids = HIT_CANDIDATES.filter((id) => map.getLayer(id));
-  if (withDots) ids.push(FLOCK_LEAK_DOTS_LAYER);
-  return ids;
+export function flockHitLayers(map: { getLayer(id: string): unknown }): string[] {
+  return HIT_CANDIDATES.filter((id) => map.getLayer(id));
 }
 
 export const hasFlockHitLayers = (map: { getLayer(id: string): unknown }): boolean => flockHitLayers(map).length > 0;

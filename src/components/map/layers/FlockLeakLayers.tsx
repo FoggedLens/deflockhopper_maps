@@ -6,6 +6,7 @@ import {
   FLOCK_LEAK_SOURCE_ID,
   FLOCK_LEAK_SOURCE_LAYER,
   FLOCK_LEAK_MAXZOOM,
+  FLOCK_LEAK_ATTRIBUTION,
 } from '../../../services/flockLeakTilesService';
 import { flockLayerFilter } from '../../../utils/flockLeakFilter';
 import { useFlockLeakStore } from '../../../store/flockLeakStore';
@@ -27,10 +28,8 @@ const groupColorExpression = (): unknown[] => [
  * The leaked Flock inventory: colored density dots to z10 (one point per
  * location + status + quality in the tiles), then from z9 the marks from
  * flockCompareStyle (one point per device), crossfading over z9 to z10 like
- * the OSM camera layers. The Flock view and the Swipe view draw the filled
- * marks, Overlay the hollow ones. Filters come from flockLeakStore; the swipe
- * divider is applied by clipping a second instance of this component in a
- * SwipeOverlayMaps overlay, not by any filter here.
+ * the OSM camera layers. The Flock view draws the filled marks, the OSM
+ * comparison (Overlay) the hollow ones. Filters come from flockLeakStore.
  */
 function buildDots(filter: FilterSpecification | undefined): maplibregl.CircleLayerSpecification {
   const dots: maplibregl.CircleLayerSpecification = {
@@ -121,6 +120,7 @@ export function FlockLeakLayers({ visible, sourceUrl, marks = 'filled' }: FlockL
       type="vector"
       url={sourceUrl}
       maxzoom={FLOCK_LEAK_MAXZOOM}
+      attribution={FLOCK_LEAK_ATTRIBUTION}
       promoteId={{ [FLOCK_LEAK_SOURCE_LAYER]: 'id' }}
     >
       <Layer {...dots} layout={{ ...dots.layout, visibility }} />

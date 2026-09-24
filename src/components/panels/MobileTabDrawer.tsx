@@ -18,8 +18,9 @@ import { MapPanelContent } from './MapPanel';
 import { Skeleton } from '../common';
 import { useDelayedFlag } from '../../hooks/useDelayedFlag';
 import { BrandBreakdown } from '../map/BrandBreakdown';
-import { FlockViewSwitch } from '../map/FlockViewSwitch';
-import { FlockLeakPanelContent } from './FlockLeakPanelContent';
+import { FlockCompareToggle } from '../map/FlockCompareToggle';
+import { FlockLeakPanelContent, FlockCompareKey, FLOCK_LEAK_COPY } from './FlockLeakPanelContent';
+import { useFlockLeakStore } from '../../store/flockLeakStore';
 
 /* ------------------------------------------------------------------ */
 /*  Tab definitions                                                    */
@@ -71,7 +72,7 @@ const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon: typeof 
   // route renders the FlockHopper start ad instead of IdentityRow; entry kept so the peek effects treat route as peekable
   route:   { title: 'Route', desc: 'Set a start and destination to see ALPR exposure along your route — and safer alternatives.', Icon: Navigation2 },
   explore: { title: 'Timeline', desc: 'Watch the ALPR camera network grow as volunteers documented it on OpenStreetMap.', Icon: History },
-  leak:    { title: 'Flock Leak', desc: "Flock's own device list, leaked Dec 2025.", Icon: Radar, tint: 'danger' },
+  leak:    { title: FLOCK_LEAK_COPY.title, desc: FLOCK_LEAK_COPY.peek, Icon: Radar, tint: 'danger' },
   network: { title: 'Flock Sharing Network', desc: 'Law enforcement agencies sharing Flock ALPR data with each other, as publicly disclosed. Tap an agency to trace its connections.', Icon: Share2 },
 };
 
@@ -83,7 +84,7 @@ const PEEK_MODES: ReadonlySet<AppMode> = new Set(['route', 'explore', 'leak', 'n
 
 /** Mode identity at peek. The whole row is the expand affordance — icon,
  *  real title, one-liner, chevron. */
-function IdentityRow({ mode, onExpand, extra }: { mode: AppMode; onExpand: () => void; extra?: React.ReactNode }) {
+function IdentityRow({ mode, onExpand, extra, desc }: { mode: AppMode; onExpand: () => void; extra?: React.ReactNode; desc?: React.ReactNode }) {
   const cfg = PEEK[mode];
   if (!cfg) return null;
   const Icon = cfg.Icon;
@@ -103,7 +104,7 @@ function IdentityRow({ mode, onExpand, extra }: { mode: AppMode; onExpand: () =>
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-[15px] font-display font-semibold text-white leading-tight">{cfg.title}</h2>
-          <p className="text-xs text-dark-400 leading-snug mt-0.5">{cfg.desc}</p>
+          {desc ?? <p className="text-xs text-dark-400 leading-snug mt-0.5">{cfg.desc}</p>}
         </div>
         <ChevronUp className="w-4 h-4 text-dark-500 flex-shrink-0" aria-hidden="true" />
       </button>
@@ -183,6 +184,9 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
   const adjacency = useNetworkStore(s => s.adjacency);
   const adjacencyReady = useNetworkStore(s => s.adjacencyReady);
   const setSelectedNodeId = useNetworkStore(s => s.setSelectedNodeId);
+
+  // Flock Leak: while comparing, the peek's one-liner becomes the mark key.
+  const leakCompare = useFlockLeakStore(s => s.view === 'overlay');
 
   /* ---- country (gates US-only tabs) ---- */
   const country = useCameraStore(s => s.country);
@@ -405,9 +409,10 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
           <IdentityRow
             mode={appMode}
             onExpand={handleExpandSheet}
+            desc={appMode === 'leak' && leakCompare ? <FlockCompareKey inline className="mt-1" /> : undefined}
             extra={
               appMode === 'leak'
-                ? <FlockViewSwitch className="mt-3" />
+                ? <FlockCompareToggle className="mt-3" />
                 : appMode === 'network'
                   ? (
                     <div className="mt-3 flex items-center justify-center gap-1 text-dark-400">

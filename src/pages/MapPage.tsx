@@ -29,8 +29,6 @@ import { BoundaryControl } from '@/components/map/BoundaryControl';
 import { FlockLeakFilterControl } from '@/components/map/FlockLeakFilterControl';
 import { BoundaryFeaturePopup } from '@/components/map/BoundaryFeaturePopup';
 import { MapThemeControl } from '@/components/map/MapThemeControl';
-import { SwipeTrack } from '@/components/map/SwipeTrack';
-import { FlockViewSwitch } from '@/components/map/FlockViewSwitch';
 import { CameraTileStatusPill } from '@/components/map/CameraTileStatusPill';
 import { TimelineBar } from '@/modes/timeline/TimelineBar';
 import { Route, Compass, Network, Radar, Map as MapIcon } from 'lucide-react';
@@ -415,14 +413,9 @@ export function MapPage() {
             {appMode === 'network' && <NetworkLoadingPill />}
             {appMode === 'leak' && <FlockLeakStatusPill />}
             <MapThemeControl />
-            {appMode === 'leak' && <SwipeTrack />}
-            {appMode === 'leak' && !isMobile && (
-              <div className="absolute top-4 right-4 z-30 w-[280px]">
-                <FlockViewSwitch className="bg-dark-800/95 backdrop-blur" />
-              </div>
-            )}
             <CameraFilterControl />
-            {appMode === 'leak' && <FlockLeakFilterControl />}
+            {/* Desktop keeps the Flock filters in the side panel's layer list. */}
+            {appMode === 'leak' && isMobile && <FlockLeakFilterControl />}
             {appMode === 'map' && <BoundaryControl />}
             {appMode === 'map' && <BoundaryFeaturePopup />}
 

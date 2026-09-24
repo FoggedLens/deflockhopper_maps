@@ -16,14 +16,6 @@ describe('flockHitLayers', () => {
     expect(hasFlockHitLayers(mapWith())).toBe(false);
     expect(hasFlockHitLayers(mapWith(FLOCK_LEAK_CORE_LAYER))).toBe(true);
   });
-
-  it('appends the density dots when asked, for taps below the points zoom', () => {
-    expect(flockHitLayers(mapWith(FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER), true)).toEqual([
-      FLOCK_LEAK_CORE_LAYER,
-      FLOCK_LEAK_PLANNED_LAYER,
-      FLOCK_LEAK_DOTS_LAYER,
-    ]);
-  });
 });
 
 describe('layersToRaise', () => {
@@ -60,7 +52,7 @@ describe('the other-groups layer', () => {
 });
 
 describe('layer ids', () => {
-  it('has no separate landing points layer: Flock and Swipe share the filled marks', async () => {
+  it('has no separate landing points layer: the Flock view draws the filled marks', async () => {
     const mod = await import('./flockLeakLayerIds');
     expect('FLOCK_LEAK_POINTS_LAYER' in mod).toBe(false);
   });

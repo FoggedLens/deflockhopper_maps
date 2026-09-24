@@ -1,6 +1,15 @@
 import type { FilterSpecification } from 'maplibre-gl';
 import { FLOCK_SELECTABLE_STATUSES, type FlockGroup, type FlockStatus } from '../lib/flockInventory';
-import { combineFilters } from './swipeFilter';
+
+/** ['all', ...] of the filters present; one filter as is; none as undefined. */
+export function combineFilters(
+  ...filters: Array<FilterSpecification | undefined>
+): FilterSpecification | undefined {
+  const present = filters.filter((f): f is FilterSpecification => f != null);
+  if (present.length === 0) return undefined;
+  if (present.length === 1) return present[0];
+  return ['all', ...present] as unknown as FilterSpecification;
+}
 
 /**
  * Layer filter for the Flock layers from the chips. Works at every zoom

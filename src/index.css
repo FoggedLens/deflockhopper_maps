@@ -409,12 +409,6 @@ input[type="range"]::-moz-range-thumb {
   left: 16px;
 }
 
-/* Flock Leak device filters take the country button's slot (hidden on that tab) */
-.map-page .map-flock-filter-control {
-  bottom: 72px;
-  left: 16px;
-}
-
 /* Theme (light/dark) pill — right column, above geolocate + zoom.
    24px (ctrl offset) + 76px (zoom group) + 10px margin + 40px (geolocate) + 12px gap */
 .map-page .map-theme-control {
@@ -442,84 +436,12 @@ input[type="range"]::-moz-range-thumb {
   filter: none;
 }
 
-/* Flock Leak swipe: track, divider chips. Desktop values; mobile below. */
-.map-page .swipe-track {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 72px;
-  width: min(420px, calc(100% - 32px));
-  height: 44px;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  border-radius: 12px;
-  background: rgba(16, 16, 24, 0.94);
-  border: 1px solid #252530;
-}
-.map-page .swipe-track-label {
-  width: 36px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.map-page .swipe-range {
-  flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  appearance: none;
-  -webkit-appearance: none;
-  background: linear-gradient(90deg, #2196E8 0%, #2196E8 var(--swipe-pct, 50%), #ef4444 var(--swipe-pct, 50%), #ef4444 100%);
-}
-.map-page .swipe-range::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-  cursor: ew-resize;
-}
-.map-page .swipe-range::-moz-range-thumb {
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-}
-.map-page .swipe-chip {
-  position: absolute;
-  top: 64px;
-  z-index: 20;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: rgba(10, 10, 15, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  pointer-events: none;
-}
-.map-page .swipe-chip-osm { left: 16px; color: #93CBFF; }
-.map-page .swipe-chip-flock { right: 16px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
-
-/* Flock Leak swipe: the overlay maps sit above the basemap canvas and below
-   the map's own popups and controls. MapLibre's control corners are z-index 2. */
-.map-page .swipe-overlay { z-index: 1; }
-.map-page .maplibregl-popup { z-index: 3; }
-
 /* Mobile-specific styles for main map page (with bottom sheet) */
 @media (max-width: 1023px) {
   /* Only apply bottom offset on the main map page, not landing page preview */
   /* Offset tracks --drawer-height (the sheet's resting height), + 12px gap */
   .map-page .maplibregl-ctrl-bottom-right {
-    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 12px) !important;
+    bottom: calc(var(--drawer-height, 80px) + 12px) !important;
     right: 12px !important;
   }
 
@@ -531,7 +453,7 @@ input[type="range"]::-moz-range-thumb {
   /* Left column: layers above country above filter, above the attribution
      line. Offsets track --drawer-height. */
   .map-page .map-layers-control {
-    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 122px); /* 76px (country slot) + 38px button + 8px gap */
+    bottom: calc(var(--drawer-height, 80px) + 122px); /* 76px (country slot) + 38px button + 8px gap */
     left: 12px;
   }
 
@@ -541,7 +463,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .map-page .map-style-control {
-    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 76px); /* 30px (filter slot) + 38px button + 8px gap */
+    bottom: calc(var(--drawer-height, 80px) + 76px); /* 30px (filter slot) + 38px button + 8px gap */
     left: 12px;
   }
 
@@ -551,7 +473,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .map-page .map-filter-control {
-    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 30px);
+    bottom: calc(var(--drawer-height, 80px) + 30px);
     left: 12px;
   }
 
@@ -560,8 +482,10 @@ input[type="range"]::-moz-range-thumb {
     height: 38px;
   }
 
+  /* Flock Leak device filters take the country button's slot (hidden on
+     that tab). Mobile only: desktop keeps them in the side panel. */
   .map-page .map-flock-filter-control {
-    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 76px);
+    bottom: calc(var(--drawer-height, 80px) + 76px);
     left: 12px;
   }
   .map-page .map-flock-filter-control .filter-trigger {
@@ -572,7 +496,7 @@ input[type="range"]::-moz-range-thumb {
   /* Theme pill floats above geolocate with a small gap.
      Offset tracks --drawer-height: 12px gap + 40px geolocate + 8px gap. */
   .map-page .map-theme-control {
-    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 72px);
+    bottom: calc(var(--drawer-height, 80px) + 72px);
     right: 22px; /* 12px (ctrl container offset) + 10px (maplibregl-ctrl margin) */
   }
 
@@ -582,18 +506,9 @@ input[type="range"]::-moz-range-thumb {
 
   /* Attribution line hugs the corner just above the bottom sheet. */
   .map-page .maplibregl-ctrl-bottom-left {
-    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 8px) !important;
+    bottom: calc(var(--drawer-height, 80px) + 8px) !important;
     left: 12px !important;
   }
-
-  .map-page .swipe-track {
-    bottom: calc(var(--drawer-height, 80px) + 12px);
-    width: calc(100% - 24px);
-    height: 40px;
-  }
-  .map-page .swipe-chip { top: 76px; }
-  .map-page .swipe-chip-osm { left: 12px; }
-  .map-page .swipe-chip-flock { right: 56px; }
 
 }
 

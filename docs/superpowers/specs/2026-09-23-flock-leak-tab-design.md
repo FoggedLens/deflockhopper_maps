@@ -338,3 +338,54 @@ in the flock-leak worktree). Where these differ from sections 3, 4, 5 and 13, th
   tileset mounts lazily on the session's first filter, which in Overlay is the compare
   seed, so it would otherwise cover the rings; the Flock layer component re-raises its
   layers on `styledata` (`layersToRaise`).
+
+## 19. Amendments, 2026-09-24 (cleanup): no swipe, compare is a layer switch
+
+The user asked for the tab to be cleaned up on GIS grounds, for the sidebar to explain the
+data with links to the researcher's work, and whether the slider is needed. Where this
+section differs from sections 3, 5, 7, 8, 9 and 18, this section wins.
+
+- **The swipe is removed.** A swipe is juxtaposition with a movable seam (Gleicher's
+  comparison taxonomy: juxtaposition, superposition, explicit encoding). It suits layers
+  that cover every pixel, such as imagery or before/after rasters, where both sides show
+  the same place. Camera points are sparse: the left half shows OSM for some streets and
+  the right half shows Flock for other streets, so no location is ever in both datasets
+  at once and the comparison has to happen in the viewer's memory while dragging. The
+  question the tab answers ("is this camera on both maps?") is a superposition question,
+  and Overlay already answers it at a glance. The swipe also cost two extra MapLibre
+  instances, a docked track, two chips and lifted controls on phones. Deleted:
+  `SwipeTrack`, `SwipeOverlayMaps`, `swipeFilter` (its `combineFilters` moved to
+  `flockLeakFilter`), the divider in the store, the north-up lock, the swipe CSS and the
+  `--swipe-track-height` offsets.
+- **Compare is a layer, not a mode.** `FlockLeakView` is `'flock' | 'overlay'`. The
+  Flock / Swipe / Overlay tabs are replaced by one switch, "Compare with OSM cameras"
+  (`FlockCompareToggle` in the mobile peek; the OSM row of the panel's layer list on
+  desktop and in the sheet). The compare seed (section 18) now runs on the first switch-on
+  per visit. The floating view switch on the desktop map is gone; the desktop Flock
+  filter button on the map is gone too (the panel carries those filters). Mobile keeps it.
+- **Key.** While comparing, the panel shows a key drawn with the map's own marks
+  (`FlockLeakMarks.tsx`): on both maps, only in Flock's records, only on OSM. The mobile
+  peek swaps its one-liner for the same key in short form, so the peek always says what
+  is on the map.
+- **Panel order.** What it is, where it came from (with the researcher named), links to
+  his work, the two layers with their provenance, filters (desktop) or legend (mobile),
+  the caveat, the app CTA, the credit. No stacked cards, no red warning box.
+- **Researcher links** (`FLOCK_LEAK_LINKS`): the research paper
+  (flocksurveillance.org/formal-research-paper.html), the full table
+  (flocksurveillance.org/table.html) and the site. The popup links "View in table" to his
+  table filtered to the exact coordinate (`table.html?lat==<lat>&lon==<lon>`, the same
+  query his own map builds; verified to return the device) and to Street View.
+- **Credit.** His paper is CC BY 4.0 ("use with credit"). The panel, the popup and the map
+  attribution ("Flock records via Joshua Michael") name him. No license is claimed for
+  the records themselves.
+- **Provenance copy** follows his paper: on December 14, 2025 he retrieved 335,701 device
+  and deployment records from Flock's production environment through a credential flaw
+  he had reported to Flock on November 13, 2025.
+- **Chip counts** follow the status selection (`cleanPointsFor`), so a chip states what the
+  map draws. The suspect note gives the real number (23,794 flagged records).
+- **Nearby hint.** "Nothing on OSM within 50 m" became "No OSM camera shown within 50 m",
+  because the search covers only the OSM cameras on screen and the compare seed filters
+  them to Flock Safety.
+- **Palette.** Video, Wing and Trailer were three near-identical oranges. Wing is now pink
+  (`#f472b6`, hollow square) and Trailer slate (`#cbd5e1`, pill). Every group differs from
+  the others in hue and shape, and none uses the OSM blue.

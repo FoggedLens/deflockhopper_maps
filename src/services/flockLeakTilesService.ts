@@ -11,7 +11,27 @@ export const FLOCK_LEAK_MAXZOOM = 14;
 /** Full device records start here; below it the tiles carry merged points. */
 export const FLOCK_LEAK_POINTS_MINZOOM = 9;
 export const FLOCK_LEAK_SNAPSHOT_LABEL = 'Dec 14, 2025';
-export const FLOCK_LEAK_STORY_URL = 'https://flocksurveillance.org';
+
+/**
+ * Joshua Michael's published work on the export (flocksurveillance.org).
+ * His paper asks for credit (CC BY 4.0, "use with credit"), so the tab names
+ * him wherever the data appears: panel, popup and map attribution. The
+ * license covers his paper; the records are Flock's, so no license is
+ * claimed for them here.
+ */
+export const FLOCK_LEAK_RESEARCHER = 'Joshua Michael';
+export const FLOCK_LEAK_LINKS = {
+  site: 'https://flocksurveillance.org',
+  paper: 'https://flocksurveillance.org/formal-research-paper.html',
+  table: 'https://flocksurveillance.org/table.html',
+} as const;
+/** The research site's table filtered to one exact coordinate (the same
+ *  `=` exact-match query its own map builds for a stack of devices). */
+export const flockTableUrlAt = (lat: number, lon: number): string =>
+  `${FLOCK_LEAK_LINKS.table}?${new URLSearchParams({ lat: `=${lat}`, lon: `=${lon}` }).toString()}`;
+/** Map attribution for the Flock source (HTML, rendered by MapLibre). */
+export const FLOCK_LEAK_ATTRIBUTION =
+  `Flock records via <a href="${FLOCK_LEAK_LINKS.site}" target="_blank" rel="noopener noreferrer">${FLOCK_LEAK_RESEARCHER}</a>`;
 export const FLOCK_LEAK_TILEJSON_URL = 'https://tiles.dontgetflocked.com/flock-inventory-v2.json';
 
 /** Kept as a function so callers read like the camera tile URLs. */

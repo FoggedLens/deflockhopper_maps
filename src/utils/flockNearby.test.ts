@@ -37,7 +37,7 @@ describe('flockNearbyHint', () => {
   });
 
   it('reports nothing nearby beyond 50 m or with no candidates', () => {
-    const msg = 'Nothing on OSM within 50 m. Verify in person before adding it.';
+    const msg = 'No OSM camera shown within 50 m. Check in person before adding one.';
     expect(flockNearbyHint({ zoom: 14, type: 'alpr', nearestMeters: 51, osmVisible: true })).toBe(msg);
     expect(flockNearbyHint({ zoom: 14, type: 'alpr', nearestMeters: null, osmVisible: true })).toBe(msg);
   });

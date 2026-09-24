@@ -25,10 +25,10 @@ beforeEach(() => {
   useCameraStore.setState({ cameras: [], filteredCameras: [], filters: { ...clean } });
 });
 
-describe('entering a compare view', () => {
+describe('turning on the OSM comparison', () => {
   it('narrows Flock to plate readers and OSM to brand Flock Safety', () => {
     leak().beginVisit();
-    leak().setView('swipe');
+    leak().setView('overlay');
     expect(leak().groups).toEqual([1]);
     expect(osm().brands).toEqual(['Flock Safety']);
     expect(osm().showAll).toBe(false);
@@ -48,14 +48,14 @@ describe('entering a compare view', () => {
     leak().toggleGroup(2);
     useCameraStore.setState({ filters: { ...clean } });
     leak().setView('flock');
-    leak().setView('swipe');
+    leak().setView('overlay');
     expect(leak().groups).toEqual([1, 2]);
     expect(osm().brands).toEqual([]);
   });
 
-  it('does not touch filters when moving between Swipe and Overlay', () => {
+  it('does not reseed when the view is set to the one it already has', () => {
     leak().beginVisit();
-    leak().setView('swipe');
+    leak().setView('overlay');
     leak().clearGroups();
     leak().setView('overlay');
     expect(leak().groups).toEqual([]);
@@ -82,7 +82,7 @@ describe('leaving the tab', () => {
 
   it('restores the Flock filters from tab entry and lands the next visit on Flock', () => {
     leak().beginVisit();
-    leak().setView('swipe');
+    leak().setView('overlay');
     leak().toggleStatus(2);
     leak().setShowSuspect(true);
     leak().endVisit();
@@ -94,7 +94,7 @@ describe('leaving the tab', () => {
 
   it('seeds again on the next visit', () => {
     leak().beginVisit();
-    leak().setView('swipe');
+    leak().setView('overlay');
     leak().endVisit();
     expect(osm().brands).toEqual([]);
     leak().beginVisit();

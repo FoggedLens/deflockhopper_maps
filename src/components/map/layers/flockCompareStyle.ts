@@ -4,7 +4,7 @@ import {
   FLOCK_LEAK_SOURCE_LAYER,
   FLOCK_LEAK_POINTS_MINZOOM,
 } from '../../../services/flockLeakTilesService';
-import { combineFilters } from '../../../utils/swipeFilter';
+import { combineFilters } from '../../../utils/flockLeakFilter';
 import { zoomOpacityByStatus } from './flockLeakStyle';
 import { FLOCK_LEAK_GLOW_LAYER, FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_LEAK_OTHERS_LAYER } from './flockLeakLayerIds';
 
@@ -12,10 +12,10 @@ import { FLOCK_LEAK_GLOW_LAYER, FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER,
  * Flock marks from z9 (approved 2026-09-24 from Houston screenshots). Plate
  * readers use the OSM camera mark's radius family in red so the two datasets
  * read as one system; every other group keeps its own icon.
- *  - filled (the Flock view and the Swipe view, one picture): the fogged
+ *  - filled (the Flock view): the fogged
  *    lens (glow, dark core, light ring) at full opacity; other groups as
  *    their filled icons.
- *  - hollow (Overlay): the lens with its core removed, so a blue OSM dot
+ *  - hollow (Overlay, the OSM comparison): the lens with its core removed, so a blue OSM dot
  *    inside a red ring is "both" and a lone ring is "Flock knows, OSM does
  *    not"; other groups as outlines (Raven keeps its dot). Nothing is hidden.
  * Planned is a dashed variant; decommissioned is the same mark dimmed.

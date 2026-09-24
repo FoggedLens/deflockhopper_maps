@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Radar } from 'lucide-react';
-import { FLOCK_INVENTORY } from '../../lib/flockInventory';
 import { FlockLeakPanelContent, FLOCK_LEAK_COPY } from './FlockLeakPanelContent';
 
 /** Desktop side panel for the Flock Leak tab (MapPage mounts it only above lg). */
@@ -28,15 +27,13 @@ export function FlockLeakPanel() {
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">{FLOCK_LEAK_COPY.title}</h2>
-              <p className="text-xs text-dark-400">
-                {FLOCK_LEAK_COPY.subtitle} · {FLOCK_INVENTORY.devices.toLocaleString()} devices
-              </p>
+              <p className="text-xs text-dark-400">{FLOCK_LEAK_COPY.subtitle}</p>
             </div>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <FlockLeakPanelContent showViewSwitch showFilters />
+          <FlockLeakPanelContent showFilters />
         </div>
 
         <div className="flex-shrink-0 px-6 py-3 border-t border-dark-700/50 bg-dark-800/50">

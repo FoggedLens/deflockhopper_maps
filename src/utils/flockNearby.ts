@@ -37,5 +37,7 @@ export function flockNearbyHint(input: {
     const base = `OSM has a camera ${Math.round(input.nearestMeters)} m from here.`;
     return input.type === 'alpr' ? base : `${base} Could be a mis-tag. Verify in person.`;
   }
-  return 'Nothing on OSM within 50 m. Verify in person before adding it.';
+  // Only the OSM cameras on screen are searched, and the compare view starts
+  // filtered to Flock Safety, so this says "shown", never "on OSM".
+  return 'No OSM camera shown within 50 m. Check in person before adding one.';
 }

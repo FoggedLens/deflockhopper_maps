@@ -117,6 +117,15 @@ export const FLOCK_INVENTORY = {
   } as Record<Exclude<FlockGroup, 8>, readonly [number, number, number]>,
 } as const;
 
+/** Clean national points in a group for the given statuses: what the map
+ *  draws for that chip under the current status filter. Unknown status (4)
+ *  is never clean, so it adds nothing. */
+export function cleanPointsFor(g: FlockGroup, statuses: readonly FlockStatus[]): number {
+  const row = FLOCK_INVENTORY.cleanByGroup[g as Exclude<FlockGroup, 8>];
+  if (!row) return 0;
+  return statuses.reduce((sum, s) => sum + (s >= 1 && s <= 3 ? row[s - 1] : 0), 0);
+}
+
 function parseCode<T extends number>(raw: unknown, allowed: readonly T[]): T | null {
   const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN;
   return (allowed as readonly number[]).includes(n) ? (n as T) : null;

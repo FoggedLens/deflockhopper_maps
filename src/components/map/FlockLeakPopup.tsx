@@ -10,11 +10,16 @@ import {
   typeCountLine,
   type FlockDeviceRecord,
 } from '../../lib/flockInventory';
-import { FLOCK_LEAK_SNAPSHOT_LABEL } from '../../services/flockLeakTilesService';
+import { FLOCK_LEAK_SNAPSHOT_LABEL, FLOCK_LEAK_RESEARCHER, flockTableUrlAt } from '../../services/flockLeakTilesService';
 import { flockNearbyHint } from '../../utils/flockNearby';
 import { FLOCK_GROUP_COLOR } from './layers/flockLeakIcons';
 
 const MAX_DEVICES = 8;
+
+const streetViewUrl = (lat: number, lon: number): string =>
+  `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}`;
+
+const LINK_CLASS = 'flex-1 px-3 py-2 text-xs text-center bg-dark-600 hover:bg-dark-500 text-dark-200 rounded-lg transition-colors font-medium';
 
 function Tag({ children, color }: { children: React.ReactNode; color?: string }) {
   return (
@@ -105,10 +110,26 @@ export function FlockLeakPopup() {
             )}
           </>
         )}
-        <p className="mt-3 pt-3 border-t border-dark-600 text-xs text-dark-400">
-          Leaked inventory. Position as of {FLOCK_LEAK_SNAPSHOT_LABEL}. Agency fields were blank in the export.
+        <p className="mt-3 pt-3 border-t border-dark-600 text-xs text-dark-400 leading-relaxed">
+          From Flock&apos;s own records as of {FLOCK_LEAK_SNAPSHOT_LABEL}, published by {FLOCK_LEAK_RESEARCHER}. Agency fields were blank.
         </p>
         {hint && <p className="mt-2 text-xs text-[#93CBFF]">{hint}</p>}
+        {sel.devices.length > 0 && (
+          <div className="flex gap-2 mt-3">
+            <a
+              href={flockTableUrlAt(sel.lat, sel.lon)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`These records in ${FLOCK_LEAK_RESEARCHER}'s table`}
+              className={LINK_CLASS}
+            >
+              View in table
+            </a>
+            <a href={streetViewUrl(sel.lat, sel.lon)} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+              Street View
+            </a>
+          </div>
+        )}
       </div>
     </Popup>
   );

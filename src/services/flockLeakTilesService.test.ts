@@ -6,6 +6,7 @@ import {
   FLOCK_LEAK_SOURCE_ID,
   FLOCK_LEAK_SOURCE_LAYER,
   FLOCK_LEAK_TILEJSON_URL,
+  flockTableUrlAt,
 } from './flockLeakTilesService';
 import { useTilesHostStore, failoverTilesHost, _resetTilesHostForTests } from '../store/tilesHostStore';
 
@@ -84,5 +85,14 @@ describe('loadFlockLeakTileJson', () => {
   it('rejects a document without a tiles array', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ name: 'x' }), { status: 200 })));
     expect(await loadFlockLeakTileJson()).toBeNull();
+  });
+});
+
+describe('flockTableUrlAt', () => {
+  it('asks the research table for an exact match on both coordinates', () => {
+    const url = new URL(flockTableUrlAt(37.778149, -122.513559));
+    expect(url.origin + url.pathname).toBe('https://flocksurveillance.org/table.html');
+    expect(url.searchParams.get('lat')).toBe('=37.778149');
+    expect(url.searchParams.get('lon')).toBe('=-122.513559');
   });
 });

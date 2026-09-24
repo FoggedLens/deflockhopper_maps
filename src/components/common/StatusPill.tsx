@@ -3,7 +3,7 @@ import { useDelayedFlag } from '@/hooks/useDelayedFlag';
 /** Shared shell for pills floating over the map: bottom-center, above the
  *  mobile drawer via --drawer-height. Also imported by LoadingPill. */
 export const PILL_BASE =
-  'absolute bottom-[calc(var(--drawer-height,80px)+var(--swipe-track-height,0px)+12px)] lg:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 ' +
+  'absolute bottom-[calc(var(--drawer-height,80px)+12px)] lg:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 ' +
   'bg-dark-800/95 backdrop-blur rounded-full pl-3 pr-4 py-2 text-sm text-dark-100 whitespace-nowrap';
 
 interface StatusPillProps {
