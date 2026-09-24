@@ -99,7 +99,7 @@ Zustand stores expose both state and actions. Key stores:
 - `mapModeStore`: Map style and base layer mode
 - `appModeStore`: Current app mode, visualization settings
 - `networkStore`: Sharing network data (fetched from the deflock-data CDN, plus optional `meta` provenance)
-- `flockLeakStore`: Leak tab view, swipe divider, type/status filters, TileJSON stats, tile failure flag
+- `flockLeakStore`: Leak tab view, swipe divider, type/status filters, TileJSON load state, tile failure flag
 
 ### Directory Structure
 

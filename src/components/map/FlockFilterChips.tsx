@@ -42,6 +42,7 @@ export function GroupSwatch({ g, size = 8 }: { g: FlockGroup; size?: number }) {
 function Chip({ on, onClick, children, count }: { on: boolean; onClick: () => void; children: ReactNode; count?: number }) {
   return (
     <button
+      type="button"
       role="checkbox"
       aria-checked={on}
       onClick={onClick}
@@ -95,6 +96,7 @@ export function FlockFilterChips({ showCounts = false }: { showCounts?: boolean 
         </div>
       </div>
       <button
+        type="button"
         role="switch"
         aria-checked={showSuspect}
         onClick={() => setShowSuspect(!showSuspect)}

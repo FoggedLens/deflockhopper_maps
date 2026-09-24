@@ -1,7 +1,7 @@
 import { Popup } from 'react-map-gl/maplibre';
 import { useFlockLeakStore } from '../../store/flockLeakStore';
 import {
-  FLOCK_GROUP_LABEL,
+  FLOCK_GROUP_SHORT,
   FLOCK_STATUS_LABEL,
   FLOCK_QUALITY_LABEL,
   FLOCK_FEATURE_LABEL,
@@ -83,7 +83,7 @@ export function FlockLeakPopup() {
         {sel.devices.length === 0 ? (
           <>
             <h3 className="font-display font-semibold text-white text-base">
-              Flock {sel.g ? FLOCK_GROUP_LABEL[sel.g].toLowerCase() : 'device'}
+              Flock {sel.g ? FLOCK_GROUP_SHORT[sel.g] : 'device'}
             </h3>
             <div className="flex flex-wrap gap-1 mt-1.5">
               {sel.s && <Tag color={color}>{FLOCK_STATUS_LABEL[sel.s]}</Tag>}

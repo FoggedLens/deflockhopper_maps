@@ -519,7 +519,7 @@ input[type="range"]::-moz-range-thumb {
   /* Only apply bottom offset on the main map page, not landing page preview */
   /* Offset tracks --drawer-height (the sheet's resting height), + 12px gap */
   .map-page .maplibregl-ctrl-bottom-right {
-    bottom: calc(var(--drawer-height, 80px) + 12px) !important;
+    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 12px) !important;
     right: 12px !important;
   }
 
@@ -531,7 +531,7 @@ input[type="range"]::-moz-range-thumb {
   /* Left column: layers above country above filter, above the attribution
      line. Offsets track --drawer-height. */
   .map-page .map-layers-control {
-    bottom: calc(var(--drawer-height, 80px) + 122px); /* 76px (country slot) + 38px button + 8px gap */
+    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 122px); /* 76px (country slot) + 38px button + 8px gap */
     left: 12px;
   }
 
@@ -541,7 +541,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .map-page .map-style-control {
-    bottom: calc(var(--drawer-height, 80px) + 76px); /* 30px (filter slot) + 38px button + 8px gap */
+    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 76px); /* 30px (filter slot) + 38px button + 8px gap */
     left: 12px;
   }
 
@@ -551,7 +551,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .map-page .map-filter-control {
-    bottom: calc(var(--drawer-height, 80px) + 30px);
+    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 30px);
     left: 12px;
   }
 
@@ -561,7 +561,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .map-page .map-flock-filter-control {
-    bottom: calc(var(--drawer-height, 80px) + 76px);
+    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 76px);
     left: 12px;
   }
   .map-page .map-flock-filter-control .filter-trigger {
@@ -572,7 +572,7 @@ input[type="range"]::-moz-range-thumb {
   /* Theme pill floats above geolocate with a small gap.
      Offset tracks --drawer-height: 12px gap + 40px geolocate + 8px gap. */
   .map-page .map-theme-control {
-    bottom: calc(var(--drawer-height, 80px) + 72px);
+    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 72px);
     right: 22px; /* 12px (ctrl container offset) + 10px (maplibregl-ctrl margin) */
   }
 
@@ -582,7 +582,7 @@ input[type="range"]::-moz-range-thumb {
 
   /* Attribution line hugs the corner just above the bottom sheet. */
   .map-page .maplibregl-ctrl-bottom-left {
-    bottom: calc(var(--drawer-height, 80px) + 8px) !important;
+    bottom: calc(var(--drawer-height, 80px) + var(--swipe-track-height, 0px) + 8px) !important;
     left: 12px !important;
   }
 

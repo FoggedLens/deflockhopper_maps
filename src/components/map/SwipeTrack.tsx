@@ -33,6 +33,17 @@ export function SwipeTrack() {
     });
   }, [view]);
 
+  // Mobile: the docked track takes the bottom strip, so lift the map's
+  // corner controls, pills and attribution above it while it is mounted.
+  useEffect(() => {
+    if (view !== 'swipe' || !isMobile) return;
+    const page = document.querySelector<HTMLElement>('.map-page');
+    page?.style.setProperty('--swipe-track-height', '52px');
+    return () => {
+      page?.style.removeProperty('--swipe-track-height');
+    };
+  }, [view, isMobile]);
+
   const onHandlePointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
     const host = lineRef.current?.parentElement;
     if (!host) return;
@@ -57,7 +68,6 @@ export function SwipeTrack() {
         ref={lineRef}
         className="swipe-divider absolute top-0 bottom-0 z-20 w-px bg-white/85 shadow-[0_0_8px_rgba(0,0,0,0.8)] pointer-events-none"
         style={{ left: '50%' }}
-        aria-hidden="true"
       >
         {!isMobile && (
           <button

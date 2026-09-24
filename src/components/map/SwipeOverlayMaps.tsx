@@ -20,6 +20,12 @@ interface SwipeOverlayMapsProps {
   flockSourceUrl: string;
   initialCenter: { lng: number; lat: number };
   initialZoom: number;
+  /** Fires once each overlay map reaches its own `idle` — the main map's
+   *  `idle` fires before the overlay's tiles arrive, so counts taken there
+   *  read 0 until the next pan. */
+  onSettled?: () => void;
+  onSourceData?: (e: maplibregl.MapSourceDataEvent) => void;
+  onError?: (e: maplibregl.ErrorEvent & { sourceId?: string; tile?: unknown }) => void;
 }
 
 /**
@@ -38,6 +44,9 @@ export function SwipeOverlayMaps({
   flockSourceUrl,
   initialCenter,
   initialZoom,
+  onSettled,
+  onSourceData,
+  onError,
 }: SwipeOverlayMapsProps) {
   const osmWrap = useRef<HTMLDivElement>(null);
   const flockWrap = useRef<HTMLDivElement>(null);
@@ -85,6 +94,9 @@ export function SwipeOverlayMaps({
     attributionControl: false,
     transformRequest: tilesTransformRequest,
     onLoad: () => setLoaded((n) => n + 1),
+    onIdle: onSettled,
+    onSourceData,
+    onError,
   } as const;
 
   return (

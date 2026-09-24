@@ -68,8 +68,8 @@ export function MapPage() {
   // address bar. All URL logic lives in useUrlSync/urlState.
   useUrlSync();
 
-  // Flock Leak: the TileJSON carries the snapshot stats the header and chips
-  // show. Loaded once per session; retry lives in the store.
+  // Flock Leak: load the TileJSON once per session (it drives the loading
+  // and error pills); retry lives in the store.
   useEffect(() => {
     if (appMode === 'leak') void useFlockLeakStore.getState().ensureTileJsonLoaded();
   }, [appMode]);
@@ -87,7 +87,7 @@ export function MapPage() {
     }
   }, [enterTimeline, setAppMode]);
 
-  // US-only modes (Route/Network): bounce back to Map when Canada
+  // US-only modes (Route/Leak/Network): bounce back to Map when Canada
   // is active — covers the country switcher, deep links, and URL edits
   useEffect(() => {
     if (!isModeAvailable(appMode, country)) {

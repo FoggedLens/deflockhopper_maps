@@ -429,11 +429,18 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         if (last && last.count > 30000 && Math.abs(zoomNow - last.zoom) < 0.5) {
           return;
         }
-        const suffix = renderMode === 'filter-tiles' ? '-filtered' : '';
+        // In Swipe the main map's OSM layers are hidden, so a filtered count
+        // must come from the OSM overlay instead — which never mounts the
+        // -filtered layer (it always renders the swipe's own osmSourceUrl
+        // under the unsuffixed ids).
+        const swiping = isSwipeRef.current;
+        const queryMap = swiping ? swipeOsmRef.current?.getMap() : map;
+        if (!queryMap) return;
+        const suffix = renderMode === 'filter-tiles' && !swiping ? '-filtered' : '';
         const layerForZoom = zoomNow >= CAMERA_POINTS_MINZOOM
           ? `camera-tile-points${suffix}`
           : `camera-tile-dots${suffix}`;
-        const feats = map.queryRenderedFeatures(undefined, { layers: [layerForZoom] });
+        const feats = queryMap.queryRenderedFeatures(undefined, { layers: [layerForZoom] });
         lastTileCountRef.current = { zoom: zoomNow, count: feats.length };
         useMapStore.getState().setTileViewCameraCount(feats.length);
         // Query counts carry no brand data; hide the breakdown.
@@ -881,10 +888,15 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     tileErrorCountRef.current = 0;
     filterTileLoadSeenRef.current = false;
     filterTileErrorCountRef.current = 0;
+    setFilterTilesReady(false);
+  }, [mapKey, tilesEpoch]);
+
+  // The Flock source doesn't remount on host failover (tilesEpoch), only on a
+  // full map remount or its own retry epoch — so its counters reset separately.
+  useEffect(() => {
     leakLoadSeenRef.current = false;
     leakErrorCountRef.current = 0;
-    setFilterTilesReady(false);
-  }, [mapKey, tilesEpoch, leakSourceEpoch]);
+  }, [mapKey, leakSourceEpoch]);
 
   // A remount is a NEW map instance: its load and camera-source flags start
   // over, so the page hides the map again until the new instance is ready
@@ -1838,6 +1850,9 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         flockSourceUrl={flockLeakTileJsonUrl()}
         initialCenter={mapRef.current.getMap().getCenter()}
         initialZoom={mapRef.current.getMap().getZoom()}
+        onSettled={updateVisibleCameras}
+        onSourceData={handleTileSourceData}
+        onError={handleMapError}
       />
     )}
     </>
