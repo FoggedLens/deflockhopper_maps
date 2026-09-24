@@ -61,7 +61,7 @@ The map has 5 modes, selectable via the header tabs:
 - **Map**: Camera browse view (default). Camera markers from the hourly tiles, OSM attribute filters, and the boundary overlay
 - **Route**: Camera-avoidance route planning
 - **Explore**: Dot density visualization with timeline playback
-- **Flock Leak**: the leaked Flock device inventory (Dec 2025 snapshot) next to OSM, with Flock / Swipe / Overlay views on one map (`src/store/flockLeakStore.ts`, `src/hooks/useSwipeFilters.ts`)
+- **Flock Leak**: the leaked Flock device inventory (Dec 2025 snapshot) next to OSM, with Flock / Swipe / Overlay views on one map (`src/store/flockLeakStore.ts`, `src/components/map/SwipeOverlayMaps.tsx`)
 - **Network**: Sharing network visualization between agencies
 
 ### Critical Files
@@ -84,7 +84,7 @@ The map has 5 modes, selectable via the header tabs:
 | `src/components/map/layers/CameraTileLayers.tsx` | Default camera rendering — dots/points/cones from the camera vector tiles |
 | `src/services/flockLeakTilesService.ts` | Flock TileJSON URL and loader, never fails the app over |
 | `src/store/flockLeakStore.ts` | view, divider, filters, TileJSON stats |
-| `src/hooks/useSwipeFilters.ts` | imperative `within` filters for the swipe, throttled to 20 per second |
+| `src/components/map/SwipeOverlayMaps.tsx` | Swipe view: two transparent overlay maps clipped by CSS, camera-locked to the main map |
 | `src/components/map/layers/FlockLeakLayers.tsx` | dots and runtime icons |
 | `src/components/panels/MapPanel.tsx` | Main panel container component |
 | `src/components/panels/TabbedPanel.tsx` | Tab navigation for mode panels |
@@ -145,7 +145,7 @@ Found in .env file. Environment variables are prefixed with `VITE_` for Vite to 
 The spatial grid (0.5° cells) is critical for performance. Always use `getCamerasInBounds()` or `getCamerasInBoundsFromGrid()` rather than filtering the full camera array.
 
 ### Map Rendering
-`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default vector-tile rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DotDensityLayers, HeatmapLayers, NetworkLayers, FlockLeakLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active. In leak mode the map is locked north-up and cones are off (`CameraTileLayers cones={false}`); the swipe divider is applied imperatively by `useSwipeFilters`, not through React props.
+`MapLibreContainer.tsx` is the main map component. Map layers are organized into dedicated components under `src/components/map/layers/` — CameraTileLayers (default vector-tile rendering), CameraMarkerLayers (lazy GeoJSON path for filters/timeline/heatmap/Canada), DotDensityLayers, HeatmapLayers, NetworkLayers, FlockLeakLayers, and BoundaryOverlayLayers. `useCameraRenderMode` (`src/hooks/`) decides which camera layer is active. In leak mode the map is locked north-up and cones are off (`CameraTileLayers cones={false}`); the swipe cuts by pixels through two clipped overlay maps (SwipeOverlayMaps), never by layer filters, so a drag re-buckets no tiles.
 
 ### Code Splitting
 Vite splits bundles by vendor: react-vendor, map-vendor, motion, geo-utils, state, deck-vendor. MapPage uses React lazy loading with Suspense. Path alias `@/` maps to `src/`.

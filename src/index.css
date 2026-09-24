@@ -509,6 +509,11 @@ input[type="range"]::-moz-range-thumb {
 .map-page .swipe-chip-osm { left: 16px; color: #93CBFF; }
 .map-page .swipe-chip-flock { right: 16px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
 
+/* Flock Leak swipe: the overlay maps sit above the basemap canvas and below
+   the map's own popups and controls. MapLibre's control corners are z-index 2. */
+.map-page .swipe-overlay { z-index: 1; }
+.map-page .maplibregl-popup { z-index: 3; }
+
 /* Mobile-specific styles for main map page (with bottom sheet) */
 @media (max-width: 1023px) {
   /* Only apply bottom offset on the main map page, not landing page preview */

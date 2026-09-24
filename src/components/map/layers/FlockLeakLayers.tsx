@@ -32,8 +32,9 @@ const STATUS_SORT_KEY = ['-', 5, ['coalesce', ['get', 's'], 4]];
  * The leaked Flock inventory: colored density dots to z10 (one point per
  * location + status + quality in the tiles), typed icons from z9 (one point
  * per device), crossfading over z9 to z10 like the OSM camera layers.
- * Filters come from flockLeakStore; the swipe divider is applied
- * imperatively by useSwipeFilters on top.
+ * Filters come from flockLeakStore; the swipe divider is applied by
+ * clipping a second instance of this layer in a SwipeOverlayMaps overlay,
+ * not by any filter here.
  */
 function buildSpecs(filter: FilterSpecification | undefined) {
   const withFilter = <T extends maplibregl.LayerSpecification>(spec: T): T =>

@@ -82,8 +82,7 @@ import { flockLeakTileJsonUrl, FLOCK_LEAK_SOURCE_ID, FLOCK_LEAK_POINTS_MINZOOM }
 import { planLeakTileError } from '../../utils/tileErrorPolicy';
 import { parseGroup, parseStatus, parseQuality, parseDeviceRecord, groupDevicesAtCoordinate, nearestCoordinateGroup } from '../../lib/flockInventory';
 import { nearestDistanceMeters, NEARBY_QUERY_PX } from '../../utils/flockNearby';
-import { useSwipeFilters, type SwipeTargets } from '../../hooks/useSwipeFilters';
-import { flockLayerFilter } from '../../utils/flockLeakFilter';
+import { SwipeOverlayMaps } from './SwipeOverlayMaps';
 
 // Both tile paths (default + filtered) render the same points layer shape;
 // accept either id so click handling doesn't need to know which instance is
@@ -171,6 +170,8 @@ interface MapLibreViewProps {
 export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   function MapLibreView({ onMarkersReady, mapKey }, ref) {
   const mapRef = useRef<MapRef>(null);
+  const swipeOsmRef = useRef<MapRef>(null);
+  const swipeFlockRef = useRef<MapRef>(null);
 
   const attribPosition = 'bottom-left' as const;
   const [popupInfo, setPopupInfo] = useState<PopupInfo | null>(null);
@@ -219,6 +220,9 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   const isMapMode = appMode === 'map';
   const isLeakMode = appMode === 'leak';
   const leakView = useFlockLeakStore(s => s.view);
+  const isSwipe = isLeakMode && leakView === 'swipe';
+  const isSwipeRef = useRef(false);
+  isSwipeRef.current = isSwipe;
   const leakSourceEpoch = useFlockLeakStore(s => s.sourceEpoch);
   const mapModeViz = useMapModeStore(s => s.visualization);
   const setActiveView = useMapModeStore(s => s.setActiveView);
@@ -273,20 +277,6 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     () => (manifest ? buildCameraTileFilter(cameraFilters, manifest, stateGeom) : undefined),
     [cameraFilters, manifest, stateGeom]
   );
-  // Swipe targets: whichever OSM tile instance is live plus the Flock layers,
-  // each with the base filter the declarative layers already carry.
-  const leakGroups = useFlockLeakStore(s => s.groups);
-  const leakStatuses = useFlockLeakStore(s => s.statuses);
-  const leakShowSuspect = useFlockLeakStore(s => s.showSuspect);
-  const swipeTargets = useMemo<SwipeTargets>(() => ({
-    osmLayerIds: isFilterTilesMode
-      ? ['camera-tile-glow-filtered', 'camera-tile-dots-filtered', 'camera-tile-points-filtered']
-      : ['camera-tile-glow', 'camera-tile-dots', 'camera-tile-points'],
-    osmBaseFilter: isFilterTilesMode ? tileFilterExpr : undefined,
-    flockLayerIds: [FLOCK_LEAK_DOTS_LAYER, FLOCK_LEAK_POINTS_LAYER],
-    flockBaseFilter: flockLayerFilter(leakGroups, leakStatuses, leakShowSuspect),
-  }), [isFilterTilesMode, tileFilterExpr, leakGroups, leakStatuses, leakShowSuspect]);
-  useSwipeFilters(mapRef, isLeakMode && leakView === 'swipe', swipeTargets, mapLoaded);
   // Only render camera markers + direction cones when needed.
   // Map-mode auto no longer crossfades heatmap→markers; heatmap is only shown
   // when explicitly selected (isMapModeHeatmap below).
@@ -299,7 +289,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     appMode === 'route'
     || isMapMode
     || (isHeatmapMode && (heatmapSettings.showMarkers || zoom >= 13))
-    || (isLeakMode && leakView !== 'flock')
+    || (isLeakMode && leakView === 'overlay')
   );
   // Expose handle to parent
   // The reveal the page acts on: basemap loaded AND camera source loaded (or
@@ -358,11 +348,12 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     // the snapshot totals, so no national-zoom query runs.
     if (useAppModeStore.getState().appMode === 'leak') {
       try {
-        if (map.getZoom() < FLOCK_LEAK_POINTS_MINZOOM || !map.getLayer(FLOCK_LEAK_POINTS_LAYER)) {
+        const countMap = isSwipeRef.current ? swipeFlockRef.current?.getMap() : map;
+        if (!countMap || map.getZoom() < FLOCK_LEAK_POINTS_MINZOOM || !countMap.getLayer(FLOCK_LEAK_POINTS_LAYER)) {
           useMapStore.getState().setTileViewFlockCount(null);
         } else {
           const ids = new Set<number>();
-          for (const f of map.queryRenderedFeatures(undefined, { layers: [FLOCK_LEAK_POINTS_LAYER] })) {
+          for (const f of countMap.queryRenderedFeatures(undefined, { layers: [FLOCK_LEAK_POINTS_LAYER] })) {
             const id = f.properties?.id;
             if (typeof id === 'number') ids.add(id);
           }
@@ -1064,6 +1055,84 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     }
   }, [setBounds, updateVisibleCameras]);
 
+  /** Resolve a tap on a Flock mark (any map instance) into the store selection. */
+  const resolveFlockClick = useCallback((
+    map: maplibregl.Map,
+    feature: maplibregl.MapGeoJSONFeature,
+    point: { x: number; y: number },
+    lngLat: { lng: number; lat: number },
+  ) => {
+    const zoom = map.getZoom();
+    const props = (feature.properties ?? {}) as Record<string, unknown>;
+    const [flon, flat] = (feature.geometry as GeoJSON.Point).coordinates;
+    const { x, y } = point;
+    const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
+    let devices: ReturnType<typeof parseDeviceRecord>[] = [];
+    let lon = flon;
+    let lat = flat;
+    if (zoom >= FLOCK_LEAK_POINTS_MINZOOM && map.getLayer(FLOCK_LEAK_POINTS_LAYER)) {
+      const clicked = parseDeviceRecord(props);
+      const nearby = map
+        .queryRenderedFeatures(box, { layers: [FLOCK_LEAK_POINTS_LAYER] })
+        .map((f) => parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>))
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+      const target = nearestCoordinateGroup(nearby, lngLat.lat, lngLat.lng)
+        ?? (clicked ? { lat: clicked.lat, lon: clicked.lon } : null);
+      if (target) {
+        lon = target.lon;
+        lat = target.lat;
+        devices = groupDevicesAtCoordinate(nearby, target.lat, target.lon);
+      }
+    }
+    const osmLayer = isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points';
+    const osmMapForHint = isSwipe ? swipeOsmRef.current?.getMap() : (showCameraMarkers ? map : undefined);
+    const osmNearby = osmMapForHint?.getLayer(osmLayer)
+      ? osmMapForHint
+          .queryRenderedFeatures(
+            [[x - NEARBY_QUERY_PX, y - NEARBY_QUERY_PX], [x + NEARBY_QUERY_PX, y + NEARBY_QUERY_PX]],
+            { layers: [osmLayer] }
+          )
+          .map((f) => {
+            const [olon, olat] = (f.geometry as GeoJSON.Point).coordinates;
+            return { lon: olon, lat: olat };
+          })
+      : [];
+    useFlockLeakStore.getState().setSelection({
+      lon,
+      lat,
+      zoom,
+      g: parseGroup(props.g),
+      s: parseStatus(props.s),
+      q: parseQuality(props.q),
+      devices: devices.filter((d): d is NonNullable<typeof d> => d !== null),
+      nearestOsmMeters: nearestDistanceMeters({ lon, lat }, osmNearby),
+    });
+    setPopupInfo(null);
+  }, [isFilterTilesMode, isSwipe, showCameraMarkers]);
+
+  /** Open the OSM camera popup for a rendered camera feature (any map instance). */
+  const openCameraPopup = useCallback((feature: maplibregl.MapGeoJSONFeature) => {
+    const props = feature.properties;
+    if (!props || props.osmId == null) return;
+    const [lon, lat] = (feature.geometry as GeoJSON.Point).coordinates;
+    const camera: ALPRCamera = {
+      osmId: Number(props.osmId),
+      osmType: (props.osmType as 'node' | 'way') || 'node',
+      lat: props.lat ?? lat,
+      lon: props.lon ?? lon,
+      operator: props.operator || undefined,
+      brand: props.brand || undefined,
+      direction: props.direction ?? undefined,
+      directionCardinal: props.directionCardinal || undefined,
+      surveillanceZone: props.surveillanceZone || undefined,
+      mountType: props.mountType || undefined,
+      ref: props.ref || undefined,
+      startDate: props.startDate || undefined,
+      wikimediaCommons: props.wikimediaCommons || undefined,
+    };
+    setPopupInfo({ longitude: camera.lon, latitude: camera.lat, camera });
+  }, []);
+
   // Handle map clicks - location picking, or camera marker click to open its popup
   const onClick = useCallback(async (event: MapLayerMouseEvent) => {
     if (!mapRef.current) return;
@@ -1075,59 +1144,40 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     // coordinate (z9+) or the merged point's codes (below z9). A tap on an
     // OSM camera falls through to the camera popup below.
     if (isLeakMode) {
+      if (isSwipe) {
+        const main = mapRef.current.getMap();
+        const width = main.getContainer().clientWidth || 1;
+        const divider = useFlockLeakStore.getState().divider;
+        const { x, y } = event.point;
+        const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
+        if (x / width >= divider) {
+          const flockMap = swipeFlockRef.current?.getMap();
+          const hit = flockMap?.getLayer(FLOCK_LEAK_POINTS_LAYER)
+            ? flockMap.queryRenderedFeatures(box, { layers: [FLOCK_LEAK_POINTS_LAYER, FLOCK_LEAK_DOTS_LAYER] })[0]
+            : undefined;
+          if (hit && flockMap) {
+            resolveFlockClick(flockMap, hit, event.point, event.lngLat);
+            return;
+          }
+        } else {
+          const osmMap = swipeOsmRef.current?.getMap();
+          const hit = osmMap?.getLayer('camera-tile-points')
+            ? osmMap.queryRenderedFeatures(box, { layers: ['camera-tile-points'] })[0]
+            : undefined;
+          if (hit) {
+            openCameraPopup(hit);
+            return;
+          }
+        }
+        useFlockLeakStore.getState().setSelection(null);
+        setPopupInfo(null);
+        return;
+      }
       const flockFeature = event.features?.find(
         (f) => f.layer.id === FLOCK_LEAK_POINTS_LAYER || f.layer.id === FLOCK_LEAK_DOTS_LAYER
       );
       if (flockFeature) {
-        const map = mapRef.current.getMap();
-        const zoom = map.getZoom();
-        const props = (flockFeature.properties ?? {}) as Record<string, unknown>;
-        const [flon, flat] = (flockFeature.geometry as GeoJSON.Point).coordinates;
-        const { x, y } = event.point;
-        const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
-
-        let devices: ReturnType<typeof parseDeviceRecord>[] = [];
-        let lon = flon;
-        let lat = flat;
-        if (zoom >= FLOCK_LEAK_POINTS_MINZOOM && map.getLayer(FLOCK_LEAK_POINTS_LAYER)) {
-          const clicked = parseDeviceRecord(props);
-          const nearby = map
-            .queryRenderedFeatures(box, { layers: [FLOCK_LEAK_POINTS_LAYER] })
-            .map((f) => parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>))
-            .filter((r): r is NonNullable<typeof r> => r !== null);
-          const target = nearestCoordinateGroup(nearby, event.lngLat.lat, event.lngLat.lng)
-            ?? (clicked ? { lat: clicked.lat, lon: clicked.lon } : null);
-          if (target) {
-            lon = target.lon;
-            lat = target.lat;
-            devices = groupDevicesAtCoordinate(nearby, target.lat, target.lon);
-          }
-        }
-
-        const osmLayer = isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points';
-        const osmNearby = showCameraMarkers && map.getLayer(osmLayer)
-          ? map
-              .queryRenderedFeatures(
-                [[x - NEARBY_QUERY_PX, y - NEARBY_QUERY_PX], [x + NEARBY_QUERY_PX, y + NEARBY_QUERY_PX]],
-                { layers: [osmLayer] }
-              )
-              .map((f) => {
-                const [olon, olat] = (f.geometry as GeoJSON.Point).coordinates;
-                return { lon: olon, lat: olat };
-              })
-          : [];
-
-        useFlockLeakStore.getState().setSelection({
-          lon,
-          lat,
-          zoom,
-          g: parseGroup(props.g),
-          s: parseStatus(props.s),
-          q: parseQuality(props.q),
-          devices: devices.filter((d): d is NonNullable<typeof d> => d !== null),
-          nearestOsmMeters: nearestDistanceMeters({ lon, lat }, osmNearby),
-        });
-        setPopupInfo(null);
+        resolveFlockClick(mapRef.current.getMap(), flockFeature, event.point, event.lngLat);
         return;
       }
       useFlockLeakStore.getState().setSelection(null);
@@ -1166,32 +1216,8 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       return;
     }
 
-    const props = feature.properties;
-    if (!props || props.osmId == null) return;
-
-    const [lon, lat] = (feature.geometry as GeoJSON.Point).coordinates;
-    const camera: ALPRCamera = {
-      osmId: Number(props.osmId),
-      osmType: (props.osmType as 'node' | 'way') || 'node',
-      lat: props.lat ?? lat,
-      lon: props.lon ?? lon,
-      operator: props.operator || undefined,
-      brand: props.brand || undefined,
-      direction: props.direction ?? undefined,
-      directionCardinal: props.directionCardinal || undefined,
-      surveillanceZone: props.surveillanceZone || undefined,
-      mountType: props.mountType || undefined,
-      ref: props.ref || undefined,
-      startDate: props.startDate || undefined,
-      wikimediaCommons: props.wikimediaCommons || undefined,
-    };
-
-    setPopupInfo({
-      longitude: camera.lon,
-      latitude: camera.lat,
-      camera,
-    });
-  }, [pickingLocation, setPickedLocation, isNetworkMode, isTilesMode, isFilterTilesMode, isLeakMode, showCameraMarkers]);
+    openCameraPopup(feature);
+  }, [pickingLocation, setPickedLocation, isNetworkMode, isTilesMode, isFilterTilesMode, isLeakMode, isSwipe, resolveFlockClick, openCameraPopup]);
 
   // Cursor handling - crosshair when adding waypoints or picking location
   const onMouseEnter = useCallback(() => {
@@ -1480,6 +1506,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   }, [origin, destination, normalRoute, avoidanceRoute]);
 
   return (
+    <>
     <Map
       key={mapKey} // Unique key forces remount when data version changes after errors
       ref={mapRef}
@@ -1583,7 +1610,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         <FlockLeakLayers
           key={`flock-${leakSourceEpoch}`}
           sourceUrl={flockLeakTileJsonUrl()}
-          visible={showCameraLayer}
+          visible={showCameraLayer && !isSwipe}
         />
       )}
       {isLeakMode && <FlockLeakPopup />}
@@ -1794,8 +1821,22 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
 
         </div>
       )}
-      
+
     </Map>
+    {isSwipe && mapLoaded && mapRef.current && (
+      <SwipeOverlayMaps
+        key={`swipe-${tilesEpoch}-${leakSourceEpoch}`}
+        mainMapRef={mapRef}
+        osmRef={swipeOsmRef}
+        flockRef={swipeFlockRef}
+        osmSourceUrl={isFilterTilesMode ? filterSourceUrl : cameraTileJsonUrl(country)}
+        osmFilter={isFilterTilesMode ? tileFilterExpr : undefined}
+        flockSourceUrl={flockLeakTileJsonUrl()}
+        initialCenter={mapRef.current.getMap().getCenter()}
+        initialZoom={mapRef.current.getMap().getZoom()}
+      />
+    )}
+    </>
   );
 });
 
