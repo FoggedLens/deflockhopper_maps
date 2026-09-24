@@ -50,6 +50,14 @@ final mobile layout; default-view-and-marks.html is the mark language).
 
 ## 2. Data contract: the Flock tileset
 
+> **Superseded on 2026-09-23** by `2026-09-23-flock-inventory-v2-contract.md` (binding, supplied by the
+> data pipeline owner). Where this section and the contract differ, the contract wins: the TileJSON is
+> the fixed URL `https://tiles.dontgetflocked.com/flock-inventory-v2.json`, the source layer is
+> `cameras`, every zoom carries integer `g` / `s` / `q` codes and full device records exist only from
+> z9, totals come from the contract's tables rather than a `stats` block, and `q > 0` records are
+> hidden by default. The original text is kept below for the record.
+
+
 Built outside this repo on the same pipeline as the camera tiles. The app expects:
 
 - TileJSON at `<TILES_HOST>/flock-leak.json` on the primary host, mirrored on the backup
