@@ -118,7 +118,7 @@ export function countryZoomForViewport(country: CameraCountry): number {
 /** App modes that depend on US-only backends: the routing API, US census
  *  boundary data, and the US agency sharing network. Map and Timeline run
  *  off the loaded camera dataset and work for any country. */
-const US_ONLY_MODES: ReadonlySet<AppMode> = new Set<AppMode>(['route', 'network']);
+const US_ONLY_MODES: ReadonlySet<AppMode> = new Set<AppMode>(['route', 'leak', 'network']);
 
 export function isModeAvailable(mode: AppMode, country: CameraCountry): boolean {
   return country === 'us' || !US_ONLY_MODES.has(mode);

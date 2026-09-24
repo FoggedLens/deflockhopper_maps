@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { TIMELINE_START } from '../modes/timeline/timelineUtils';
 
-export type AppMode = 'map' | 'route' | 'explore' | 'network';
+export type AppMode = 'map' | 'route' | 'explore' | 'leak' | 'network';
 export type ExploreFeature = 'heatmap'; // extend: | 'density-3d' | 'timeline' | 'score' | 'demographics'
 
 export type ColorSchemeId = 'neon' | 'thermal' | 'inferno' | 'classic' | 'plasma' | 'viridis';

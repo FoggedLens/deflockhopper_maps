@@ -5,7 +5,7 @@ import type { AppMode } from '../../store';
 import { BottomSheet, type SnapPoint } from '../common/BottomSheet';
 import { LegacyMapLink } from '../common/LegacyMapLink';
 import { isModeAvailable } from '../../services/cameraDataService';
-import { AlertTriangle, ChevronUp, Navigation2, Share2, History, X, ExternalLink } from 'lucide-react';
+import { AlertTriangle, ChevronUp, Navigation2, Share2, History, Radar, X, ExternalLink } from 'lucide-react';
 import { TimelineBar } from '../../modes/timeline/TimelineBar';
 import { RoutePanelContent } from './RoutePanelContent';
 import { FlockHopperCTA } from './FlockHopperCTA';
@@ -32,6 +32,7 @@ const TABS: TabDef[] = [
   { mode: 'map', label: 'Map' },
   { mode: 'route', label: 'Route' },
   { mode: 'explore', label: 'Timeline' },
+  { mode: 'leak', label: 'Leak' },
   { mode: 'network', label: 'Network' },
 ];
 
@@ -64,10 +65,11 @@ function StopSheetDrag({ children }: { children: React.ReactNode }) {
   return <div ref={ref}>{children}</div>;
 }
 
-const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon: typeof Navigation2 }>> = {
+const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon: typeof Navigation2; tint?: 'danger' }>> = {
   // route renders the FlockHopper start ad instead of IdentityRow; entry kept so the peek effects treat route as peekable
   route:   { title: 'Route', desc: 'Set a start and destination to see ALPR exposure along your route — and safer alternatives.', Icon: Navigation2 },
   explore: { title: 'Timeline', desc: 'Watch the ALPR camera network grow as volunteers documented it on OpenStreetMap.', Icon: History },
+  leak:    { title: 'Flock Leak', desc: "Flock's own device list, leaked Dec 2025.", Icon: Radar, tint: 'danger' },
   network: { title: 'Flock Sharing Network', desc: 'Law enforcement agencies sharing Flock ALPR data with each other, as publicly disclosed. Tap an agency to trace its connections.', Icon: Share2 },
 };
 
@@ -75,7 +77,7 @@ const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon: typeof 
  *  height switching among Route/Timeline/Network. Tune spacing to
  *  fit content, never this number per-mode. */
 const UNIFORM_PEEK_HEIGHT = 180;
-const PEEK_MODES: ReadonlySet<AppMode> = new Set(['route', 'explore', 'network']);
+const PEEK_MODES: ReadonlySet<AppMode> = new Set(['route', 'explore', 'leak', 'network']);
 
 /** Mode identity at peek. The whole row is the expand affordance — icon,
  *  real title, one-liner, chevron. */
@@ -83,6 +85,10 @@ function IdentityRow({ mode, onExpand, extra }: { mode: AppMode; onExpand: () =>
   const cfg = PEEK[mode];
   if (!cfg) return null;
   const Icon = cfg.Icon;
+  const boxClass = cfg.tint === 'danger'
+    ? 'bg-danger/10 border-danger/35'
+    : 'bg-accent-muted border-accent/30';
+  const iconClass = cfg.tint === 'danger' ? 'text-danger' : 'text-accent';
   return (
     <div className="mt-3 animate-fade-in">
       <button
@@ -90,8 +96,8 @@ function IdentityRow({ mode, onExpand, extra }: { mode: AppMode; onExpand: () =>
         className="w-full flex items-center gap-3 text-left active:opacity-70 transition-opacity min-h-11"
         aria-label={`${cfg.title} — open controls and details`}
       >
-        <div className="w-9 h-9 rounded-lg bg-accent-muted border border-accent/30 flex items-center justify-center flex-shrink-0">
-          <Icon className="w-[18px] h-[18px] text-accent" aria-hidden="true" />
+        <div className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 ${boxClass}`}>
+          <Icon className={`w-[18px] h-[18px] ${iconClass}`} aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-[15px] font-display font-semibold text-white leading-tight">{cfg.title}</h2>

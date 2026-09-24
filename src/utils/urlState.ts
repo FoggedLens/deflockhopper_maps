@@ -24,6 +24,7 @@ export const MODE_PATHS: Record<AppMode, string> = {
   map: '/',
   route: '/route',
   explore: '/timeline',
+  leak: '/leak',
   network: '/network',
 };
 
@@ -36,12 +37,15 @@ const PATH_MODES: Record<string, AppMode | undefined> = {
   '/timeline': 'explore',
   '/explore': 'explore',
   '/analysis': 'map',
+  '/leak': 'leak',
+  '/flock-leak': 'leak',
   '/network': 'network',
 };
 
 const LEGACY_MODE_PARAM: Record<string, AppMode | undefined> = {
   route: 'route',
   explore: 'explore',
+  leak: 'leak',
   network: 'network',
 };
 

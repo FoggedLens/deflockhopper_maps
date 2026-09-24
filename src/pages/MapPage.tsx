@@ -26,7 +26,7 @@ import { BoundaryFeaturePopup } from '@/components/map/BoundaryFeaturePopup';
 import { MapThemeControl } from '@/components/map/MapThemeControl';
 import { CameraTileStatusPill } from '@/components/map/CameraTileStatusPill';
 import { TimelineBar } from '@/modes/timeline/TimelineBar';
-import { Route, Compass, Network, Map as MapIcon } from 'lucide-react';
+import { Route, Compass, Network, Radar, Map as MapIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { AppMode } from '@/store';
 
@@ -37,6 +37,7 @@ const MODE_LABELS: Record<AppMode, { icon: typeof Route; label: string }> = {
   map: { icon: MapIcon, label: 'Map' },
   route: { icon: Route, label: 'Route' },
   explore: { icon: Compass, label: 'Timeline' },
+  leak: { icon: Radar, label: 'Flock Leak' },
   network: { icon: Network, label: 'Network' },
 };
 
@@ -236,6 +237,12 @@ export function MapPage() {
       title={`${getStateName(stateFilter)} ALPR Cameras | DeFlock Maps`}
       description={`Map of known ALPR (license plate reader) cameras in ${getStateName(stateFilter)}, with brand breakdowns and privacy-optimized routing.`}
       path={`/state/${stateSlug(stateFilter)}`}
+    />
+  ) : appMode === 'leak' ? (
+    <Seo
+      title="Leaked Flock Camera Locations | DeFlock Maps"
+      description="Flock Safety's leaked device inventory (December 2025) next to the crowdsourced OSM camera map."
+      path="/leak"
     />
   ) : (
     <Seo

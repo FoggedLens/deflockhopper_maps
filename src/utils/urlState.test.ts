@@ -13,6 +13,8 @@ describe('parseAppUrl — mode from path', () => {
     ['/timeline', 'explore'],
     ['/explore', 'explore'],
     ['/analysis', 'map'],
+    ['/leak', 'leak'],
+    ['/flock-leak', 'leak'],
     ['/network', 'network'],
   ])('%s parses as %s', (path, mode) => {
     expect(parseAppUrl(path, '').mode).toBe(mode);
@@ -28,6 +30,7 @@ describe('parseAppUrl — mode from path', () => {
     expect(parseAppUrl('/map', '?mode=density').mode).toBe('map');
     expect(parseAppUrl('/', '?mode=network').mode).toBe('network');
     expect(parseAppUrl('/', '?mode=explore').mode).toBe('explore');
+    expect(parseAppUrl('/', '?mode=leak').mode).toBe('leak');
     expect(parseAppUrl('/', '?mode=bogus').mode).toBe('map');
   });
 
@@ -137,6 +140,7 @@ describe('buildAppUrl', () => {
     for (const [mode, path] of [
       ['route', '/route'],
       ['explore', '/timeline'],
+      ['leak', '/leak'],
       ['network', '/network'],
     ] as const) {
       useAppModeStore.setState({ appMode: mode });
@@ -169,7 +173,7 @@ describe('buildAppUrl', () => {
 
   it('round-trips through parseAppUrl for every mode', () => {
     useCameraStore.setState({ country: 'ca', filters: filters({ state: 'TX', showAll: false }) });
-    for (const mode of ['map', 'route', 'explore', 'network'] as const) {
+    for (const mode of ['map', 'route', 'explore', 'leak', 'network'] as const) {
       useAppModeStore.setState({ appMode: mode });
       const { pathname, search } = buildAppUrl();
       const parsed = parseAppUrl(pathname, search);
