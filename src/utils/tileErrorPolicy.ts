@@ -67,3 +67,29 @@ export function planTileError(input: TileErrorInput): TileErrorAction {
     ? { kind: 'fail', source: cameraSource }
     : { kind: 'failover', reason: `${sourceId} tiles` };
 }
+
+/** The Flock Leak source (see flockLeakTilesService). Kept as a literal here
+ *  so this module stays dependency-free; the service test pins equality. */
+export const LEAK_TILE_SOURCE_ID = 'flock-leak-tiles';
+
+export interface LeakTileErrorInput {
+  sourceId: string | undefined;
+  tileLevel: boolean;
+  loadSeen: boolean;
+  errorCount: number;
+}
+
+export type LeakTileErrorAction = { kind: 'ignore' } | { kind: 'count' } | { kind: 'fail' };
+
+/**
+ * The Flock source never participates in host failover: a missing leak file
+ * must not degrade the Map tab. A TileJSON failure fails at once; tile-level
+ * failures before the first load count to the shared threshold, then fail.
+ */
+export function planLeakTileError(input: LeakTileErrorInput): LeakTileErrorAction {
+  if (input.sourceId !== LEAK_TILE_SOURCE_ID) return { kind: 'ignore' };
+  if (!input.tileLevel) return { kind: 'fail' };
+  if (input.loadSeen) return { kind: 'ignore' };
+  if (input.errorCount + 1 < TILE_ERROR_THRESHOLD) return { kind: 'count' };
+  return { kind: 'fail' };
+}

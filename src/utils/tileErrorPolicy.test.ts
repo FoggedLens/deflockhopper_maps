@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planTileError, TILE_ERROR_THRESHOLD } from './tileErrorPolicy';
+import { planTileError, TILE_ERROR_THRESHOLD, planLeakTileError } from './tileErrorPolicy';
 
 const base = { tileLevel: true, loadSeen: false, errorCount: 0, onBackup: false };
 
@@ -70,5 +70,28 @@ describe('planTileError', () => {
         ...base, sourceId: 'camera-tiles-filtered', errorCount: TILE_ERROR_THRESHOLD - 1, onBackup: true,
       })).toEqual({ kind: 'fail', source: 'filter' });
     });
+  });
+});
+
+describe('planLeakTileError', () => {
+  const base = { sourceId: 'flock-leak-tiles', tileLevel: true, loadSeen: false, errorCount: 0 };
+
+  it('ignores other sources', () => {
+    expect(planLeakTileError({ ...base, sourceId: 'camera-tiles' })).toEqual({ kind: 'ignore' });
+    expect(planLeakTileError({ ...base, sourceId: undefined })).toEqual({ kind: 'ignore' });
+  });
+
+  it('fails immediately on a TileJSON (source-level) error, never fails over', () => {
+    expect(planLeakTileError({ ...base, tileLevel: false })).toEqual({ kind: 'fail' });
+  });
+
+  it('counts tile errors before the first load and fails on the third', () => {
+    expect(planLeakTileError({ ...base, errorCount: 0 })).toEqual({ kind: 'count' });
+    expect(planLeakTileError({ ...base, errorCount: 1 })).toEqual({ kind: 'count' });
+    expect(planLeakTileError({ ...base, errorCount: 2 })).toEqual({ kind: 'fail' });
+  });
+
+  it('ignores tile errors once the source has loaded', () => {
+    expect(planLeakTileError({ ...base, loadSeen: true, errorCount: 5 })).toEqual({ kind: 'ignore' });
   });
 });
