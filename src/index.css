@@ -571,7 +571,7 @@ input[type="range"]::-moz-range-thumb {
     width: calc(100% - 24px);
     height: 40px;
   }
-  .map-page .swipe-chip { top: 52px; }
+  .map-page .swipe-chip { top: 76px; }
   .map-page .swipe-chip-osm { left: 12px; }
   .map-page .swipe-chip-flock { right: 56px; }
 
