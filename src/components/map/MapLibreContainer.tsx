@@ -75,6 +75,13 @@ import { isMapRevealReady } from '../../utils/mapReveal';
 import { useCameraTileJson } from '../../hooks/useCameraTileJson';
 import { loadStateGeometry } from '../../services/stateFilterService';
 import { buildCameraTileFilter } from '../../utils/cameraTileFilter';
+import { FlockLeakLayers, FLOCK_LEAK_DOTS_LAYER, FLOCK_LEAK_POINTS_LAYER } from './layers/FlockLeakLayers';
+import { FlockLeakPopup } from './FlockLeakPopup';
+import { useFlockLeakStore } from '../../store/flockLeakStore';
+import { flockLeakTileJsonUrl, FLOCK_LEAK_SOURCE_ID, FLOCK_LEAK_POINTS_MINZOOM } from '../../services/flockLeakTilesService';
+import { planLeakTileError } from '../../utils/tileErrorPolicy';
+import { parseGroup, parseStatus, parseQuality, parseDeviceRecord, groupDevicesAtCoordinate } from '../../lib/flockInventory';
+import { nearestDistanceMeters, NEARBY_QUERY_PX } from '../../utils/flockNearby';
 
 // Both tile paths (default + filtered) render the same points layer shape;
 // accept either id so click handling doesn't need to know which instance is
@@ -208,6 +215,9 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   const isExploreMode = appMode === 'explore';
   const isNetworkMode = appMode === 'network';
   const isMapMode = appMode === 'map';
+  const isLeakMode = appMode === 'leak';
+  const leakView = useFlockLeakStore(s => s.view);
+  const leakSourceEpoch = useFlockLeakStore(s => s.sourceEpoch);
   const mapModeViz = useMapModeStore(s => s.visualization);
   const setActiveView = useMapModeStore(s => s.setActiveView);
   const isHeatmapMode = isExploreMode && mapVisualization === 'heatmap';
@@ -273,6 +283,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     appMode === 'route'
     || isMapMode
     || (isHeatmapMode && (heatmapSettings.showMarkers || zoom >= 13))
+    || (isLeakMode && leakView !== 'flock')
   );
   // Expose handle to parent
   // The reveal the page acts on: basemap loaded AND camera source loaded (or
@@ -303,10 +314,50 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     clearFlyToCommand();
   }, [flyToCommand, clearFlyToCommand, zoom]);
 
+  // Flock Leak: lock the map north-up so the swipe divider is a line of
+  // constant longitude (see swipeFilter). Restored when leaving the tab.
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map || !mapLoaded || !isLeakMode) return;
+    map.dragRotate.disable();
+    map.touchZoomRotate.disableRotation();
+    map.keyboard.disableRotation();
+    if (map.getBearing() !== 0 || map.getPitch() !== 0) {
+      map.easeTo({ bearing: 0, pitch: 0, duration: 300 });
+    }
+    return () => {
+      map.dragRotate.enable();
+      map.touchZoomRotate.enableRotation();
+      map.keyboard.enableRotation();
+    };
+  }, [isLeakMode, mapLoaded]);
+
   // Update visible camera count based on viewport
   const updateVisibleCameras = useCallback(() => {
     if (!mapRef.current) return;
     const map = mapRef.current.getMap();
+
+    // Flock Leak: count devices in view from z9 (deduped by id, since a
+    // point on a tile border is in both tiles). Below z9 the header shows
+    // the snapshot totals, so no national-zoom query runs.
+    if (useAppModeStore.getState().appMode === 'leak') {
+      try {
+        if (map.getZoom() < FLOCK_LEAK_POINTS_MINZOOM || !map.getLayer(FLOCK_LEAK_POINTS_LAYER)) {
+          useMapStore.getState().setTileViewFlockCount(null);
+        } else {
+          const ids = new Set<number>();
+          for (const f of map.queryRenderedFeatures(undefined, { layers: [FLOCK_LEAK_POINTS_LAYER] })) {
+            const id = f.properties?.id;
+            if (typeof id === 'number') ids.add(id);
+          }
+          useMapStore.getState().setTileViewFlockCount(ids.size);
+        }
+      } catch {
+        // layers not ready yet
+      }
+    } else if (useMapStore.getState().tileViewFlockCount !== null) {
+      useMapStore.getState().setTileViewFlockCount(null);
+    }
 
     // Unfiltered tiles mode counts from the positions index when it has
     // loaded: exact at every zoom, sub-millisecond, and immune to the
@@ -810,6 +861,8 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   const tileErrorCountRef = useRef(0);
   const filterTileLoadSeenRef = useRef(false);
   const filterTileErrorCountRef = useRef(0);
+  const leakLoadSeenRef = useRef(false);
+  const leakErrorCountRef = useRef(0);
 
   // Fresh map instance per remount (mapKey bumps on retry) or fresh sources
   // per tile-host failover (tilesEpoch) ⇒ fresh counters.
@@ -818,8 +871,10 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     tileErrorCountRef.current = 0;
     filterTileLoadSeenRef.current = false;
     filterTileErrorCountRef.current = 0;
+    leakLoadSeenRef.current = false;
+    leakErrorCountRef.current = 0;
     setFilterTilesReady(false);
-  }, [mapKey, tilesEpoch]);
+  }, [mapKey, tilesEpoch, leakSourceEpoch]);
 
   // A remount is a NEW map instance: its load and camera-source flags start
   // over, so the page hides the map again until the new instance is ready
@@ -832,6 +887,11 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
 
   const handleTileSourceData = useCallback((e: maplibregl.MapSourceDataEvent) => {
     if (!e.isSourceLoaded) return;
+    if (e.sourceId === FLOCK_LEAK_SOURCE_ID) {
+      leakLoadSeenRef.current = true;
+      useFlockLeakStore.getState().setTilesFailed(false);
+      return;
+    }
     if (e.sourceId === 'camera-tiles') {
       tileLoadSeenRef.current = true;
       if (renderMode === 'tiles') setMarkersReady(true);
@@ -851,6 +911,21 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   // at dispatch time, never captured, so the handler is never stale.
   const handleMapError = useCallback((e: maplibregl.ErrorEvent & { sourceId?: string; tile?: unknown }) => {
     const sourceId = e?.sourceId ?? (e as { source?: { id?: string } })?.source?.id;
+    if (sourceId === FLOCK_LEAK_SOURCE_ID) {
+      const leakAction = planLeakTileError({
+        sourceId,
+        tileLevel: e?.tile != null,
+        loadSeen: leakLoadSeenRef.current,
+        errorCount: leakErrorCountRef.current,
+      });
+      if (leakAction.kind === 'count') {
+        leakErrorCountRef.current += 1;
+      } else if (leakAction.kind === 'fail') {
+        console.warn('[MapLibre] Flock leak tiles failing; surfacing the Leak retry pill');
+        useFlockLeakStore.getState().setTilesFailed(true);
+      }
+      return;
+    }
     const isFilter = sourceId === 'camera-tiles-filtered';
     const action = planTileError({
       sourceId,
@@ -980,6 +1055,66 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     // Network mode: deck.gl handles clicks via its own pickable layers
     if (isNetworkMode) return;
 
+    // Flock Leak: a tap on a Flock mark resolves to the devices at that exact
+    // coordinate (z9+) or the merged point's codes (below z9). A tap on an
+    // OSM camera falls through to the camera popup below.
+    if (isLeakMode) {
+      const flockFeature = event.features?.find(
+        (f) => f.layer.id === FLOCK_LEAK_POINTS_LAYER || f.layer.id === FLOCK_LEAK_DOTS_LAYER
+      );
+      if (flockFeature) {
+        const map = mapRef.current.getMap();
+        const zoom = map.getZoom();
+        const props = (flockFeature.properties ?? {}) as Record<string, unknown>;
+        const [flon, flat] = (flockFeature.geometry as GeoJSON.Point).coordinates;
+        const { x, y } = event.point;
+        const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
+
+        let devices: ReturnType<typeof parseDeviceRecord>[] = [];
+        let lon = flon;
+        let lat = flat;
+        if (zoom >= FLOCK_LEAK_POINTS_MINZOOM && map.getLayer(FLOCK_LEAK_POINTS_LAYER)) {
+          const clicked = parseDeviceRecord(props);
+          const nearby = map
+            .queryRenderedFeatures(box, { layers: [FLOCK_LEAK_POINTS_LAYER] })
+            .map((f) => parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>))
+            .filter((r): r is NonNullable<typeof r> => r !== null);
+          if (clicked) {
+            lon = clicked.lon;
+            lat = clicked.lat;
+            devices = groupDevicesAtCoordinate(nearby, clicked.lat, clicked.lon);
+          }
+        }
+
+        const osmLayer = isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points';
+        const osmNearby = showCameraMarkers && map.getLayer(osmLayer)
+          ? map
+              .queryRenderedFeatures(
+                [[x - NEARBY_QUERY_PX, y - NEARBY_QUERY_PX], [x + NEARBY_QUERY_PX, y + NEARBY_QUERY_PX]],
+                { layers: [osmLayer] }
+              )
+              .map((f) => {
+                const [olon, olat] = (f.geometry as GeoJSON.Point).coordinates;
+                return { lon: olon, lat: olat };
+              })
+          : [];
+
+        useFlockLeakStore.getState().setSelection({
+          lon,
+          lat,
+          zoom,
+          g: parseGroup(props.g),
+          s: parseStatus(props.s),
+          q: parseQuality(props.q),
+          devices: devices.filter((d): d is NonNullable<typeof d> => d !== null),
+          nearestOsmMeters: nearestDistanceMeters({ lon, lat }, osmNearby),
+        });
+        setPopupInfo(null);
+        return;
+      }
+      useFlockLeakStore.getState().setSelection(null);
+    }
+
     // If in location picking mode (for route origin/destination), handle click
     if (pickingLocation) {
       // Ignore taps while the camera is animating or gliding (accidental picks)
@@ -1038,7 +1173,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       latitude: camera.lat,
       camera,
     });
-  }, [pickingLocation, setPickedLocation, isNetworkMode, isTilesMode, isFilterTilesMode]);
+  }, [pickingLocation, setPickedLocation, isNetworkMode, isTilesMode, isFilterTilesMode, isLeakMode, showCameraMarkers]);
 
   // Cursor handling - crosshair when adding waypoints or picking location
   const onMouseEnter = useCallback(() => {
@@ -1351,13 +1486,19 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
       cursor={cursor}
       interactiveLayerIds={isNetworkMode
         ? []
-        : showCameraMarkers
-          ? (isTilesMode
-              ? ['camera-tile-points']
-              : isFilterTilesMode
-                ? ['camera-tile-points-filtered']
-                : ['unclustered-point'])
-          : []}
+        : isLeakMode
+          ? [
+              FLOCK_LEAK_POINTS_LAYER,
+              FLOCK_LEAK_DOTS_LAYER,
+              ...(showCameraMarkers ? [isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points'] : []),
+            ]
+          : showCameraMarkers
+            ? (isTilesMode
+                ? ['camera-tile-points']
+                : isFilterTilesMode
+                  ? ['camera-tile-points-filtered']
+                  : ['unclustered-point'])
+            : []}
       attributionControl={false}
       // Removed reuseMaps to avoid stale reused instances
     >
@@ -1386,6 +1527,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           (isTilesMode || (isFilterTilesMode && !filterTilesReady)) &&
           showCameraMarkers && showCameraLayer
         }
+        cones={!isLeakMode}
       />
       {/* Filtered camera tiles — mounted the first time a filter is applied this
           session and left mounted (visibility toggles) so its tiles stay cached.
@@ -1398,6 +1540,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           sourceUrl={filterSourceUrl}
           idSuffix="-filtered"
           filter={tileFilterExpr}
+          cones={!isLeakMode}
         />
       )}
 
@@ -1415,6 +1558,17 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           mapRef={mapRef}
         />
       )}
+
+      {/* Flock Leak: the leaked inventory. Only mounted on the tab, so the
+          Map tab never requests it; keyed by the store's retry epoch. */}
+      {isLeakMode && (
+        <FlockLeakLayers
+          key={`flock-${leakSourceEpoch}`}
+          sourceUrl={flockLeakTileJsonUrl()}
+          visible={showCameraLayer}
+        />
+      )}
+      {isLeakMode && <FlockLeakPopup />}
 
       {/* Routes (only in route mode) */}
       {appMode === 'route' && hasRoutes && (

@@ -28,6 +28,10 @@ interface MapStoreState extends MapState {
    *  with the positions index loaded; null hides the breakdown UI. */
   tileViewBrandStats: TileViewBrandStats | null;
 
+  /** Flock devices in view on the Leak tab (rendered features deduped by id,
+   *  z9 and up); null off the tab or below z9, where the header shows totals. */
+  tileViewFlockCount: number | null;
+
   /** True when the boot URL pinned an explicit viewport (share link).
    *  Set once by useUrlSync's seeding; never changes afterwards. */
   urlHadViewport: boolean;
@@ -48,6 +52,7 @@ interface MapStoreState extends MapState {
   setTimelineTickCallback: (cb: ((dateStr: string) => void) | null) => void;
   setTileViewCameraCount: (count: number | null) => void;
   setTileViewBrandStats: (stats: TileViewBrandStats | null) => void;
+  setTileViewFlockCount: (count: number | null) => void;
 
   /** One-shot command consumed by MapLibreContainer — frames the given
    *  bounds with the map's real projection/aspect (unlike flyTo's guess). */
@@ -73,6 +78,7 @@ export const useMapStore = create<MapStoreState>((set) => ({
   _timelineTickCallback: null,
   tileViewCameraCount: null,
   tileViewBrandStats: null,
+  tileViewFlockCount: null,
   urlHadViewport: false,
   fitBoundsCommand: null,
 
@@ -131,5 +137,7 @@ export const useMapStore = create<MapStoreState>((set) => ({
 
   setTileViewCameraCount: (count) => set({ tileViewCameraCount: count }),
   setTileViewBrandStats: (stats) => set({ tileViewBrandStats: stats }),
+  setTileViewFlockCount: (count) =>
+    set((s) => (s.tileViewFlockCount === count ? {} : { tileViewFlockCount: count })),
 }));
 

@@ -177,6 +177,9 @@ interface CameraTileLayersProps {
   /** Attribute filter (filter tileset codes). Applied to glow/dots/points
    *  declaratively and to cone building via querySourceFeatures. */
   filter?: FilterSpecification;
+  /** Build and draw direction cones. Off in the Flock Leak tab, where the
+   *  swipe's `within` filter would flicker cones at the divider. */
+  cones?: boolean;
 }
 
 export function CameraTileLayers({
@@ -185,6 +188,7 @@ export function CameraTileLayers({
   sourceUrl,
   idSuffix = '',
   filter,
+  cones = true,
 }: CameraTileLayersProps) {
   const { current: mapInstance } = useMap();
   const [conesData, setConesData] = useState<GeoJSON.FeatureCollection>(EMPTY_FC);
@@ -199,7 +203,7 @@ export function CameraTileLayers({
   const rebuildCones = useCallback(() => {
     const map = mapInstance?.getMap();
     if (!map) return;
-    if (!visible || map.getZoom() < CONE_BUILD_MINZOOM) {
+    if (!visible || !cones || map.getZoom() < CONE_BUILD_MINZOOM) {
       setConesData(prev => (prev.features.length === 0 ? prev : EMPTY_FC));
       return;
     }
@@ -231,7 +235,7 @@ export function CameraTileLayers({
       if (features.length >= CONE_FEATURE_CAP) break;
     }
     setConesData({ type: 'FeatureCollection', features });
-  }, [mapInstance, visible, sourceId, filter]);
+  }, [mapInstance, visible, cones, sourceId, filter]);
 
   // Rebuild cones when tiles finish loading or the camera stops moving
   useEffect(() => {
@@ -258,6 +262,7 @@ export function CameraTileLayers({
   }, [mapInstance, rebuildCones, sourceId]);
 
   const visibility: 'visible' | 'none' = visible ? 'visible' : 'none';
+  const coneVisibility: 'visible' | 'none' = visible && cones ? 'visible' : 'none';
 
   return (
     <>
@@ -269,8 +274,8 @@ export function CameraTileLayers({
       </Source>
       <Source id={`camera-tile-cones${idSuffix}`} type="geojson" data={conesData}>
         {/* Anchored beneath the glow so cones never cover the camera marks */}
-        <Layer {...specs.coneLayer} beforeId={`camera-tile-glow${idSuffix}`} layout={{ visibility }} />
-        <Layer {...specs.coneOutlineLayer} beforeId={`camera-tile-glow${idSuffix}`} layout={{ visibility }} />
+        <Layer {...specs.coneLayer} beforeId={`camera-tile-glow${idSuffix}`} layout={{ visibility: coneVisibility }} />
+        <Layer {...specs.coneOutlineLayer} beforeId={`camera-tile-glow${idSuffix}`} layout={{ visibility: coneVisibility }} />
       </Source>
     </>
   );
