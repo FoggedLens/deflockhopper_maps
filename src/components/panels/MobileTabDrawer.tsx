@@ -18,6 +18,7 @@ import { MapPanelContent } from './MapPanel';
 import { Skeleton } from '../common';
 import { useDelayedFlag } from '../../hooks/useDelayedFlag';
 import { BrandBreakdown } from '../map/BrandBreakdown';
+import { FlockViewSwitch } from '../map/FlockViewSwitch';
 
 /* ------------------------------------------------------------------ */
 /*  Tab definitions                                                    */
@@ -404,14 +405,16 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
             mode={appMode}
             onExpand={handleExpandSheet}
             extra={
-              appMode === 'network'
-                ? (
-                  <div className="mt-3 flex items-center justify-center gap-1 text-dark-400">
-                    <ChevronUp className="w-3.5 h-3.5" />
-                    <span className="text-[11px] font-medium">Swipe up for details</span>
-                  </div>
-                )
-                : undefined
+              appMode === 'leak'
+                ? <FlockViewSwitch className="mt-3" />
+                : appMode === 'network'
+                  ? (
+                    <div className="mt-3 flex items-center justify-center gap-1 text-dark-400">
+                      <ChevronUp className="w-3.5 h-3.5" />
+                      <span className="text-[11px] font-medium">Swipe up for details</span>
+                    </div>
+                  )
+                  : undefined
             }
           />
         )

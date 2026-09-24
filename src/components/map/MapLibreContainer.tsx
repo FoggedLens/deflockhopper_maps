@@ -82,6 +82,8 @@ import { flockLeakTileJsonUrl, FLOCK_LEAK_SOURCE_ID, FLOCK_LEAK_POINTS_MINZOOM }
 import { planLeakTileError } from '../../utils/tileErrorPolicy';
 import { parseGroup, parseStatus, parseQuality, parseDeviceRecord, groupDevicesAtCoordinate, nearestCoordinateGroup } from '../../lib/flockInventory';
 import { nearestDistanceMeters, NEARBY_QUERY_PX } from '../../utils/flockNearby';
+import { useSwipeFilters, type SwipeTargets } from '../../hooks/useSwipeFilters';
+import { flockLayerFilter } from '../../utils/flockLeakFilter';
 
 // Both tile paths (default + filtered) render the same points layer shape;
 // accept either id so click handling doesn't need to know which instance is
@@ -271,6 +273,20 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     () => (manifest ? buildCameraTileFilter(cameraFilters, manifest, stateGeom) : undefined),
     [cameraFilters, manifest, stateGeom]
   );
+  // Swipe targets: whichever OSM tile instance is live plus the Flock layers,
+  // each with the base filter the declarative layers already carry.
+  const leakGroups = useFlockLeakStore(s => s.groups);
+  const leakStatuses = useFlockLeakStore(s => s.statuses);
+  const leakShowSuspect = useFlockLeakStore(s => s.showSuspect);
+  const swipeTargets = useMemo<SwipeTargets>(() => ({
+    osmLayerIds: isFilterTilesMode
+      ? ['camera-tile-glow-filtered', 'camera-tile-dots-filtered', 'camera-tile-points-filtered']
+      : ['camera-tile-glow', 'camera-tile-dots', 'camera-tile-points'],
+    osmBaseFilter: isFilterTilesMode ? tileFilterExpr : undefined,
+    flockLayerIds: [FLOCK_LEAK_DOTS_LAYER, FLOCK_LEAK_POINTS_LAYER],
+    flockBaseFilter: flockLayerFilter(leakGroups, leakStatuses, leakShowSuspect),
+  }), [isFilterTilesMode, tileFilterExpr, leakGroups, leakStatuses, leakShowSuspect]);
+  useSwipeFilters(mapRef, isLeakMode && leakView === 'swipe', swipeTargets, mapLoaded);
   // Only render camera markers + direction cones when needed.
   // Map-mode auto no longer crossfades heatmap→markers; heatmap is only shown
   // when explicitly selected (isMapModeHeatmap below).
