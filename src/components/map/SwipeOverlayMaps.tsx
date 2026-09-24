@@ -103,12 +103,12 @@ export function SwipeOverlayMaps({
     <>
       <div ref={osmWrap} className="swipe-overlay absolute inset-0 pointer-events-none" aria-hidden="true">
         <Map ref={osmRef} {...common}>
-          <CameraTileLayers sourceUrl={osmSourceUrl} filter={osmFilter} visible cones={false} />
+          <CameraTileLayers sourceUrl={osmSourceUrl} filter={osmFilter} visible />
         </Map>
       </div>
       <div ref={flockWrap} className="swipe-overlay absolute inset-0 pointer-events-none" aria-hidden="true">
         <Map ref={flockRef} {...common}>
-          <FlockLeakLayers sourceUrl={flockSourceUrl} visible />
+          <FlockLeakLayers sourceUrl={flockSourceUrl} visible marks="filled" />
         </Map>
       </div>
     </>

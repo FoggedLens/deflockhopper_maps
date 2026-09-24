@@ -15,6 +15,7 @@ export const FLOCK_LEAK_COPY = {
   flock: "Flock's own device inventory, exported December 14, 2025 and published by a security researcher. Snapshot only, never updated. Agency fields were blank in the export.",
   totals: '335,701 devices in the export, including planned, decommissioned and flagged records. 163,540 clean locations in service.',
   warning: 'Nine months separate these datasets. A device on one side and not the other proves nothing. Verify in person before editing OSM.',
+  noHeading: 'Direction cones come from OSM only. The leak records how a housing is mounted, not where it points.',
   about: "This data comes from a security researcher's disclosure of Flock Safety's internal device inventory, published at flocksurveillance.org. DeFlock is not affiliated with Flock Safety.",
   aboutLink: 'Read the story',
   cta: 'Found a camera that is not on OSM? Verify it in person, then add it with the DeFlock app.',
@@ -27,8 +28,9 @@ function OsmDot() {
   return <span className="w-2.5 h-2.5 rounded-full bg-[#2196E8] border border-[#93CBFF] shadow-[0_0_6px_rgba(77,166,255,0.6)] inline-block flex-shrink-0" aria-hidden="true" />;
 }
 
-function FlockSquare() {
-  return <span className="w-2.5 h-2.5 rounded-[1px] bg-danger border border-white/70 inline-block flex-shrink-0" aria-hidden="true" />;
+/** The plate-reader mark: the OSM lens in red (flockCompareStyle). */
+function FlockLens() {
+  return <span className="w-2.5 h-2.5 rounded-full bg-[#dc2626] border border-[#fca5a5] shadow-[0_0_6px_rgba(248,113,113,0.6)] inline-block flex-shrink-0" aria-hidden="true" />;
 }
 
 export function FlockLeakLegend() {
@@ -42,12 +44,13 @@ export function FlockLeakLegend() {
       </div>
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 border border-dashed border-danger inline-block" aria-hidden="true" />Planned
+          <span className="w-2.5 h-2.5 rounded-full border border-dashed border-danger inline-block" aria-hidden="true" />Planned
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 bg-danger/35 inline-block" aria-hidden="true" />Decommissioned
+          <span className="w-2.5 h-2.5 rounded-full bg-danger/35 inline-block" aria-hidden="true" />Decommissioned
         </span>
       </div>
+      <p className="text-[11px] text-dark-500 leading-snug">{FLOCK_LEAK_COPY.noHeading}</p>
     </div>
   );
 }
@@ -70,7 +73,7 @@ export function FlockLeakPanelContent({ showViewSwitch = false, showFilters = fa
           </div>
         </div>
         <div className="flex items-start gap-2.5 p-3 rounded-lg border border-hairline bg-dark-800/60">
-          <span className="mt-1"><FlockSquare /></span>
+          <span className="mt-1"><FlockLens /></span>
           <div>
             <p className="text-sm font-semibold text-white">{FLOCK_LEAK_COPY.flockTitle}</p>
             <p className="text-xs text-dark-400 leading-relaxed">{FLOCK_LEAK_COPY.flock}</p>

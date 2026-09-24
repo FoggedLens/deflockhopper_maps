@@ -9,14 +9,15 @@ import {
   type FlockGroup,
 } from '../../lib/flockInventory';
 import { FLOCK_GROUP_COLOR, FLOCK_GROUP_SHAPE } from './layers/flockLeakIcons';
+import { FLOCK_COMPARE_COLOR } from './layers/flockCompareStyle';
 
 /** Legend and chip swatch: the same shape language as the map icons. */
 export function GroupSwatch({ g, size = 8 }: { g: FlockGroup; size?: number }) {
   const color = FLOCK_GROUP_COLOR[g];
   const base = { width: size, height: size, display: 'inline-block', flexShrink: 0 } as const;
   switch (FLOCK_GROUP_SHAPE[g]) {
-    case 'square':
-      return <i style={{ ...base, background: color, borderRadius: 1 }} aria-hidden="true" />;
+    case 'lens':
+      return <i style={{ ...base, background: FLOCK_COMPARE_COLOR.core, border: `1.5px solid ${FLOCK_COMPARE_COLOR.ring}`, borderRadius: '50%', boxSizing: 'border-box' }} aria-hidden="true" />;
     case 'diamond':
       return <i style={{ ...base, background: color, transform: 'rotate(45deg) scale(0.85)' }} aria-hidden="true" />;
     case 'hollow-square':

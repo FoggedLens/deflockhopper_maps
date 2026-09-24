@@ -673,7 +673,16 @@ export function CameraFilterControl() {
           bg-dark-800 border border-dark-600
           ${open ? 'text-accent' : 'text-dark-300 hover:bg-dark-700 hover:text-white'}`}
       >
-        <Filter className="w-4 h-4" fill={appliedFilterCount > 0 ? 'currentColor' : 'none'} />
+        {appMode === 'leak' ? (
+          // Leak tab: the Flock filter button sits above this one, so each
+          // says which side of the compare it narrows.
+          <span className="flex flex-col items-center gap-0.5 leading-none">
+            <Filter className="w-4 h-4" fill={appliedFilterCount > 0 ? 'currentColor' : 'none'} />
+            <span className="text-[8px] font-semibold uppercase tracking-wide">OSM</span>
+          </span>
+        ) : (
+          <Filter className="w-4 h-4" fill={appliedFilterCount > 0 ? 'currentColor' : 'none'} />
+        )}
         {appliedFilterCount > 0 && (
           <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-white text-[10px] font-bold flex items-center justify-center tabular-nums border-2 border-dark-900">
             {appliedFilterCount}

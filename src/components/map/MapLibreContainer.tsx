@@ -75,7 +75,15 @@ import { isMapRevealReady } from '../../utils/mapReveal';
 import { useCameraTileJson } from '../../hooks/useCameraTileJson';
 import { loadStateGeometry } from '../../services/stateFilterService';
 import { buildCameraTileFilter } from '../../utils/cameraTileFilter';
-import { FlockLeakLayers, FLOCK_LEAK_DOTS_LAYER, FLOCK_LEAK_POINTS_LAYER } from './layers/FlockLeakLayers';
+import { FlockLeakLayers } from './layers/FlockLeakLayers';
+import {
+  FLOCK_LEAK_DOTS_LAYER,
+  FLOCK_LEAK_CORE_LAYER,
+  FLOCK_LEAK_PLANNED_LAYER,
+  FLOCK_LEAK_OTHERS_LAYER,
+  flockHitLayers,
+  hasFlockHitLayers,
+} from './layers/flockLeakLayerIds';
 import { FlockLeakPopup } from './FlockLeakPopup';
 import { useFlockLeakStore } from '../../store/flockLeakStore';
 import { flockLeakTileJsonUrl, FLOCK_LEAK_SOURCE_ID, FLOCK_LEAK_POINTS_MINZOOM } from '../../services/flockLeakTilesService';
@@ -352,11 +360,11 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     if (useAppModeStore.getState().appMode === 'leak') {
       try {
         const countMap = isSwipeRef.current ? swipeFlockRef.current?.getMap() : map;
-        if (!countMap || map.getZoom() < FLOCK_LEAK_POINTS_MINZOOM || !countMap.getLayer(FLOCK_LEAK_POINTS_LAYER)) {
+        if (!countMap || map.getZoom() < FLOCK_LEAK_POINTS_MINZOOM || !hasFlockHitLayers(countMap)) {
           useMapStore.getState().setTileViewFlockCount(null);
         } else {
           const ids = new Set<number>();
-          for (const f of countMap.queryRenderedFeatures(undefined, { layers: [FLOCK_LEAK_POINTS_LAYER] })) {
+          for (const f of countMap.queryRenderedFeatures(undefined, { layers: flockHitLayers(countMap) })) {
             const id = f.properties?.id;
             if (typeof id === 'number') ids.add(id);
           }
@@ -1085,10 +1093,10 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     let devices: ReturnType<typeof parseDeviceRecord>[] = [];
     let lon = flon;
     let lat = flat;
-    if (zoom >= FLOCK_LEAK_POINTS_MINZOOM && map.getLayer(FLOCK_LEAK_POINTS_LAYER)) {
+    if (zoom >= FLOCK_LEAK_POINTS_MINZOOM && hasFlockHitLayers(map)) {
       const clicked = parseDeviceRecord(props);
       const nearby = map
-        .queryRenderedFeatures(box, { layers: [FLOCK_LEAK_POINTS_LAYER] })
+        .queryRenderedFeatures(box, { layers: flockHitLayers(map) })
         .map((f) => parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>))
         .filter((r): r is NonNullable<typeof r> => r !== null);
       const target = nearestCoordinateGroup(nearby, lngLat.lat, lngLat.lng)
@@ -1167,8 +1175,8 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         const box: [[number, number], [number, number]] = [[x - CLICK_BOX_PX, y - CLICK_BOX_PX], [x + CLICK_BOX_PX, y + CLICK_BOX_PX]];
         if (x / width >= divider) {
           const flockMap = swipeFlockRef.current?.getMap();
-          const hit = flockMap?.getLayer(FLOCK_LEAK_POINTS_LAYER)
-            ? flockMap.queryRenderedFeatures(box, { layers: [FLOCK_LEAK_POINTS_LAYER, FLOCK_LEAK_DOTS_LAYER] })[0]
+          const hit = flockMap && hasFlockHitLayers(flockMap)
+            ? flockMap.queryRenderedFeatures(box, { layers: flockHitLayers(flockMap, true) })[0]
             : undefined;
           if (hit && flockMap) {
             resolveFlockClick(flockMap, hit, event.point, event.lngLat);
@@ -1189,8 +1197,8 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         setPopupInfo(null);
         return;
       }
-      const flockFeature = event.features?.find(
-        (f) => f.layer.id === FLOCK_LEAK_POINTS_LAYER || f.layer.id === FLOCK_LEAK_DOTS_LAYER
+      const flockFeature = event.features?.find((f) =>
+        [FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_LEAK_OTHERS_LAYER, FLOCK_LEAK_DOTS_LAYER].includes(f.layer.id)
       );
       if (flockFeature) {
         resolveFlockClick(mapRef.current.getMap(), flockFeature, event.point, event.lngLat);
@@ -1549,7 +1557,9 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         ? []
         : isLeakMode
           ? [
-              FLOCK_LEAK_POINTS_LAYER,
+              FLOCK_LEAK_CORE_LAYER,
+              FLOCK_LEAK_PLANNED_LAYER,
+              FLOCK_LEAK_OTHERS_LAYER,
               FLOCK_LEAK_DOTS_LAYER,
               ...(showCameraMarkers ? [isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points'] : []),
             ]
@@ -1588,7 +1598,6 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           (isTilesMode || (isFilterTilesMode && !filterTilesReady)) &&
           showCameraMarkers && showCameraLayer
         }
-        cones={!isLeakMode}
       />
       {/* Filtered camera tiles — mounted the first time a filter is applied this
           session and left mounted (visibility toggles) so its tiles stay cached.
@@ -1601,7 +1610,6 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           sourceUrl={filterSourceUrl}
           idSuffix="-filtered"
           filter={tileFilterExpr}
-          cones={!isLeakMode}
         />
       )}
 
@@ -1627,6 +1635,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           key={`flock-${leakSourceEpoch}`}
           sourceUrl={flockLeakTileJsonUrl()}
           visible={showCameraLayer && !isSwipe}
+          marks={leakView === 'overlay' ? 'hollow' : 'filled'}
         />
       )}
       {isLeakMode && <FlockLeakPopup />}

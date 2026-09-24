@@ -304,3 +304,37 @@ Two PRs, in this order, each independently shippable:
 1. Analysis removal (section 10). Small, mechanical, unblocks the tab slot.
 2. Flock Leak tab (everything else), gated on the spike in section 15 and on the first
    real tile build for the normalization tables.
+
+## 18. Amendments, 2026-09-24
+
+Approved from live Houston screenshots (`.superpowers/brainstorm/65345-1790265802/content/`
+in the flock-leak worktree). Where these differ from sections 3, 4, 5 and 13, this section wins.
+
+- **Compare defaults (supersedes "nothing is auto-filtered" in Goal and section 5).** The
+  Flock landing view still shows every device. The first move from Flock into Swipe or
+  Overlay in a tab visit seeds both sides: Flock groups to plate readers, OSM brand to
+  Flock Safety (other OSM facets kept). After that the filters are the user's. Leaving the
+  tab restores both sides' filters to what they were on entry and lands the next visit on
+  Flock, so the shared OSM filter never follows the user to the Map tab.
+- **Compare marks (supersedes section 4 for Swipe and Overlay).** From z9 the Flock layer
+  draws the OSM lens family in red instead of the group icons. Overlay: a hollow red ring
+  (r 4.3 to 7.5, stroke to 2.5 px), so a blue OSM dot inside a red ring reads as "both".
+  Swipe: the filled lens (glow, dark core, light ring) at full opacity. Planned is a dashed
+  red ring icon; decommissioned is the same mark at 35%. These marks are for plate
+  readers. Any other group the user turns on keeps its own group icon: hollow in Overlay
+  (Raven keeps its center dot), filled in Swipe, dashed when planned.
+- **One mark language (supersedes section 4 entirely).** The Flock landing view draws
+  the same filled marks as Swipe: the red lens for plate readers and the filled group
+  icons for the rest, so Flock and Swipe are one picture and Overlay is its hollow twin.
+  There is no separate landing icon for plate readers; chips and legend show a round red
+  lens. Colors and shapes for the other groups are still open.
+- **Cones (supersedes section 3 and 13).** OSM direction cones are on in Swipe and Overlay.
+  The clipped-overlay swipe removed the `within` flicker that had them off. The Flock side
+  never gets cones: the v2 contract's `rotationAngle` is the housing mount angle, not a
+  heading. The legend says so.
+- **Filter buttons.** On the Leak tab the two map filter buttons carry captions, OSM and
+  Flock, so each says which side it narrows.
+- **Layer order.** The Flock marks always draw above the OSM layers. The filtered OSM
+  tileset mounts lazily on the session's first filter, which in Overlay is the compare
+  seed, so it would otherwise cover the rings; the Flock layer component re-raises its
+  layers on `styledata` (`layersToRaise`).

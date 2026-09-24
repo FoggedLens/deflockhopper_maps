@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { clampDivider } from '../utils/swipeFilter';
 import { loadFlockLeakTileJson, type FlockLeakTileJson } from '../services/flockLeakTilesService';
+import { useCameraStore } from './cameraStore';
+import type { CameraFilters } from '../types';
+import { LEAK_COMPARE_FLOCK_GROUPS, seedOsmFilters, shouldSeedCompare } from '../utils/leakCompareDefaults';
 import {
   FLOCK_SELECTABLE_STATUSES,
   type FlockGroup,
@@ -29,6 +32,15 @@ export interface FlockSelection {
 
 export const DEFAULT_FLOCK_STATUSES: readonly FlockStatus[] = [1];
 
+/** Both sides' filters as they were when the tab was entered. The Leak
+ *  tab's filters are per visit: leaving puts everything back. */
+interface VisitSnapshot {
+  osm: CameraFilters;
+  groups: FlockGroup[];
+  statuses: FlockStatus[];
+  showSuspect: boolean;
+}
+
 interface FlockLeakState {
   view: FlockLeakView;
   /** Swipe divider as a fraction of the map width, 0..1. The only value
@@ -47,7 +59,17 @@ interface FlockLeakState {
   tilesFailed: boolean;
   /** Bumped by retry so the map remounts the Flock source. */
   sourceEpoch: number;
+  /** True once this visit's compare defaults (Flock plate readers, OSM
+   *  brand Flock Safety) have been applied. Reset by beginVisit. */
+  compareSeeded: boolean;
+  visitSnapshot: VisitSnapshot | null;
 
+  /** Tab entered: snapshot both sides' filters. */
+  beginVisit: () => void;
+  /** Tab left: restore the snapshot and land the next visit on Flock. */
+  endVisit: () => void;
+  /** Changes the view; the first move from Flock into Swipe or Overlay in a
+   *  visit seeds the compare defaults on both sides. */
   setView: (view: FlockLeakView) => void;
   setDivider: (divider: number) => void;
   toggleGroup: (group: FlockGroup) => void;
@@ -72,13 +94,48 @@ const INITIAL = {
   error: null as string | null,
   tilesFailed: false,
   sourceEpoch: 0,
+  compareSeeded: false,
+  visitSnapshot: null as VisitSnapshot | null,
 };
 
 export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
   ...INITIAL,
 
+  beginVisit: () => {
+    const s = get();
+    set({
+      visitSnapshot: {
+        osm: { ...useCameraStore.getState().filters },
+        groups: [...s.groups],
+        statuses: [...s.statuses],
+        showSuspect: s.showSuspect,
+      },
+      compareSeeded: false,
+    });
+  },
+  endVisit: () => {
+    const snap = get().visitSnapshot;
+    if (!snap) return;
+    set({
+      view: 'flock',
+      groups: snap.groups,
+      statuses: snap.statuses,
+      showSuspect: snap.showSuspect,
+      compareSeeded: false,
+      visitSnapshot: null,
+    });
+    useCameraStore.getState().setFilters(snap.osm);
+  },
   setView: (view) => {
-    if (get().view !== view) set({ view });
+    const s = get();
+    if (s.view === view) return;
+    if (!shouldSeedCompare(s.view, view, s.compareSeeded)) {
+      set({ view });
+      return;
+    }
+    set({ view, groups: [...LEAK_COMPARE_FLOCK_GROUPS], compareSeeded: true });
+    const cam = useCameraStore.getState();
+    cam.setFilters(seedOsmFilters(cam.filters));
   },
   setDivider: (divider) => {
     const next = clampDivider(divider);

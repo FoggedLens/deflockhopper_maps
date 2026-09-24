@@ -6,7 +6,9 @@ import { FlockFilterChips } from './FlockFilterChips';
 
 /** Flock device filters: a button in the left control column (the country
  *  switch's slot, hidden on this tab) opening group and status chips and
- *  the suspect switch. Same popover idiom as BoundaryControl. Leak mode only. */
+ *  the suspect switch. Same popover idiom as BoundaryControl. Leak mode only.
+ *  Captioned "Flock" because it sits above the OSM filter button, which is
+ *  captioned "OSM" on this tab: each says which side of the compare it narrows. */
 export function FlockLeakFilterControl() {
   const appMode = useAppModeStore((s) => s.appMode);
   const groups = useFlockLeakStore((s) => s.groups);
@@ -51,7 +53,10 @@ export function FlockLeakFilterControl() {
           bg-dark-800 border border-dark-600
           ${open || badge > 0 ? 'text-danger' : 'text-dark-300 hover:bg-dark-700'}`}
       >
-        <Filter className="w-4 h-4" />
+        <span className="flex flex-col items-center gap-0.5 leading-none">
+          <Filter className="w-4 h-4" />
+          <span className="text-[8px] font-semibold uppercase tracking-wide">Flock</span>
+        </span>
         {badge > 0 && (
           <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center tabular-nums border-2 border-dark-900">
             {badge}

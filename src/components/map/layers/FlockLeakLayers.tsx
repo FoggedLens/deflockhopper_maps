@@ -6,16 +6,14 @@ import {
   FLOCK_LEAK_SOURCE_ID,
   FLOCK_LEAK_SOURCE_LAYER,
   FLOCK_LEAK_MAXZOOM,
-  FLOCK_LEAK_POINTS_MINZOOM,
 } from '../../../services/flockLeakTilesService';
 import { flockLayerFilter } from '../../../utils/flockLeakFilter';
 import { useFlockLeakStore } from '../../../store/flockLeakStore';
 import { FLOCK_GROUPS } from '../../../lib/flockInventory';
 import { ensureFlockIcons, FLOCK_GROUP_COLOR } from './flockLeakIcons';
 import { zoomOpacityByStatus } from './flockLeakStyle';
-
-export const FLOCK_LEAK_DOTS_LAYER = 'flock-leak-dots';
-export const FLOCK_LEAK_POINTS_LAYER = 'flock-leak-points';
+import { buildFlockMarkSpecs, FLOCK_STATUS_SORT_KEY, type FlockMarkMode } from './flockCompareStyle';
+import { FLOCK_LEAK_DOTS_LAYER, FLOCK_LAYER_ORDER, layersToRaise } from './flockLeakLayerIds';
 
 /** ['match', ['get','g'], 1, C1, ..., FALLBACK] from the one color table. */
 const groupColorExpression = (): unknown[] => [
@@ -25,29 +23,24 @@ const groupColorExpression = (): unknown[] => [
   '#9ca3af',
 ];
 
-/** In service above planned above decommissioned where points coincide. */
-const STATUS_SORT_KEY = ['-', 5, ['coalesce', ['get', 's'], 4]];
-
 /**
  * The leaked Flock inventory: colored density dots to z10 (one point per
- * location + status + quality in the tiles), typed icons from z9 (one point
- * per device), crossfading over z9 to z10 like the OSM camera layers.
- * Filters come from flockLeakStore; the swipe divider is applied by
- * clipping a second instance of this layer in a SwipeOverlayMaps overlay,
- * not by any filter here.
+ * location + status + quality in the tiles), then from z9 the marks from
+ * flockCompareStyle (one point per device), crossfading over z9 to z10 like
+ * the OSM camera layers. The Flock view and the Swipe view draw the filled
+ * marks, Overlay the hollow ones. Filters come from flockLeakStore; the swipe
+ * divider is applied by clipping a second instance of this component in a
+ * SwipeOverlayMaps overlay, not by any filter here.
  */
-function buildSpecs(filter: FilterSpecification | undefined) {
-  const withFilter = <T extends maplibregl.LayerSpecification>(spec: T): T =>
-    filter ? { ...spec, filter } : spec;
-
-  const dots: maplibregl.CircleLayerSpecification = withFilter({
+function buildDots(filter: FilterSpecification | undefined): maplibregl.CircleLayerSpecification {
+  const dots: maplibregl.CircleLayerSpecification = {
     id: FLOCK_LEAK_DOTS_LAYER,
     type: 'circle',
     source: FLOCK_LEAK_SOURCE_ID,
     'source-layer': FLOCK_LEAK_SOURCE_LAYER,
     maxzoom: 10,
     layout: {
-      'circle-sort-key': STATUS_SORT_KEY as never,
+      'circle-sort-key': FLOCK_STATUS_SORT_KEY as never,
     },
     paint: {
       'circle-color': groupColorExpression() as never,
@@ -55,47 +48,31 @@ function buildSpecs(filter: FilterSpecification | undefined) {
       'circle-opacity': zoomOpacityByStatus([0, 0.5, 6, 0.6, 8.5, 0.75, 9.6, 0.75, 10, 0], 0.5) as never,
       'circle-stroke-width': 0,
     },
-  });
-
-  const points: maplibregl.SymbolLayerSpecification = withFilter({
-    id: FLOCK_LEAK_POINTS_LAYER,
-    type: 'symbol',
-    source: FLOCK_LEAK_SOURCE_ID,
-    'source-layer': FLOCK_LEAK_SOURCE_LAYER,
-    minzoom: FLOCK_LEAK_POINTS_MINZOOM,
-    layout: {
-      'icon-image': [
-        'concat',
-        'flock-g',
-        ['to-string', ['coalesce', ['get', 'g'], 7]],
-        ['case', ['==', ['coalesce', ['get', 's'], 4], 2], '-planned', ''],
-      ],
-      'icon-size': ['interpolate', ['linear'], ['zoom'], 9, 0.6, 10, 1],
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': true,
-      'symbol-sort-key': STATUS_SORT_KEY as never,
-    },
-    paint: {
-      'icon-opacity': zoomOpacityByStatus([9, 0, 9.6, 1], 0.35) as never,
-    },
-  });
-
-  return { dots, points };
+  };
+  return filter ? { ...dots, filter } : dots;
 }
+
+const withVisibility = (
+  spec: maplibregl.LayerSpecification,
+  visibility: 'visible' | 'none'
+): maplibregl.LayerSpecification =>
+  ({ ...spec, layout: { ...(spec.layout ?? {}), visibility } }) as maplibregl.LayerSpecification;
 
 interface FlockLeakLayersProps {
   visible: boolean;
   /** The fixed flock-inventory-v2 TileJSON URL. */
   sourceUrl: string;
+  marks?: FlockMarkMode;
 }
 
-export function FlockLeakLayers({ visible, sourceUrl }: FlockLeakLayersProps) {
+export function FlockLeakLayers({ visible, sourceUrl, marks = 'filled' }: FlockLeakLayersProps) {
   const { current: mapInstance } = useMap();
   const groups = useFlockLeakStore((s) => s.groups);
   const statuses = useFlockLeakStore((s) => s.statuses);
   const showSuspect = useFlockLeakStore((s) => s.showSuspect);
   const filter = useMemo(() => flockLayerFilter(groups, statuses, showSuspect), [groups, statuses, showSuspect]);
-  const specs = useMemo(() => buildSpecs(filter), [filter]);
+  const dots = useMemo(() => buildDots(filter), [filter]);
+  const markLayers = useMemo(() => buildFlockMarkSpecs(marks, filter), [marks, filter]);
 
   // Icons live in the style; a theme switch (setStyle) drops them. Register
   // up front and again whenever the style asks for one we have not added.
@@ -112,6 +89,30 @@ export function FlockLeakLayers({ visible, sourceUrl }: FlockLeakLayersProps) {
     };
   }, [mapInstance]);
 
+  // Keep the Flock marks above the OSM layers whatever the mount order. The
+  // filtered OSM tiles mount lazily on the session's first filter, which in
+  // Overlay is the compare seed, so they would otherwise land on top of the
+  // rings. moveLayer fires styledata again; layersToRaise returns nothing
+  // once the order is right, so this settles in one pass.
+  useEffect(() => {
+    const map = mapInstance?.getMap();
+    if (!map) return;
+    const raise = () => {
+      let order: string[];
+      try {
+        order = map.getLayersOrder();
+      } catch {
+        return; // style not loaded yet
+      }
+      for (const id of layersToRaise(order, FLOCK_LAYER_ORDER)) map.moveLayer(id);
+    };
+    raise();
+    map.on('styledata', raise);
+    return () => {
+      map.off('styledata', raise);
+    };
+  }, [mapInstance]);
+
   const visibility: 'visible' | 'none' = visible ? 'visible' : 'none';
 
   return (
@@ -122,8 +123,10 @@ export function FlockLeakLayers({ visible, sourceUrl }: FlockLeakLayersProps) {
       maxzoom={FLOCK_LEAK_MAXZOOM}
       promoteId={{ [FLOCK_LEAK_SOURCE_LAYER]: 'id' }}
     >
-      <Layer {...specs.dots} layout={{ ...specs.dots.layout, visibility }} />
-      <Layer {...specs.points} layout={{ ...specs.points.layout, visibility }} />
+      <Layer {...dots} layout={{ ...dots.layout, visibility }} />
+      {markLayers.map((l) => (
+        <Layer key={l.id} {...withVisibility(l, visibility)} />
+      ))}
     </Source>
   );
 }

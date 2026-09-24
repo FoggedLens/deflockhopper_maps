@@ -70,8 +70,15 @@ export function MapPage() {
 
   // Flock Leak: load the TileJSON once per session (it drives the loading
   // and error pills); retry lives in the store.
+  // A Leak tab visit: snapshot both sides' filters on entry and restore them
+  // on exit (the OSM filters are shared with the Map tab, so the compare
+  // seed must not follow the user out), and load the Flock TileJSON.
   useEffect(() => {
-    if (appMode === 'leak') void useFlockLeakStore.getState().ensureTileJsonLoaded();
+    if (appMode !== 'leak') return;
+    const leak = useFlockLeakStore.getState();
+    leak.beginVisit();
+    void leak.ensureTileJsonLoaded();
+    return () => useFlockLeakStore.getState().endVisit();
   }, [appMode]);
 
   const stateFilter = useCameraStore(s => s.filters.state);

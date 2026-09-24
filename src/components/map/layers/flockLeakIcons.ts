@@ -1,5 +1,6 @@
 import type maplibregl from 'maplibre-gl';
 import { FLOCK_GROUPS, type FlockGroup } from '../../../lib/flockInventory';
+import { FLOCK_PLANNED_ICON, FLOCK_COMPARE_COLOR } from './flockCompareStyle';
 
 /**
  * Flock device marks by group, drawn on a canvas at runtime and registered
@@ -19,10 +20,10 @@ export const FLOCK_GROUP_COLOR: Record<FlockGroup, string> = {
   8: '#6b7280', // factory fixtures (q = 2, hidden by default)
 };
 
-export type FlockShape = 'square' | 'diamond' | 'hollow-square' | 'ring' | 'triangle' | 'pill' | 'dot' | 'cross';
+export type FlockShape = 'lens' | 'diamond' | 'hollow-square' | 'ring' | 'triangle' | 'pill' | 'dot' | 'cross';
 
 export const FLOCK_GROUP_SHAPE: Record<FlockGroup, FlockShape> = {
-  1: 'square',
+  1: 'lens', // on the map, plate readers are circle layers (flockCompareStyle); this shape feeds the swatches
   2: 'diamond',
   3: 'hollow-square',
   4: 'ring',
@@ -39,13 +40,30 @@ const RATIO = 2;
 
 export const flockIconId = (g: FlockGroup, planned: boolean): string =>
   `flock-g${g}${planned ? '-planned' : ''}`;
+/** Overlay compare: the group's shape as an undashed outline, so the OSM
+ *  mark shows through. Raven keeps its center dot. */
+export const flockHollowIconId = (g: FlockGroup): string => `flock-g${g}-hollow`;
 
-export const FLOCK_ICON_IDS: readonly string[] = FLOCK_GROUPS.flatMap((g) => [
-  flockIconId(g, false),
-  flockIconId(g, true),
-]);
+export const FLOCK_ICON_IDS: readonly string[] = [
+  ...FLOCK_GROUPS.flatMap((g) => [flockIconId(g, false), flockIconId(g, true), flockHollowIconId(g)]),
+  FLOCK_PLANNED_ICON,
+];
 
-export function drawFlockIcon(ctx: CanvasRenderingContext2D, g: FlockGroup, size: number, planned: boolean): void {
+/** Compare views: a dashed red ring for planned devices, sized to the
+ *  Overlay ring (r 7.5 at icon-size 1). */
+export function drawPlannedRing(ctx: CanvasRenderingContext2D, size: number): void {
+  const c = size / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(c, c, size * 0.3, 0, Math.PI * 2);
+  ctx.setLineDash([size * 0.13, size * 0.1]);
+  ctx.lineWidth = size * 0.1;
+  ctx.strokeStyle = FLOCK_COMPARE_COLOR.line;
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function drawFlockIcon(ctx: CanvasRenderingContext2D, g: FlockGroup, size: number, planned: boolean, hollow = false): void {
   const color = FLOCK_GROUP_COLOR[g];
   const shape = FLOCK_GROUP_SHAPE[g];
   const c = size / 2;
@@ -54,9 +72,11 @@ export function drawFlockIcon(ctx: CanvasRenderingContext2D, g: FlockGroup, size
   ctx.lineJoin = 'round';
   ctx.beginPath();
   switch (shape) {
-    case 'square':
     case 'hollow-square':
       ctx.rect(c - r, c - r, r * 2, r * 2);
+      break;
+    case 'lens':
+      ctx.arc(c, c, r, 0, Math.PI * 2);
       break;
     case 'diamond':
       ctx.moveTo(c, c - r * 1.15);
@@ -85,7 +105,7 @@ export function drawFlockIcon(ctx: CanvasRenderingContext2D, g: FlockGroup, size
       ctx.arc(c, c, shape === 'dot' ? r * 0.7 : r, 0, Math.PI * 2);
       break;
   }
-  const outlineOnly = planned || shape === 'hollow-square' || shape === 'ring' || shape === 'cross';
+  const outlineOnly = planned || hollow || shape === 'hollow-square' || shape === 'ring' || shape === 'cross';
   if (outlineOnly) {
     if (planned) ctx.setLineDash([size * 0.14, size * 0.1]);
     ctx.lineWidth = size * 0.13;
@@ -97,6 +117,12 @@ export function drawFlockIcon(ctx: CanvasRenderingContext2D, g: FlockGroup, size
       ctx.fillStyle = color;
       ctx.fill();
     }
+  } else if (shape === 'lens') {
+    ctx.fillStyle = FLOCK_COMPARE_COLOR.core;
+    ctx.fill();
+    ctx.lineWidth = size * 0.13;
+    ctx.strokeStyle = FLOCK_COMPARE_COLOR.ring;
+    ctx.stroke();
   } else {
     ctx.fillStyle = color;
     ctx.fill();
@@ -107,15 +133,15 @@ export function drawFlockIcon(ctx: CanvasRenderingContext2D, g: FlockGroup, size
   ctx.restore();
 }
 
-function renderIcon(g: FlockGroup, planned: boolean): { width: number; height: number; data: Uint8ClampedArray } | null {
-  const px = (FLOCK_ICON_PX + PAD * 2) * RATIO;
+function renderIcon(draw: (ctx: CanvasRenderingContext2D, px: number) => void, logicalPx: number): { width: number; height: number; data: Uint8ClampedArray } | null {
+  const px = (logicalPx + PAD * 2) * RATIO;
   const canvas = document.createElement('canvas');
   canvas.width = px;
   canvas.height = px;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
   ctx.clearRect(0, 0, px, px);
-  drawFlockIcon(ctx, g, px, planned);
+  draw(ctx, px);
   const img = ctx.getImageData(0, 0, px, px);
   return { width: img.width, height: img.height, data: img.data };
 }
@@ -126,8 +152,17 @@ export function ensureFlockIcons(map: Pick<maplibregl.Map, 'hasImage' | 'addImag
     for (const planned of [false, true]) {
       const id = flockIconId(g, planned);
       if (map.hasImage(id)) continue;
-      const img = renderIcon(g, planned);
+      const img = renderIcon((ctx, px) => drawFlockIcon(ctx, g, px, planned), FLOCK_ICON_PX);
       if (img) map.addImage(id, img, { pixelRatio: RATIO });
     }
+    const hollowId = flockHollowIconId(g);
+    if (!map.hasImage(hollowId)) {
+      const img = renderIcon((ctx, px) => drawFlockIcon(ctx, g, px, false, true), FLOCK_ICON_PX);
+      if (img) map.addImage(hollowId, img, { pixelRatio: RATIO });
+    }
+  }
+  if (!map.hasImage(FLOCK_PLANNED_ICON)) {
+    const img = renderIcon(drawPlannedRing, 22);
+    if (img) map.addImage(FLOCK_PLANNED_ICON, img, { pixelRatio: RATIO });
   }
 }
