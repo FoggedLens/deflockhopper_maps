@@ -40,6 +40,11 @@ describe('normalizeFlockType', () => {
     expect(normalizeFlockType(null)).toBe('other');
     expect(normalizeFlockType(42)).toBe('other');
   });
+
+  it('treats a dock as a drone even when the label also names an ALPR product', () => {
+    expect(normalizeFlockType('Falcon Drone Dock')).toBe('drone');
+    expect(normalizeFlockType('LPR drone')).toBe('drone');
+  });
 });
 
 describe('normalizeFlockStatus', () => {
@@ -64,7 +69,7 @@ describe('normalizeFlockStatus', () => {
 });
 
 describe('map expressions agree with the JS normalizers', () => {
-  const rawTypes = ['Falcon', 'Falcon LPR', 'Sparrow', 'Condor PTZ', 'Raven Audio', 'Drone Dock', 'Widget', '', 'INACTIVE'];
+  const rawTypes = ['Falcon', 'Falcon LPR', 'Sparrow', 'Condor PTZ', 'Raven Audio', 'Drone Dock', 'Widget', '', 'INACTIVE', 'Falcon Drone Dock', 'LPR drone'];
   it.each(rawTypes)('type %s', (raw) => {
     expect(evaluate(flockTypeExpression(), { type: raw })).toBe(normalizeFlockType(raw));
   });
