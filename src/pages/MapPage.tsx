@@ -1,9 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { MapLibreView, MapSearch, FloatingRouteCard, CameraStats, MapLoadingScreen, type MapLibreViewHandle } from '@/components/map';
 import { HeaderCameraCount } from '@/components/map/HeaderCameraCount';
+import { FlockHeaderCount } from '@/components/map/FlockHeaderCount';
+import { FlockLeakStatusPill } from '@/components/map/FlockLeakStatusPill';
 import { RoutePanel } from '@/components/panels';
 import { ExplorePanel } from '@/components/panels/ExplorePanel';
 import { NetworkPanel } from '@/components/panels/NetworkPanel';
+import { FlockLeakPanel } from '@/components/panels/FlockLeakPanel';
 import { MapPanel } from '@/components/panels/MapPanel';
 import { MobileTabDrawer } from '@/components/panels/MobileTabDrawer';
 import { NetworkAgencyCount } from '@/components/map/NetworkAgencyCount';
@@ -15,6 +18,7 @@ import { useTilesHostStore, failoverTilesHost } from '@/store/tilesHostStore';
 import { isWebGLAvailable } from '@/utils/webgl';
 import { removeBootSplash } from '@/utils/bootSplash';
 import { useCameraStore, useAppModeStore } from '@/store';
+import { useFlockLeakStore } from '@/store/flockLeakStore';
 import { useEmbedMode } from '@/hooks/useEmbedMode';
 import { useCameraRenderMode } from '@/hooks/useCameraRenderMode';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -63,6 +67,12 @@ export function MapPage() {
   // country, mode, state filter) and mirrors store changes back into the
   // address bar. All URL logic lives in useUrlSync/urlState.
   useUrlSync();
+
+  // Flock Leak: the TileJSON carries the snapshot stats the header and chips
+  // show. Loaded once per session; retry lives in the store.
+  useEffect(() => {
+    if (appMode === 'leak') void useFlockLeakStore.getState().ensureTileJsonLoaded();
+  }, [appMode]);
 
   const stateFilter = useCameraStore(s => s.filters.state);
   const isMobile = useIsMobile();
@@ -321,7 +331,9 @@ export function MapPage() {
               {/* Mobile: live count + share. No count on Timeline/Network — "in view"
                   ignores the timeline date, and Network shows agencies. */}
               <div className="lg:hidden flex items-center gap-2 h-full">
-                {appMode !== 'explore' && appMode !== 'network' && <HeaderCameraCount />}
+                {appMode === 'leak'
+                  ? <FlockHeaderCount />
+                  : appMode !== 'explore' && appMode !== 'network' && <HeaderCameraCount />}
                 <ShareButton variant="icon" className="-mr-2" />
               </div>
 
@@ -344,6 +356,7 @@ export function MapPage() {
           {!isMobile && appMode === 'map' && <MapPanel />}
           {!isMobile && appMode === 'route' && <RoutePanel />}
           {!isMobile && appMode === 'explore' && <ExplorePanel />}
+          {!isMobile && appMode === 'leak' && <FlockLeakPanel />}
           {!isMobile && appMode === 'network' && <NetworkPanel />}
 
           {/* Map */}
@@ -393,6 +406,7 @@ export function MapPage() {
               <CameraTileStatusPill onRetryTiles={handleRetryWithRemount} />
             )}
             {appMode === 'network' && <NetworkLoadingPill />}
+            {appMode === 'leak' && <FlockLeakStatusPill />}
             <MapThemeControl />
             {appMode === 'leak' && <SwipeTrack />}
             {appMode === 'leak' && !isMobile && (

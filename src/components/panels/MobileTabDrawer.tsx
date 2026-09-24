@@ -19,6 +19,7 @@ import { Skeleton } from '../common';
 import { useDelayedFlag } from '../../hooks/useDelayedFlag';
 import { BrandBreakdown } from '../map/BrandBreakdown';
 import { FlockViewSwitch } from '../map/FlockViewSwitch';
+import { FlockLeakPanelContent } from './FlockLeakPanelContent';
 
 /* ------------------------------------------------------------------ */
 /*  Tab definitions                                                    */
@@ -497,6 +498,15 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
               </div>
             )}
 
+            <DrawerFooter />
+          </div>
+        );
+
+      /* ---------- FLOCK LEAK ---------- */
+      case 'leak':
+        return (
+          <div className="pb-8">
+            <FlockLeakPanelContent />
             <DrawerFooter />
           </div>
         );
