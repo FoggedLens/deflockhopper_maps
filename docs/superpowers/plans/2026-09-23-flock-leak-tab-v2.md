@@ -2084,3 +2084,434 @@ git commit -m "docs: Flock Leak tab and the flock-inventory-v2 contract in CLAUD
 - [ ] **Step 6: PR body**
 
 Link both specs and the contract, the spike result, the phone verdict, the check output, the perf numbers, the screenshots, and the open items: colors and shapes are placeholders pending a design pass (`FLOCK_GROUP_COLOR`, `FLOCK_GROUP_SHAPE`); no "Open in table" link because no table URL exists yet; no spiderfy fan-out for coincident markers (the popup lists them instead).
+
+---
+
+### Task 14: Swipe by clipped overlay maps (replaces the filter-driven swipe)
+
+**Why:** The filter-driven swipe (Task 10) re-buckets every loaded tile of both point sources in MapLibre's workers on each divider update. At national zoom a Flock z4 tile is 1.2 MB, so each nudge re-parses megabytes and the icons re-place about half a second later; the user's test called the lag unacceptable. Task 1's spike measured the OSM layer at street zoom and did not catch it. This task cuts by pixels instead: two transparent overlay maps, one carrying only the OSM camera layer and one only the Flock layer, sit over the basemap locked to its camera, each clipped with CSS `clip-path` to its side of the divider. A drag then costs a compositor clip update and nothing else; the basemap still renders once.
+
+**Files:**
+- Create: `src/components/map/SwipeOverlayMaps.tsx`
+- Modify: `src/components/map/MapLibreContainer.tsx` (drop the hook wiring; hide the main map's OSM and Flock layers in Swipe; render the overlays as a sibling of `<Map>`; resolve clicks and counts through the overlays in Swipe)
+- Modify: `src/utils/swipeFilter.ts`, `src/utils/swipeFilter.test.ts` (keep `clampDivider` and `combineFilters`; add `swipeClipInsets`; remove the `within` machinery)
+- Delete: `src/hooks/useSwipeFilters.ts`
+- Modify: `src/index.css` (popup above the overlays), `CLAUDE.md` (the two `useSwipeFilters` mentions), `.superpowers/check-flock-leak.mjs` (swipe checks)
+
+**Interfaces:**
+- Consumes: `CameraTileLayers` (`sourceUrl`, `filter`, `cones`), `FlockLeakLayers`, `useFlockLeakStore.divider` / `view`, `tilesTransformRequest`, `cameraTileJsonUrl`, `flockLeakTileJsonUrl`, `parseDeviceRecord`, `nearestCoordinateGroup`, `groupDevicesAtCoordinate`.
+- Produces: `swipeClipInsets(divider): { osm: string; flock: string }`; `<SwipeOverlayMaps mainMapRef osmRef flockRef osmSourceUrl osmFilter flockSourceUrl initialCenter initialZoom />`.
+
+- [ ] **Step 1: Write the failing clip test and slim the swipe utils**
+
+Replace `src/utils/swipeFilter.test.ts` with:
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { clampDivider, combineFilters, swipeClipInsets } from './swipeFilter';
+
+describe('clampDivider', () => {
+  it('clamps to 0..1 and treats non-finite as the middle', () => {
+    expect(clampDivider(-1)).toBe(0);
+    expect(clampDivider(2)).toBe(1);
+    expect(clampDivider(0.3)).toBe(0.3);
+    expect(clampDivider(NaN)).toBe(0.5);
+  });
+});
+
+describe('combineFilters', () => {
+  it('returns undefined for nothing, the filter itself for one, and all-of for many', () => {
+    expect(combineFilters()).toBeUndefined();
+    const a = ['==', ['get', 'a'], 1] as never;
+    const b = ['==', ['get', 'b'], 2] as never;
+    expect(combineFilters(a)).toBe(a);
+    expect(combineFilters(undefined, a)).toBe(a);
+    expect(combineFilters(a, b)).toEqual(['all', a, b]);
+  });
+});
+
+describe('swipeClipInsets', () => {
+  it('shows OSM left of the divider and Flock right of it', () => {
+    expect(swipeClipInsets(0.5)).toEqual({ osm: 'inset(0 50.000% 0 0)', flock: 'inset(0 0 0 50.000%)' });
+    expect(swipeClipInsets(0.25)).toEqual({ osm: 'inset(0 75.000% 0 0)', flock: 'inset(0 0 0 25.000%)' });
+  });
+
+  it('hides a side completely at the extremes', () => {
+    expect(swipeClipInsets(0).osm).toBe('inset(0 100.000% 0 0)');
+    expect(swipeClipInsets(1).flock).toBe('inset(0 0 0 100.000%)');
+  });
+
+  it('clamps and defaults like clampDivider', () => {
+    expect(swipeClipInsets(7)).toEqual(swipeClipInsets(1));
+    expect(swipeClipInsets(NaN)).toEqual(swipeClipInsets(0.5));
+  });
+});
+```
+
+Run: `npx vitest run src/utils/swipeFilter.test.ts` — FAIL (`swipeClipInsets` missing).
+
+Replace `src/utils/swipeFilter.ts` with:
+
+```ts
+import type { FilterSpecification } from 'maplibre-gl';
+
+/**
+ * Swipe geometry. The divider is a fraction of the map width. Each side of
+ * the swipe is a transparent overlay map clipped with CSS: no layer filter
+ * ever changes on a drag, so MapLibre never re-buckets tiles.
+ */
+export function clampDivider(v: number): number {
+  if (!Number.isFinite(v)) return 0.5;
+  return Math.min(1, Math.max(0, v));
+}
+
+export function combineFilters(
+  ...filters: Array<FilterSpecification | undefined>
+): FilterSpecification | undefined {
+  const present = filters.filter((f): f is FilterSpecification => f != null);
+  if (present.length === 0) return undefined;
+  if (present.length === 1) return present[0];
+  return ['all', ...present] as unknown as FilterSpecification;
+}
+
+/** CSS clip-path values for the two overlays: OSM keeps the left of the
+ *  divider, Flock keeps the right. */
+export function swipeClipInsets(divider: number): { osm: string; flock: string } {
+  const d = clampDivider(divider);
+  const pct = (v: number) => `${(v * 100).toFixed(3)}%`;
+  return { osm: `inset(0 ${pct(1 - d)} 0 0)`, flock: `inset(0 0 0 ${pct(d)})` };
+}
+```
+
+Run: `npx vitest run src/utils/swipeFilter.test.ts` — PASS. Then `git rm src/hooks/useSwipeFilters.ts`.
+
+- [ ] **Step 2: The overlay maps**
+
+Create `src/components/map/SwipeOverlayMaps.tsx`:
+
+```tsx
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import Map, { type MapRef } from 'react-map-gl/maplibre';
+import type maplibregl from 'maplibre-gl';
+import type { FilterSpecification } from 'maplibre-gl';
+import { useFlockLeakStore } from '../../store/flockLeakStore';
+import { swipeClipInsets } from '../../utils/swipeFilter';
+import { tilesTransformRequest } from '../../services/cameraTilesService';
+import { CameraTileLayers } from './layers/CameraTileLayers';
+import { FlockLeakLayers } from './layers/FlockLeakLayers';
+
+/** No basemap, no background: the overlay draws only its point layers. */
+const EMPTY_STYLE: maplibregl.StyleSpecification = { version: 8, sources: {}, layers: [] };
+
+interface SwipeOverlayMapsProps {
+  mainMapRef: RefObject<MapRef>;
+  osmRef: RefObject<MapRef>;
+  flockRef: RefObject<MapRef>;
+  osmSourceUrl: string;
+  osmFilter?: FilterSpecification;
+  flockSourceUrl: string;
+  initialCenter: { lng: number; lat: number };
+  initialZoom: number;
+}
+
+/**
+ * The Swipe view: two transparent, non-interactive maps over the basemap,
+ * one with the OSM camera layer and one with the Flock layer, locked to the
+ * main map's camera on every move and clipped by CSS to their side of the
+ * divider. The divider paints from a store subscription with direct DOM
+ * writes, so a drag never touches React or MapLibre.
+ */
+export function SwipeOverlayMaps({
+  mainMapRef,
+  osmRef,
+  flockRef,
+  osmSourceUrl,
+  osmFilter,
+  flockSourceUrl,
+  initialCenter,
+  initialZoom,
+}: SwipeOverlayMapsProps) {
+  const osmWrap = useRef<HTMLDivElement>(null);
+  const flockWrap = useRef<HTMLDivElement>(null);
+  const [loaded, setLoaded] = useState(0);
+
+  // Clip from the store, no commits.
+  useEffect(() => {
+    const paint = (d: number) => {
+      const { osm, flock } = swipeClipInsets(d);
+      if (osmWrap.current) osmWrap.current.style.clipPath = osm;
+      if (flockWrap.current) flockWrap.current.style.clipPath = flock;
+    };
+    paint(useFlockLeakStore.getState().divider);
+    return useFlockLeakStore.subscribe((s, prev) => {
+      if (s.divider !== prev.divider) paint(s.divider);
+    });
+  }, []);
+
+  // Camera lock: follow the main map on every move (and once on mount).
+  useEffect(() => {
+    const main = mainMapRef.current?.getMap();
+    if (!main) return;
+    const sync = () => {
+      const center = main.getCenter();
+      const zoom = main.getZoom();
+      const bearing = main.getBearing();
+      const pitch = main.getPitch();
+      for (const ref of [osmRef, flockRef]) {
+        const m = ref.current?.getMap();
+        if (m) m.jumpTo({ center, zoom, bearing, pitch });
+      }
+    };
+    main.on('move', sync);
+    sync();
+    return () => {
+      main.off('move', sync);
+    };
+  }, [mainMapRef, osmRef, flockRef, loaded]);
+
+  const common = {
+    initialViewState: { longitude: initialCenter.lng, latitude: initialCenter.lat, zoom: initialZoom, bearing: 0, pitch: 0 },
+    style: { width: '100%', height: '100%', background: 'transparent' },
+    mapStyle: EMPTY_STYLE,
+    interactive: false,
+    attributionControl: false,
+    transformRequest: tilesTransformRequest,
+    onLoad: () => setLoaded((n) => n + 1),
+  } as const;
+
+  return (
+    <>
+      <div ref={osmWrap} className="swipe-overlay absolute inset-0 pointer-events-none" aria-hidden="true">
+        <Map ref={osmRef} {...common}>
+          <CameraTileLayers sourceUrl={osmSourceUrl} filter={osmFilter} visible cones={false} />
+        </Map>
+      </div>
+      <div ref={flockWrap} className="swipe-overlay absolute inset-0 pointer-events-none" aria-hidden="true">
+        <Map ref={flockRef} {...common}>
+          <FlockLeakLayers sourceUrl={flockSourceUrl} visible />
+        </Map>
+      </div>
+    </>
+  );
+}
+```
+
+- [ ] **Step 3: Wire the container**
+
+In `src/components/map/MapLibreContainer.tsx`:
+
+Remove the `useSwipeFilters` import and the whole `swipeTargets` / `useSwipeFilters(...)` block. Add:
+
+```ts
+import { SwipeOverlayMaps } from './SwipeOverlayMaps';
+```
+
+and refs next to `mapRef`:
+
+```ts
+  const swipeOsmRef = useRef<MapRef>(null);
+  const swipeFlockRef = useRef<MapRef>(null);
+  const isSwipe = isLeakMode && leakView === 'swipe';
+```
+
+(`isSwipe` goes right after `leakView` is read.) Change `showCameraMarkers` so the main map shows OSM on the tab only in Overlay:
+
+```ts
+    || (isLeakMode && leakView === 'overlay')
+```
+
+Pass `visible={showCameraLayer && !isSwipe}` to the main `<FlockLeakLayers>`.
+
+In `onClick`'s leak branch, before `const flockFeature = event.features?.find(...)`, resolve through the overlays when swiping:
+
+```ts
+      if (isSwipe) {
+        const main = mapRef.current.getMap();
+        const width = main.getContainer().clientWidth || 1;
+        const divider = useFlockLeakStore.getState().divider;
+        const { x, y } = event.point;
+        const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
+        if (x / width >= divider) {
+          const flockMap = swipeFlockRef.current?.getMap();
+          const hit = flockMap?.getLayer(FLOCK_LEAK_POINTS_LAYER)
+            ? flockMap.queryRenderedFeatures(box, { layers: [FLOCK_LEAK_POINTS_LAYER, FLOCK_LEAK_DOTS_LAYER] })[0]
+            : undefined;
+          if (hit && flockMap) {
+            resolveFlockClick(flockMap, hit, event.point, event.lngLat);
+            return;
+          }
+        } else {
+          const osmMap = swipeOsmRef.current?.getMap();
+          const hit = osmMap?.getLayer('camera-tile-points')
+            ? osmMap.queryRenderedFeatures(box, { layers: ['camera-tile-points'] })[0]
+            : undefined;
+          if (hit) {
+            openCameraPopup(hit);
+            return;
+          }
+        }
+        useFlockLeakStore.getState().setSelection(null);
+        setPopupInfo(null);
+        return;
+      }
+```
+
+This needs two helpers extracted from the existing handler, defined above `onClick` with `useCallback`:
+
+```ts
+  /** Resolve a tap on a Flock mark (any map instance) into the store selection. */
+  const resolveFlockClick = useCallback((
+    map: maplibregl.Map,
+    feature: maplibregl.MapGeoJSONFeature,
+    point: { x: number; y: number },
+    lngLat: { lng: number; lat: number },
+  ) => {
+    const zoom = map.getZoom();
+    const props = (feature.properties ?? {}) as Record<string, unknown>;
+    const [flon, flat] = (feature.geometry as GeoJSON.Point).coordinates;
+    const { x, y } = point;
+    const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
+    let devices: ReturnType<typeof parseDeviceRecord>[] = [];
+    let lon = flon;
+    let lat = flat;
+    if (zoom >= FLOCK_LEAK_POINTS_MINZOOM && map.getLayer(FLOCK_LEAK_POINTS_LAYER)) {
+      const clicked = parseDeviceRecord(props);
+      const nearby = map
+        .queryRenderedFeatures(box, { layers: [FLOCK_LEAK_POINTS_LAYER] })
+        .map((f) => parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>))
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+      const target = nearestCoordinateGroup(nearby, lngLat.lat, lngLat.lng)
+        ?? (clicked ? { lat: clicked.lat, lon: clicked.lon } : null);
+      if (target) {
+        lon = target.lon;
+        lat = target.lat;
+        devices = groupDevicesAtCoordinate(nearby, target.lat, target.lon);
+      }
+    }
+    const osmLayer = isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points';
+    const osmMapForHint = isSwipe ? swipeOsmRef.current?.getMap() : (showCameraMarkers ? map : undefined);
+    const osmNearby = osmMapForHint?.getLayer(osmLayer)
+      ? osmMapForHint
+          .queryRenderedFeatures(
+            [[x - NEARBY_QUERY_PX, y - NEARBY_QUERY_PX], [x + NEARBY_QUERY_PX, y + NEARBY_QUERY_PX]],
+            { layers: [osmLayer] }
+          )
+          .map((f) => {
+            const [olon, olat] = (f.geometry as GeoJSON.Point).coordinates;
+            return { lon: olon, lat: olat };
+          })
+      : [];
+    useFlockLeakStore.getState().setSelection({
+      lon,
+      lat,
+      zoom,
+      g: parseGroup(props.g),
+      s: parseStatus(props.s),
+      q: parseQuality(props.q),
+      devices: devices.filter((d): d is NonNullable<typeof d> => d !== null),
+      nearestOsmMeters: nearestDistanceMeters({ lon, lat }, osmNearby),
+    });
+    setPopupInfo(null);
+  }, [isFilterTilesMode, isSwipe, showCameraMarkers]);
+```
+
+and, moving the existing `props.osmId` / `ALPRCamera` / `setPopupInfo({...})` block (lines around `const props = feature.properties;` through the `setPopupInfo` call) into:
+
+```ts
+  /** Open the OSM camera popup for a rendered camera feature (any map instance). */
+  const openCameraPopup = useCallback((feature: maplibregl.MapGeoJSONFeature) => {
+    const props = feature.properties;
+    if (!props || props.osmId == null) return;
+    const [lon, lat] = (feature.geometry as GeoJSON.Point).coordinates;
+    const camera: ALPRCamera = {
+      osmId: Number(props.osmId),
+      osmType: (props.osmType as 'node' | 'way') || 'node',
+      lat: props.lat ?? lat,
+      lon: props.lon ?? lon,
+      operator: props.operator || undefined,
+      brand: props.brand || undefined,
+      direction: props.direction ?? undefined,
+      directionCardinal: props.directionCardinal || undefined,
+      surveillanceZone: props.surveillanceZone || undefined,
+      mountType: props.mountType || undefined,
+      ref: props.ref || undefined,
+      startDate: props.startDate || undefined,
+      wikimediaCommons: props.wikimediaCommons || undefined,
+    };
+    setPopupInfo({ longitude: camera.lon, latitude: camera.lat, camera });
+  }, []);
+```
+
+The existing main-map leak branch then becomes `if (flockFeature) { resolveFlockClick(mapRef.current.getMap(), flockFeature, event.point, event.lngLat); return; }` and the existing OSM tail of `onClick` calls `openCameraPopup(feature)`. Add `resolveFlockClick, openCameraPopup, isSwipe` to `onClick`'s dependency array and drop `showCameraMarkers` from it if nothing else in the callback reads it.
+
+In `updateVisibleCameras`'s leak block, count from the overlay when swiping:
+
+```ts
+      const countMap = isSwipeRef.current ? swipeFlockRef.current?.getMap() : map;
+```
+
+and use `countMap` for the `getLayer` / `queryRenderedFeatures` calls (guard `countMap` for undefined). Keep a ref in sync: `const isSwipeRef = useRef(false); isSwipeRef.current = isSwipe;` declared next to `isSwipe` (the callback has no `isSwipe` dependency; the ref avoids re-creating it).
+
+Render the overlays as a sibling of `<Map>`: change the component's `return (` to return a fragment:
+
+```tsx
+  return (
+    <>
+    <Map
+      ...unchanged...
+    </Map>
+    {isSwipe && mapLoaded && mapRef.current && (
+      <SwipeOverlayMaps
+        key={`swipe-${tilesEpoch}-${leakSourceEpoch}`}
+        mainMapRef={mapRef}
+        osmRef={swipeOsmRef}
+        flockRef={swipeFlockRef}
+        osmSourceUrl={isFilterTilesMode ? filterSourceUrl : cameraTileJsonUrl(country)}
+        osmFilter={isFilterTilesMode ? tileFilterExpr : undefined}
+        flockSourceUrl={flockLeakTileJsonUrl()}
+        initialCenter={mapRef.current.getMap().getCenter()}
+        initialZoom={mapRef.current.getMap().getZoom()}
+      />
+    )}
+    </>
+  );
+```
+
+- [ ] **Step 4: Stacking and CSS**
+
+Append to `src/index.css` (outside the media query):
+
+```css
+/* Flock Leak swipe: the overlay maps sit above the basemap canvas and below
+   the map's own popups and controls. MapLibre's control corners are z-index 2. */
+.map-page .swipe-overlay { z-index: 1; }
+.map-page .maplibregl-popup { z-index: 3; }
+```
+
+Confirm the control z-index with `grep -o "maplibregl-ctrl-bottom-right{[^}]*}" node_modules/maplibre-gl/dist/maplibre-gl.css`; if it is not 2, keep the overlay below whatever it is.
+
+- [ ] **Step 5: Docs and the acceptance script**
+
+In `CLAUDE.md`: in the Flock Leak mode bullet replace `src/hooks/useSwipeFilters.ts` with `src/components/map/SwipeOverlayMaps.tsx`; replace the Critical Files row for `useSwipeFilters.ts` with `| src/components/map/SwipeOverlayMaps.tsx | Swipe view: two transparent overlay maps clipped by CSS, camera-locked to the main map |`; in Map Rendering replace `the swipe divider is applied imperatively by useSwipeFilters, not through React props` with `the swipe cuts by pixels through two clipped overlay maps (SwipeOverlayMaps), never by layer filters, so a drag re-buckets no tiles`.
+
+In `.superpowers/check-flock-leak.mjs`, replace the two swipe assertions (`swipe applies within filter to OSM` and `leaving swipe restores the OSM filter`) with:
+
+```js
+const clip = await d.locator('.swipe-overlay').nth(1).evaluate((el) => el.style.clipPath);
+check('swipe clips the Flock overlay at the divider', clip === 'inset(0 0 0 20.000%)', clip);
+check('swipe never filters the main OSM layer', await d.evaluate(() => !JSON.stringify(window.__deflockMap.getFilter('camera-tile-points') ?? []).includes('within')));
+await d.getByRole('tab', { name: 'Flock' }).first().click();
+await d.waitForTimeout(500);
+check('leaving swipe removes the overlays', (await d.locator('.swipe-overlay').count()) === 0);
+```
+
+- [ ] **Step 6: Verify**
+
+Run: `npx tsc -b --noEmit && npm run lint && npm test` (zero new warnings). Browser, on the port 3000 dev server: `/leak?lat=39.5&lng=-98&zoom=4`, Swipe, drag the track quickly end to end several times: the cut follows the thumb with no lag and no icon re-placement; pan while swiping: both sides stay locked to the basemap; Overlay and Flock views unchanged; click a Flock point right of the divider at z12 (San Francisco, Planned on): the device popup opens; click an OSM camera left of the divider: the camera popup opens; popups and zoom buttons render above the overlays. Run the acceptance script (all PASS) and `node .superpowers/drag-perf-leak.mjs leak-swipe 4 mobile`; record `p95`, `reactCommits`, `longtasks`. Save `.superpowers/task14-swipe-desktop.png`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A src/components/map/SwipeOverlayMaps.tsx src/components/map/MapLibreContainer.tsx src/utils/swipeFilter.ts src/utils/swipeFilter.test.ts src/hooks/useSwipeFilters.ts src/index.css CLAUDE.md
+git commit -m "perf(leak): swipe by clipped overlay maps instead of layer filters"
+```
