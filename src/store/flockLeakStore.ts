@@ -36,10 +36,12 @@ export interface FlockSelection {
   nearestOsmMeters: number | null;
 }
 
-/** Every lifecycle status: the landing view shows the whole list. Records
- *  with q > 0 (unknown status, fixtures, placeholder stacks, outside North
- *  America) are never drawn; the panel says how many. */
-export const DEFAULT_FLOCK_STATUSES: readonly FlockStatus[] = [...FLOCK_SELECTABLE_STATUSES];
+/** The landing view: devices in service and planned. Decommissioned ones
+ *  start hidden (user's call, 2026-09-25) and are one status chip away; the
+ *  compare view still seeds every status (LEAK_COMPARE_FLOCK_STATUSES).
+ *  Records with q > 0 (unknown status, fixtures, placeholder stacks, outside
+ *  North America) are never drawn; the panel says how many. */
+export const DEFAULT_FLOCK_STATUSES: readonly FlockStatus[] = [1, 2];
 
 /** Both sides' filters as they were when the tab was entered. The Leak
  *  tab's filters are per visit: leaving puts everything back. */
@@ -200,11 +202,15 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
 }));
 
 /** Badge count for the filter button: one for a device-type selection,
- *  one for any status left out. The all-statuses default counts nothing. */
+ *  one for a status set narrower than the landing view's. The default
+ *  (decommissioned hidden) and every status (nothing hidden, as the compare
+ *  seed has it) count nothing. */
 export function activeFlockFilterCount(s: { groups: FlockGroup[]; statuses: FlockStatus[] }): number {
   const groupActive = s.groups.length > 0 ? 1 : 0;
   const allStatuses = FLOCK_SELECTABLE_STATUSES.every((x) => s.statuses.includes(x));
-  return groupActive + (allStatuses ? 0 : 1);
+  const isDefault = s.statuses.length === DEFAULT_FLOCK_STATUSES.length
+    && DEFAULT_FLOCK_STATUSES.every((x) => s.statuses.includes(x));
+  return groupActive + (allStatuses || isDefault ? 0 : 1);
 }
 
 /** Test hook — not for app code. */

@@ -14,11 +14,11 @@ beforeEach(() => {
 });
 
 describe('defaults', () => {
-  it('lands on the Flock view with every group and every status', () => {
+  it('lands on the Flock view with every group, in service and planned (decommissioned hidden)', () => {
     const s = useFlockLeakStore.getState();
     expect(s.view).toBe('flock');
     expect(s.groups).toEqual([]);
-    expect(s.statuses).toEqual([1, 2, 3]);
+    expect(s.statuses).toEqual([1, 2]);
     expect(s.loadPhase).toBe('idle');
   });
 });
@@ -46,16 +46,23 @@ describe('filters', () => {
 
   it('toggles statuses', () => {
     useFlockLeakStore.getState().toggleStatus(2);
+    expect(useFlockLeakStore.getState().statuses).toEqual([1]);
+    useFlockLeakStore.getState().toggleStatus(3);
     expect(useFlockLeakStore.getState().statuses).toEqual([1, 3]);
-    useFlockLeakStore.getState().toggleStatus(1);
-    expect(useFlockLeakStore.getState().statuses).toEqual([3]);
   });
 
   it('counts a group selection and a narrowed status set as one filter each; the default as none', () => {
-    expect(activeFlockFilterCount({ groups: [], statuses: [1, 2, 3] })).toBe(0);
+    expect(activeFlockFilterCount({ groups: [], statuses: [1, 2] })).toBe(0);
+    expect(activeFlockFilterCount({ groups: [], statuses: [2, 1] })).toBe(0);
     expect(activeFlockFilterCount({ groups: [], statuses: [1] })).toBe(1);
-    expect(activeFlockFilterCount({ groups: [1], statuses: [1, 2, 3] })).toBe(1);
+    expect(activeFlockFilterCount({ groups: [], statuses: [2, 3] })).toBe(1);
+    expect(activeFlockFilterCount({ groups: [1], statuses: [1, 2] })).toBe(1);
     expect(activeFlockFilterCount({ groups: [1], statuses: [1] })).toBe(2);
+  });
+
+  it('does not count every status as a filter: nothing is hidden (the compare seed)', () => {
+    expect(activeFlockFilterCount({ groups: [], statuses: [1, 2, 3] })).toBe(0);
+    expect(activeFlockFilterCount({ groups: [1], statuses: [1, 2, 3] })).toBe(1);
   });
 });
 

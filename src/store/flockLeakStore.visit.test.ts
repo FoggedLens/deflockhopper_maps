@@ -28,7 +28,7 @@ beforeEach(() => {
 describe('turning on the OSM comparison', () => {
   it('narrows Flock to plate readers (every status) and OSM to brand Flock Safety', () => {
     leak().beginVisit();
-    leak().toggleStatus(3);
+    leak().toggleStatus(2);
     leak().setView('overlay');
     expect(leak().groups).toEqual([1]);
     expect(leak().statuses).toEqual([1, 2, 3]);
@@ -66,9 +66,10 @@ describe('turning on the OSM comparison', () => {
     expect(osm().brands).toEqual(['Flock Safety']);
   });
 
-  it('leaves the landing view showing every device', () => {
+  it('leaves the landing view as it was: every group, decommissioned hidden', () => {
     leak().beginVisit();
     expect(leak().groups).toEqual([]);
+    expect(leak().statuses).toEqual([1, 2]);
     expect(osm().brands).toEqual([]);
   });
 });
@@ -77,14 +78,14 @@ describe('each view keeps its own filters', () => {
   it('going back to Flock restores what both sides had before comparing', () => {
     useCameraStore.setState({ filters: { ...clean, brands: ['Genetec'], showAll: false } });
     leak().beginVisit();
-    leak().toggleStatus(3);
+    leak().toggleStatus(2);
     leak().setView('overlay');
     expect(leak().groups).toEqual([1]);
     expect(leak().statuses).toEqual([1, 2, 3]);
     expect(osm().brands).toEqual(['Flock Safety']);
     leak().setView('flock');
     expect(leak().groups).toEqual([]);
-    expect(leak().statuses).toEqual([1, 2]);
+    expect(leak().statuses).toEqual([1]);
     expect(osm().brands).toEqual(['Genetec']);
     expect(osm().showAll).toBe(false);
   });
@@ -142,7 +143,7 @@ describe('leaving the tab', () => {
     leak().endVisit();
     expect(leak().view).toBe('flock');
     expect(leak().groups).toEqual([]);
-    expect(leak().statuses).toEqual([1, 2, 3]);
+    expect(leak().statuses).toEqual([1, 2]);
   });
 
   it('drops the tapped device, so the next visit does not open on it', () => {

@@ -533,6 +533,14 @@ this section wins.
   column has no hole. On this tab the OSM filter is titled "Filter OSM cameras".
 - **An open Flock popover stacks above the other map buttons** (the Legend button covered
   the filter popover's footer on phones).
+- **The Flock view hides decommissioned devices by default** (supersedes section 20's
+  "every status is on"): it lands on in service and planned (`DEFAULT_FLOCK_STATUSES`),
+  and the Decommissioned chip turns them back on. The filter badge counts neither that
+  default nor the full set. Comparing still seeds every status (section 22).
+- **The selection ring and the desktop popup tip sit on the drawn mark.** The tiles
+  quantize positions (about 0.3 m), which past z14 put the ring up to 15 px off the mark
+  at z22; the selection carries `markLon`/`markLat` for placement and keeps the exact
+  `lat`/`lon` for the table link and distances.
 - Open from the audit, not taken up yet: slow connections (the Flock tiles hold the map
   reveal past the 15 s init deadline on Slow 4G), tap tolerance at street zoom, Escape on
   every popover, the compare view in shared links, the header's "0 Flock in view" when the
