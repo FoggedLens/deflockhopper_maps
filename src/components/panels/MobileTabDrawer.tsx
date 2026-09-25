@@ -21,6 +21,8 @@ import { BrandBreakdown } from '../map/BrandBreakdown';
 import { FlockCompareControl } from '../map/FlockCompareControl';
 import { FlockLeakPanelContent, FlockCompareKey, FLOCK_LEAK_COPY } from './FlockLeakPanelContent';
 import { useFlockLeakStore } from '../../store/flockLeakStore';
+import { FlockDevicePeek } from './FlockDevicePeek';
+import { FlockSelectionDetails } from '../map/FlockLeakPopup';
 
 /* ------------------------------------------------------------------ */
 /*  Tab definitions                                                    */
@@ -189,7 +191,10 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
   const setSelectedNodeId = useNetworkStore(s => s.setSelectedNodeId);
 
   // Flock Leak: while comparing, the peek's one-liner becomes the mark key.
-  const leakCompare = useFlockLeakStore(s => s.view === 'overlay');
+  const leakView = useFlockLeakStore(s => s.view);
+  const leakCompare = leakView === 'overlay';
+  // A tapped Flock device takes the peek (phones get no map popup).
+  const leakSelection = useFlockLeakStore(s => s.selection);
 
   /* ---- country (gates US-only tabs) ---- */
   const country = useCameraStore(s => s.country);
@@ -245,6 +250,14 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNode, appMode]);
+
+  // Same for a tapped Flock device on the Leak tab.
+  useEffect(() => {
+    if (appMode === 'leak' && leakSelection && snapPoint !== 'full') {
+      setSnapPoint('peek');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leakSelection, appMode]);
 
   const exploresPending = !cameraIsInitialized && cameraLoadPhase !== 'error';
   const showExploreSkeleton = useDelayedFlag(exploresPending);
@@ -408,6 +421,8 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
             onExpand={handleExpandSheet}
             onClear={() => setSelectedNodeId(null)}
           />
+        ) : appMode === 'leak' && leakSelection ? (
+          <FlockDevicePeek onExpand={handleExpandSheet} />
         ) : (
           <IdentityRow
             mode={appMode}
@@ -514,6 +529,12 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
       case 'leak':
         return (
           <div className="pb-8">
+            {/* The tapped device's full record leads the sheet. */}
+            {leakSelection && (
+              <section className="mb-8 pb-6 border-b border-hairline" aria-label="Selected device">
+                <FlockSelectionDetails sel={leakSelection} view={leakView} variant="sheet" />
+              </section>
+            )}
             <FlockLeakPanelContent />
             <DrawerFooter />
           </div>

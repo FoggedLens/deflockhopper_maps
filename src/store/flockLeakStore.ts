@@ -127,6 +127,7 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
       compareSeeded: false,
       visitSnapshot: null,
       parked: null,
+      selection: null,
     });
     useCameraStore.getState().setFilters(snap.osm);
   },

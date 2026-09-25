@@ -145,6 +145,13 @@ describe('leaving the tab', () => {
     expect(leak().statuses).toEqual([1, 2, 3]);
   });
 
+  it('drops the tapped device, so the next visit does not open on it', () => {
+    leak().beginVisit();
+    leak().setSelection({ lon: -95.37, lat: 29.76, zoom: 15, g: 1, s: 1, q: 0, devices: [], nearestOsmMeters: null });
+    leak().endVisit();
+    expect(leak().selection).toBeNull();
+  });
+
   it('seeds again on the next visit', () => {
     leak().beginVisit();
     leak().setView('overlay');
