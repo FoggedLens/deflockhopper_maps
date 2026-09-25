@@ -511,3 +511,29 @@ within a visit. Where this differs from sections 18 and 19, this section wins.
 - Verified in the browser (`.superpowers/check-view-filters.mjs`): status edits made in
   Flock survive a round trip through the comparison, a device type added while comparing
   survives a round trip through Flock, and the OSM badge follows the view.
+
+## 25. Amendments, 2026-09-25 (UX audit)
+
+From a Playwright UX audit of the tab at four screen sizes (report:
+https://claude.ai/artifact/PYxTnLzz1Wu9kSDgnMziEV; harness in `.superpowers/ux-audit/`).
+The user picked these from live-app mockups. Where this differs from sections 6 and 7,
+this section wins.
+
+- **Phones: a tapped device goes to the drawer, not a popup.** The popup slid under the
+  search bar, the drawer and the map buttons. Phones now get a ring on the device and a
+  summary at the peek in place of the identity row, like the Network tab's selected
+  agency: type, group and status, name, then the creation date or, while comparing, the
+  nearby-OSM hint (`FlockDevicePeek`, wording in `flockSelectionSummary`). ✕ clears it;
+  the sheet leads with the full record. No "View in table" or "Street View" links on
+  phones. Desktop keeps the popup with its links.
+- **Desktop header count.** The phone header's line ("N OSM · M Flock in view") sits
+  beside Share in the desktop header from 1280 px; below that it squeezed the tab row.
+- **The OSM filter button shows only while comparing.** In Flock's records view no OSM
+  cameras are drawn. The Legend and Flock filter buttons drop one slot there so the
+  column has no hole. On this tab the OSM filter is titled "Filter OSM cameras".
+- **An open Flock popover stacks above the other map buttons** (the Legend button covered
+  the filter popover's footer on phones).
+- Open from the audit, not taken up yet: slow connections (the Flock tiles hold the map
+  reveal past the 15 s init deadline on Slow 4G), tap tolerance at street zoom, Escape on
+  every popover, the compare view in shared links, the header's "0 Flock in view" when the
+  data fails, and the desktop stack popup running below the fold.
