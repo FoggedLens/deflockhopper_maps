@@ -10,6 +10,7 @@ import {
 } from '../../../services/flockLeakTilesService';
 import { flockLayerFilter } from '../../../utils/flockLeakFilter';
 import { useFlockLeakStore } from '../../../store/flockLeakStore';
+import { useAppModeStore } from '../../../store/appModeStore';
 import { FLOCK_GROUPS } from '../../../lib/flockInventory';
 import { ensureFlockIcons, FLOCK_GROUP_COLOR } from './flockLeakIcons';
 import { zoomOpacityByStatus } from './flockLeakStyle';
@@ -68,10 +69,10 @@ export function FlockLeakLayers({ visible, sourceUrl, marks = 'filled' }: FlockL
   const { current: mapInstance } = useMap();
   const groups = useFlockLeakStore((s) => s.groups);
   const statuses = useFlockLeakStore((s) => s.statuses);
-  const showSuspect = useFlockLeakStore((s) => s.showSuspect);
-  const filter = useMemo(() => flockLayerFilter(groups, statuses, showSuspect), [groups, statuses, showSuspect]);
+  const filter = useMemo(() => flockLayerFilter(groups, statuses), [groups, statuses]);
   const dots = useMemo(() => buildDots(filter), [filter]);
-  const markLayers = useMemo(() => buildFlockMarkSpecs(marks, filter), [marks, filter]);
+  const theme = useAppModeStore((s) => s.mapTileStyle);
+  const markLayers = useMemo(() => buildFlockMarkSpecs(marks, filter, theme), [marks, filter, theme]);
 
   // Icons live in the style; a theme switch (setStyle) drops them. Register
   // up front and again whenever the style asks for one we have not added.

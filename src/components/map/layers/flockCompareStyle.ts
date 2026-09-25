@@ -5,8 +5,9 @@ import {
   FLOCK_LEAK_POINTS_MINZOOM,
 } from '../../../services/flockLeakTilesService';
 import { combineFilters } from '../../../utils/flockLeakFilter';
+import type { MapTileStyleId } from '../../../store/appModeStore';
 import { zoomOpacityByStatus } from './flockLeakStyle';
-import { FLOCK_LEAK_GLOW_LAYER, FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_LEAK_OTHERS_LAYER } from './flockLeakLayerIds';
+import { FLOCK_LEAK_GLOW_LAYER, FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_LEAK_OTHERS_LAYER, FLOCK_LEAK_MINOR_LAYER } from './flockLeakLayerIds';
 
 /**
  * Flock marks from z9 (approved 2026-09-24 from Houston screenshots). Plate
@@ -24,6 +25,13 @@ import { FLOCK_LEAK_GLOW_LAYER, FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER,
 export type FlockMarkMode = 'filled' | 'hollow';
 
 export const FLOCK_PLANNED_ICON = 'flock-planned-ring';
+/** The Flock view's planned plate reader: the dashed ring around an opaque
+ *  core in the basemap's ground color, so it still reads as an open ring
+ *  but hides a compute box stacked on the same pole (drawn beneath), which
+ *  the transparent ring let show through. Ground colors sampled from the
+ *  street-zoom basemaps on 2026-09-24. */
+export const flockPlannedLensId = (theme: MapTileStyleId): string => `flock-planned-lens-${theme}`;
+export const FLOCK_PLANNED_CORE: Record<MapTileStyleId, string> = { dark: '#1f1f1f', light: '#e2dfda' };
 
 /** The OSM lens hues (glow / core / ring) shifted to red. Change HERE only. */
 export const FLOCK_COMPARE_COLOR = {
@@ -39,6 +47,13 @@ const IS_PLANNED = ['==', STATUS, 2] as unknown as FilterSpecification;
 const NOT_PLANNED = ['!=', STATUS, 2] as unknown as FilterSpecification;
 const IS_ALPR = ['==', ['get', 'g'], 1] as unknown as FilterSpecification;
 const NOT_ALPR = ['!=', ['get', 'g'], 1] as unknown as FilterSpecification;
+/** Trailers (6) and components (7): the Other class. */
+const MINOR_GROUPS = ['in', ['get', 'g'], ['literal', [6, 7]]];
+const IS_MINOR = MINOR_GROUPS as unknown as FilterSpecification;
+const NOT_MINOR = ['!', MINOR_GROUPS] as unknown as FilterSpecification;
+/** Other-class icons draw at this share of the full icon size: support
+ *  hardware reads below the sensors. */
+const MINOR_ICON_SCALE = 0.8;
 
 /** In service above planned above decommissioned where points coincide. */
 export const FLOCK_STATUS_SORT_KEY = ['-', 5, STATUS];
@@ -51,13 +66,36 @@ export const groupIconExpression = (suffix: '' | '-hollow'): unknown[] => [
   ['case', ['==', STATUS, 2], '-planned', suffix],
 ];
 
-export function buildFlockMarkSpecs(mode: FlockMarkMode, base?: FilterSpecification): LayerSpecification[] {
+export function buildFlockMarkSpecs(mode: FlockMarkMode, base?: FilterSpecification, theme: MapTileStyleId = 'dark'): LayerSpecification[] {
   const src = { source: FLOCK_LEAK_SOURCE_ID, 'source-layer': FLOCK_LEAK_SOURCE_LAYER } as const;
   const withFilter = <T extends LayerSpecification>(spec: T, ...extra: FilterSpecification[]): T => {
     const filter = combineFilters(base, ...extra);
     return filter ? { ...spec, filter } : spec;
   };
   const layers: LayerSpecification[] = [];
+  const groupIcon = (id: string, scale: number, ...extra: FilterSpecification[]): LayerSpecification =>
+    withFilter(
+      {
+        id,
+        type: 'symbol',
+        ...src,
+        minzoom: FLOCK_LEAK_POINTS_MINZOOM,
+        layout: {
+          'icon-image': groupIconExpression(mode === 'hollow' ? '-hollow' : '') as never,
+          'icon-size': ['interpolate', ['linear'], ['zoom'], 9, 0.6 * scale, 10, scale],
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'symbol-sort-key': FLOCK_STATUS_SORT_KEY as never,
+        },
+        paint: {
+          'icon-opacity': zoomOpacityByStatus([9, 0, 9.6, 1], DECOMMISSIONED_SCALE) as never,
+        },
+      },
+      ...extra
+    );
+
+  // Beneath the plate-reader marks (see FLOCK_LEAK_MINOR_LAYER).
+  layers.push(groupIcon(FLOCK_LEAK_MINOR_LAYER, MINOR_ICON_SCALE, IS_MINOR));
 
   if (mode === 'filled') {
     layers.push(
@@ -130,7 +168,7 @@ export function buildFlockMarkSpecs(mode: FlockMarkMode, base?: FilterSpecificat
         ...src,
         minzoom: FLOCK_LEAK_POINTS_MINZOOM,
         layout: {
-          'icon-image': FLOCK_PLANNED_ICON,
+          'icon-image': mode === 'filled' ? flockPlannedLensId(theme) : FLOCK_PLANNED_ICON,
           'icon-size': ['interpolate', ['linear'], ['zoom'], 9, 0.6, 10, 1],
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
@@ -144,26 +182,6 @@ export function buildFlockMarkSpecs(mode: FlockMarkMode, base?: FilterSpecificat
     )
   );
 
-  layers.push(
-    withFilter(
-      {
-        id: FLOCK_LEAK_OTHERS_LAYER,
-        type: 'symbol',
-        ...src,
-        minzoom: FLOCK_LEAK_POINTS_MINZOOM,
-        layout: {
-          'icon-image': groupIconExpression(mode === 'hollow' ? '-hollow' : '') as never,
-          'icon-size': ['interpolate', ['linear'], ['zoom'], 9, 0.6, 10, 1],
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-          'symbol-sort-key': FLOCK_STATUS_SORT_KEY as never,
-        },
-        paint: {
-          'icon-opacity': zoomOpacityByStatus([9, 0, 9.6, 1], DECOMMISSIONED_SCALE) as never,
-        },
-      },
-      NOT_ALPR
-    )
-  );
+  layers.push(groupIcon(FLOCK_LEAK_OTHERS_LAYER, 1, NOT_ALPR, NOT_MINOR));
   return layers;
 }

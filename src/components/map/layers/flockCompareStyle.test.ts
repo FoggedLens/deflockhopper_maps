@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { validateStyleMin, createPropertyExpression, v8 } from '@maplibre/maplibre-gl-style-spec';
 import type { FilterSpecification, StyleSpecification, CircleLayerSpecification, SymbolLayerSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { buildFlockMarkSpecs, FLOCK_PLANNED_ICON } from './flockCompareStyle';
-import { FLOCK_LEAK_GLOW_LAYER, FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_LEAK_OTHERS_LAYER } from './flockLeakLayerIds';
+import { buildFlockMarkSpecs, FLOCK_PLANNED_ICON, flockPlannedLensId } from './flockCompareStyle';
+import { FLOCK_LEAK_GLOW_LAYER, FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_LEAK_OTHERS_LAYER, FLOCK_LEAK_MINOR_LAYER } from './flockLeakLayerIds';
 import { FLOCK_LEAK_SOURCE_ID } from '../../../services/flockLeakTilesService';
 
 const ALPR: FilterSpecification = ['==', ['get', 'g'], 1] as never;
@@ -44,8 +44,9 @@ describe('buildFlockMarkSpecs', () => {
 
   it('filled draws the fogged lens: glow beneath a filled core with the OSM radii', () => {
     const layers = buildFlockMarkSpecs('filled');
-    expect(layers[0].id).toBe(FLOCK_LEAK_GLOW_LAYER);
-    expect(layers[0].type).toBe('circle');
+    const ids = layers.map((l) => l.id);
+    expect(ids.indexOf(FLOCK_LEAK_GLOW_LAYER)).toBeLessThan(ids.indexOf(FLOCK_LEAK_CORE_LAYER));
+    expect(byId(layers, FLOCK_LEAK_GLOW_LAYER)?.type).toBe('circle');
     const points = byId(layers, FLOCK_LEAK_CORE_LAYER) as CircleLayerSpecification;
     expect(points.paint?.['circle-radius']).toEqual(['interpolate', ['linear'], ['zoom'], 9, 4.3, 10, 6]);
     expect(points.paint?.['circle-stroke-color']).toBe('#fca5a5');
@@ -56,11 +57,11 @@ describe('buildFlockMarkSpecs', () => {
       const layers = buildFlockMarkSpecs(mode, ALPR);
       const planned = byId(layers, FLOCK_LEAK_PLANNED_LAYER) as SymbolLayerSpecification;
       expect(planned.type).toBe('symbol');
-      expect(planned.layout?.['icon-image']).toBe(FLOCK_PLANNED_ICON);
+      expect(planned.layout?.['icon-image']).toBe(mode === 'filled' ? flockPlannedLensId('dark') : FLOCK_PLANNED_ICON);
       expect(JSON.stringify(planned.filter)).toContain('["==",["coalesce",["get","s"],4],2]');
       for (const l of layers) {
         expect(filterOf(l), `${mode} ${l.id} carries the base filter`).toContain(JSON.stringify(ALPR));
-        if (l.id !== FLOCK_LEAK_PLANNED_LAYER && l.id !== FLOCK_LEAK_OTHERS_LAYER) {
+        if (l.id !== FLOCK_LEAK_PLANNED_LAYER && l.id !== FLOCK_LEAK_OTHERS_LAYER && l.id !== FLOCK_LEAK_MINOR_LAYER) {
           expect(filterOf(l), `${mode} ${l.id} excludes planned`).toContain('["!=",["coalesce",["get","s"],4],2]');
         }
       }
@@ -84,7 +85,7 @@ describe('other device groups in the compare views', () => {
   it('reserves the ring, lens and planned ring for plate readers', () => {
     for (const mode of ['filled', 'hollow'] as const) {
       for (const l of buildFlockMarkSpecs(mode)) {
-        if (l.id === FLOCK_LEAK_OTHERS_LAYER) continue;
+        if (l.id === FLOCK_LEAK_OTHERS_LAYER || l.id === FLOCK_LEAK_MINOR_LAYER) continue;
         expect(filterOf(l), `${mode} ${l.id}`).toContain(ALPR_ONLY);
       }
     }
@@ -101,6 +102,23 @@ describe('other device groups in the compare views', () => {
       if (mode === 'hollow') expect(icon).toContain('"-hollow"');
       else expect(icon).not.toContain('"-hollow"');
     }
+  });
+
+  it('draws trailers and components first, beneath the plate-reader marks, and smaller', () => {
+    for (const mode of ['filled', 'hollow'] as const) {
+      const layers = buildFlockMarkSpecs(mode);
+      expect(layers[0].id).toBe(FLOCK_LEAK_MINOR_LAYER);
+      const minor = layers[0] as SymbolLayerSpecification;
+      expect(filterOf(minor)).toContain('["in",["get","g"],["literal",[6,7]]]');
+      expect(minor.layout?.['icon-size']).toEqual(['interpolate', ['linear'], ['zoom'], 9, 0.48, 10, 0.8]);
+      const others = byId(layers, FLOCK_LEAK_OTHERS_LAYER) as SymbolLayerSpecification;
+      expect(filterOf(others)).toContain('["!",["in",["get","g"],["literal",[6,7]]]]');
+    }
+  });
+
+  it('picks the planned lens for the basemap theme in the Flock view', () => {
+    const planned = byId(buildFlockMarkSpecs('filled', undefined, 'light'), FLOCK_LEAK_PLANNED_LAYER) as SymbolLayerSpecification;
+    expect(planned.layout?.['icon-image']).toBe('flock-planned-lens-light');
   });
 
   it('still validates against the style spec', () => {

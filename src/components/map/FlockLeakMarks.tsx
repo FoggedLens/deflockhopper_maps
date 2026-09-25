@@ -1,4 +1,6 @@
-import { FLOCK_COMPARE_COLOR } from './layers/flockCompareStyle';
+import { FLOCK_COMPARE_COLOR, FLOCK_PLANNED_CORE } from './layers/flockCompareStyle';
+import { drawFlockIcon } from './layers/flockLeakIcons';
+import type { FlockGroup } from '../../lib/flockInventory';
 
 /**
  * The Leak tab's map marks as inline SVG for the panel, legend and key, drawn
@@ -51,11 +53,20 @@ export function FlockRingMark({ size }: { size?: number }) {
   return <Svg size={size}><FlockRing /></Svg>;
 }
 
-/** Planned: the dashed red ring (FLOCK_PLANNED_ICON). */
-export function FlockPlannedMark({ size }: { size?: number }) {
+/** Planned: the dashed red ring. Open while comparing (FLOCK_PLANNED_ICON);
+ *  around a dark core in the Flock view (flockPlannedLensId). */
+export function FlockPlannedMark({ size, open = false }: { size?: number; open?: boolean }) {
   return (
     <Svg size={size}>
-      <circle cx={C} cy={C} r={6} fill="none" stroke={FLOCK_COMPARE_COLOR.line} strokeWidth={2} strokeDasharray="2.6 2" />
+      <circle
+        cx={C}
+        cy={C}
+        r={6}
+        fill={open ? 'none' : FLOCK_PLANNED_CORE.dark}
+        stroke={FLOCK_COMPARE_COLOR.line}
+        strokeWidth={2}
+        strokeDasharray="2.6 2"
+      />
     </Svg>
   );
 }
@@ -63,4 +74,38 @@ export function FlockPlannedMark({ size }: { size?: number }) {
 /** On both maps: an OSM point inside a Flock ring. */
 export function BothMark({ size }: { size?: number }) {
   return <Svg size={size}><FlockRing /><OsmDot /></Svg>;
+}
+
+const iconUrls = new Map<string, string>();
+
+/** The map's own canvas icon for a group, as a data URL (cached). */
+function groupIconUrl(g: FlockGroup, hollow: boolean, planned: boolean, px: number): string | null {
+  const key = `${g}-${hollow ? 'h' : 'f'}-${planned ? 'p' : 's'}-${px}`;
+  const hit = iconUrls.get(key);
+  if (hit) return hit;
+  const canvas = document.createElement('canvas');
+  canvas.width = px;
+  canvas.height = px;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  drawFlockIcon(ctx, g, px, planned, hollow);
+  const url = canvas.toDataURL();
+  iconUrls.set(key, url);
+  return url;
+}
+
+/**
+ * A device group's mark exactly as the map draws it at z10+: plate readers
+ * as the lens (or the compare ring), every other group from the same canvas
+ * code that registers the map icons (flockLeakIcons). Used by the legend and
+ * the filter chips, so a swatch can never drift from the map.
+ */
+export function FlockGroupMark({ g, hollow = false, planned = false, size = BOX }: { g: FlockGroup; hollow?: boolean; planned?: boolean; size?: number }) {
+  if (g === 1) {
+    if (planned) return <FlockPlannedMark size={size} open={hollow} />;
+    return hollow ? <FlockRingMark size={size} /> : <FlockLensMark size={size} />;
+  }
+  const url = groupIconUrl(g, hollow, planned, size * 2);
+  if (!url) return null;
+  return <img src={url} width={size} height={size} alt="" aria-hidden="true" className="flex-shrink-0" />;
 }

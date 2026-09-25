@@ -2,6 +2,7 @@ import { Popup } from 'react-map-gl/maplibre';
 import { useFlockLeakStore } from '../../store/flockLeakStore';
 import {
   FLOCK_GROUP_SHORT,
+  FLOCK_GROUP_SINGULAR,
   FLOCK_STATUS_LABEL,
   FLOCK_QUALITY_LABEL,
   FLOCK_FEATURE_LABEL,
@@ -32,28 +33,28 @@ function Tag({ children, color }: { children: React.ReactNode; color?: string })
   );
 }
 
-function DeviceRow({ d }: { d: FlockDeviceRecord }) {
+/** A device at the tapped spot. Only the lead device gets the detail rows;
+ *  the rest (usually its compute box) stay one line of name and tags, so a
+ *  stack fits on screen. "View in table" has every field. */
+function DeviceRow({ d, showType, detailed }: { d: FlockDeviceRecord; showType: boolean; detailed: boolean }) {
   const created = formatCreated(d.created);
   return (
     <li className="py-2 border-t border-dark-600 first:border-t-0 first:pt-0">
       <p className="text-xs text-white font-medium break-words">{d.name || flockTypeLabel(d.type)}</p>
       <div className="flex flex-wrap gap-1 mt-1">
-        <Tag color={FLOCK_GROUP_COLOR[d.g]}>{flockTypeLabel(d.type)}</Tag>
+        {showType && <Tag color={FLOCK_GROUP_COLOR[d.g]}>{flockTypeLabel(d.type)}</Tag>}
         <Tag>{FLOCK_STATUS_LABEL[d.s]}</Tag>
         {d.q !== 0 && <Tag>{FLOCK_QUALITY_LABEL[d.q]}</Tag>}
       </div>
-      <dl className="mt-1.5 space-y-0.5 text-[11px]">
+      {detailed && <dl className="mt-1.5 space-y-0.5 text-[11px]">
         {created && (
           <div className="flex justify-between gap-3"><dt className="text-dark-400">Created</dt><dd className="text-dark-200">{created}</dd></div>
         )}
         {d.features.length > 0 && (
           <div className="flex justify-between gap-3"><dt className="text-dark-400">Capabilities</dt><dd className="text-dark-200 text-right">{d.features.map((f) => FLOCK_FEATURE_LABEL[f] ?? f).join(', ')}</dd></div>
         )}
-        {d.rotationAngle !== null && (
-          <div className="flex justify-between gap-3"><dt className="text-dark-400">Mount angle</dt><dd className="text-dark-200">{Math.round(d.rotationAngle)}°</dd></div>
-        )}
         <div className="flex justify-between gap-3"><dt className="text-dark-400">Flock ID</dt><dd className="text-dark-300 font-mono">{d.id}</dd></div>
-      </dl>
+      </dl>}
     </li>
   );
 }
@@ -75,10 +76,11 @@ export function FlockLeakPopup() {
   const color = sel.g ? FLOCK_GROUP_COLOR[sel.g] : undefined;
 
   return (
+    // No fixed anchor: MapLibre opens it downward near the top edge, so a
+    // tall device list never slides under the search bar.
     <Popup
       longitude={sel.lon}
       latitude={sel.lat}
-      anchor="bottom"
       onClose={() => setSelection(null)}
       closeOnClick={false}
       className="camera-popup-maplibre"
@@ -98,12 +100,21 @@ export function FlockLeakPopup() {
           </>
         ) : (
           <>
-            <h3 className="font-display font-semibold text-white text-base">
-              {sel.devices.length === 1 ? '1 device here' : `${sel.devices.length} devices at this exact coordinate`}
-            </h3>
-            {sel.devices.length > 1 && <p className="text-xs text-dark-400 mt-0.5">{typeCountLine(sel.devices)}</p>}
+            {sel.devices.length === 1 ? (
+              <>
+                <h3 className="font-display font-semibold text-white text-base">{flockTypeLabel(lead.type)}</h3>
+                <p className="text-xs text-dark-400 mt-0.5">{FLOCK_GROUP_SINGULAR[lead.g]}</p>
+              </>
+            ) : (
+              <>
+                <h3 className="font-display font-semibold text-white text-base">{sel.devices.length} devices on one spot</h3>
+                <p className="text-xs text-dark-400 mt-0.5">{typeCountLine(sel.devices)}</p>
+              </>
+            )}
             <ul className="mt-3 max-h-64 overflow-y-auto">
-              {sel.devices.slice(0, MAX_DEVICES).map((d) => <DeviceRow key={d.id} d={d} />)}
+              {sel.devices.slice(0, MAX_DEVICES).map((d, i) => (
+                <DeviceRow key={d.id} d={d} showType={sel.devices.length > 1} detailed={i === 0} />
+              ))}
             </ul>
             {sel.devices.length > MAX_DEVICES && (
               <p className="text-[11px] text-dark-400 mt-1">and {sel.devices.length - MAX_DEVICES} more at this spot</p>
@@ -111,7 +122,7 @@ export function FlockLeakPopup() {
           </>
         )}
         <p className="mt-3 pt-3 border-t border-dark-600 text-xs text-dark-400 leading-relaxed">
-          From Flock&apos;s own records as of {FLOCK_LEAK_SNAPSHOT_LABEL}, published by {FLOCK_LEAK_RESEARCHER}. Agency fields were blank.
+          Flock&apos;s records as of {FLOCK_LEAK_SNAPSHOT_LABEL}, via {FLOCK_LEAK_RESEARCHER}. Agency fields were blank.
         </p>
         {hint && <p className="mt-2 text-xs text-[#93CBFF]">{hint}</p>}
         {sel.devices.length > 0 && (

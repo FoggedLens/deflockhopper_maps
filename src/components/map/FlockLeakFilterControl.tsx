@@ -5,18 +5,17 @@ import { useFlockLeakStore, activeFlockFilterCount } from '../../store/flockLeak
 import { FlockFilterChips } from './FlockFilterChips';
 
 /** Flock device filters: a button in the left control column (the country
- *  switch's slot, hidden on this tab) opening group and status chips and
- *  the suspect switch. Same popover idiom as BoundaryControl. Leak mode only.
+ *  switch's slot, hidden on this tab) opening device type and status chips.
+ *  Same popover idiom as BoundaryControl. Leak mode only.
  *  Captioned "Flock" because it sits above the OSM filter button, which is
  *  captioned "OSM" on this tab: each says which side of the compare it narrows. */
 export function FlockLeakFilterControl() {
   const appMode = useAppModeStore((s) => s.appMode);
   const groups = useFlockLeakStore((s) => s.groups);
   const statuses = useFlockLeakStore((s) => s.statuses);
-  const showSuspect = useFlockLeakStore((s) => s.showSuspect);
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const badge = activeFlockFilterCount({ groups, statuses, showSuspect });
+  const badge = activeFlockFilterCount({ groups, statuses });
 
   useEffect(() => {
     if (!open) return;
@@ -34,12 +33,12 @@ export function FlockLeakFilterControl() {
       {open && (
         <div className="absolute z-10 bottom-full left-0 mb-3 w-72 bg-dark-800 rounded-md border border-dark-600 shadow-xl shadow-black/40">
           <div className="px-3 py-2 border-b border-dark-600">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-dark-400">Flock devices</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-dark-400">Filter Flock&apos;s records</span>
           </div>
           <div className="p-3">
             <FlockFilterChips />
             <p className="mt-3 pt-3 border-t border-dark-600 text-[11px] text-dark-500 leading-snug">
-              Group and status are Flock's own labels, as of Dec 14, 2025.
+              Type and status are Flock&apos;s own labels, as of Dec 14, 2025.
             </p>
           </div>
         </div>

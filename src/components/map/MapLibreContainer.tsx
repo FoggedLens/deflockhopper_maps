@@ -81,6 +81,7 @@ import {
   FLOCK_LEAK_CORE_LAYER,
   FLOCK_LEAK_PLANNED_LAYER,
   FLOCK_LEAK_OTHERS_LAYER,
+  FLOCK_LEAK_MINOR_LAYER,
   flockHitLayers,
   hasFlockHitLayers,
 } from './layers/flockLeakLayerIds';
@@ -1136,7 +1137,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     // OSM camera falls through to the camera popup below.
     if (isLeakMode) {
       const flockFeature = event.features?.find((f) =>
-        [FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_LEAK_OTHERS_LAYER, FLOCK_LEAK_DOTS_LAYER].includes(f.layer.id)
+        [FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_LEAK_OTHERS_LAYER, FLOCK_LEAK_MINOR_LAYER, FLOCK_LEAK_DOTS_LAYER].includes(f.layer.id)
       );
       if (flockFeature) {
         resolveFlockClick(mapRef.current.getMap(), flockFeature, event.point, event.lngLat);
@@ -1497,6 +1498,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
               FLOCK_LEAK_CORE_LAYER,
               FLOCK_LEAK_PLANNED_LAYER,
               FLOCK_LEAK_OTHERS_LAYER,
+              FLOCK_LEAK_MINOR_LAYER,
               FLOCK_LEAK_DOTS_LAYER,
               ...(showCameraMarkers ? [isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points'] : []),
             ]

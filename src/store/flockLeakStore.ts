@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { loadFlockLeakTileJson, type FlockLeakTileJson } from '../services/flockLeakTilesService';
 import { useCameraStore } from './cameraStore';
 import type { CameraFilters } from '../types';
-import { LEAK_COMPARE_FLOCK_GROUPS, seedOsmFilters, shouldSeedCompare } from '../utils/leakCompareDefaults';
+import { LEAK_COMPARE_FLOCK_GROUPS, LEAK_COMPARE_FLOCK_STATUSES, seedOsmFilters, shouldSeedCompare } from '../utils/leakCompareDefaults';
 import {
   FLOCK_SELECTABLE_STATUSES,
   type FlockGroup,
@@ -30,7 +30,10 @@ export interface FlockSelection {
   nearestOsmMeters: number | null;
 }
 
-export const DEFAULT_FLOCK_STATUSES: readonly FlockStatus[] = [1];
+/** Every lifecycle status: the landing view shows the whole list. Records
+ *  with q > 0 (unknown status, fixtures, placeholder stacks, outside North
+ *  America) are never drawn; the panel says how many. */
+export const DEFAULT_FLOCK_STATUSES: readonly FlockStatus[] = [...FLOCK_SELECTABLE_STATUSES];
 
 /** Both sides' filters as they were when the tab was entered. The Leak
  *  tab's filters are per visit: leaving puts everything back. */
@@ -38,7 +41,6 @@ interface VisitSnapshot {
   osm: CameraFilters;
   groups: FlockGroup[];
   statuses: FlockStatus[];
-  showSuspect: boolean;
 }
 
 interface FlockLeakState {
@@ -46,8 +48,6 @@ interface FlockLeakState {
   /** Empty means every selectable group. */
   groups: FlockGroup[];
   statuses: FlockStatus[];
-  /** Reveal q > 0 records (unknown status, fixtures, placeholder stacks, outside NA). */
-  showSuspect: boolean;
   selection: FlockSelection | null;
   tileJson: FlockLeakTileJson | null;
   loadPhase: FlockLeakLoadPhase;
@@ -56,8 +56,8 @@ interface FlockLeakState {
   tilesFailed: boolean;
   /** Bumped by retry so the map remounts the Flock source. */
   sourceEpoch: number;
-  /** True once this visit's compare defaults (Flock plate readers, OSM
-   *  brand Flock Safety) have been applied. Reset by beginVisit. */
+  /** True once this visit's compare defaults (Flock plate readers in
+   *  service, OSM brand Flock Safety) have been applied. Reset by beginVisit. */
   compareSeeded: boolean;
   visitSnapshot: VisitSnapshot | null;
 
@@ -69,9 +69,11 @@ interface FlockLeakState {
    *  seeds the compare defaults on both sides. */
   setView: (view: FlockLeakView) => void;
   toggleGroup: (group: FlockGroup) => void;
+  /** One chip can stand for several groups (Other is trailers + components):
+   *  on when all are selected; a toggle adds the missing ones or removes all. */
+  toggleGroups: (groups: readonly FlockGroup[]) => void;
   clearGroups: () => void;
   toggleStatus: (status: FlockStatus) => void;
-  setShowSuspect: (show: boolean) => void;
   setSelection: (selection: FlockSelection | null) => void;
   setTilesFailed: (failed: boolean) => void;
   ensureTileJsonLoaded: () => Promise<void>;
@@ -82,7 +84,6 @@ const INITIAL = {
   view: 'flock' as FlockLeakView,
   groups: [] as FlockGroup[],
   statuses: [...DEFAULT_FLOCK_STATUSES],
-  showSuspect: false,
   selection: null as FlockSelection | null,
   tileJson: null as FlockLeakTileJson | null,
   loadPhase: 'idle' as FlockLeakLoadPhase,
@@ -103,7 +104,6 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
         osm: { ...useCameraStore.getState().filters },
         groups: [...s.groups],
         statuses: [...s.statuses],
-        showSuspect: s.showSuspect,
       },
       compareSeeded: false,
     });
@@ -115,7 +115,6 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
       view: 'flock',
       groups: snap.groups,
       statuses: snap.statuses,
-      showSuspect: snap.showSuspect,
       compareSeeded: false,
       visitSnapshot: null,
     });
@@ -128,7 +127,12 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
       set({ view });
       return;
     }
-    set({ view, groups: [...LEAK_COMPARE_FLOCK_GROUPS], compareSeeded: true });
+    set({
+      view,
+      groups: [...LEAK_COMPARE_FLOCK_GROUPS],
+      statuses: [...LEAK_COMPARE_FLOCK_STATUSES],
+      compareSeeded: true,
+    });
     const cam = useCameraStore.getState();
     cam.setFilters(seedOsmFilters(cam.filters));
   },
@@ -136,6 +140,15 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
     set((s) => ({
       groups: s.groups.includes(group) ? s.groups.filter((g) => g !== group) : [...s.groups, group],
     })),
+  toggleGroups: (groups) =>
+    set((s) => {
+      const allOn = groups.every((g) => s.groups.includes(g));
+      return {
+        groups: allOn
+          ? s.groups.filter((g) => !groups.includes(g))
+          : [...s.groups, ...groups.filter((g) => !s.groups.includes(g))],
+      };
+    }),
   clearGroups: () => {
     if (get().groups.length > 0) set({ groups: [] });
   },
@@ -145,9 +158,6 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
         ? s.statuses.filter((x) => x !== status)
         : [...s.statuses, status],
     })),
-  setShowSuspect: (showSuspect) => {
-    if (get().showSuspect !== showSuspect) set({ showSuspect });
-  },
   setSelection: (selection) => set({ selection }),
   setTilesFailed: (tilesFailed) => {
     if (get().tilesFailed !== tilesFailed) set({ tilesFailed });
@@ -168,17 +178,12 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
   },
 }));
 
-/** Badge count for the filter button. The In-service-only default is a
- *  filter the user can see (Planned and Decommissioned are hidden), so it
- *  counts; so does revealing suspect records. */
-export function activeFlockFilterCount(s: {
-  groups: FlockGroup[];
-  statuses: FlockStatus[];
-  showSuspect: boolean;
-}): number {
+/** Badge count for the filter button: one for a device-type selection,
+ *  one for any status left out. The all-statuses default counts nothing. */
+export function activeFlockFilterCount(s: { groups: FlockGroup[]; statuses: FlockStatus[] }): number {
   const groupActive = s.groups.length > 0 ? 1 : 0;
   const allStatuses = FLOCK_SELECTABLE_STATUSES.every((x) => s.statuses.includes(x));
-  return groupActive + (allStatuses ? 0 : 1) + (s.showSuspect ? 1 : 0);
+  return groupActive + (allStatuses ? 0 : 1);
 }
 
 /** Test hook — not for app code. */

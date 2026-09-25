@@ -27,11 +27,12 @@ import { MapStyleControl } from '@/components/map/MapStyleControl';
 import { CameraFilterControl } from '@/components/map/CameraFilterControl';
 import { BoundaryControl } from '@/components/map/BoundaryControl';
 import { FlockLeakFilterControl } from '@/components/map/FlockLeakFilterControl';
+import { FlockMapLegend } from '@/components/map/FlockMapLegend';
 import { BoundaryFeaturePopup } from '@/components/map/BoundaryFeaturePopup';
 import { MapThemeControl } from '@/components/map/MapThemeControl';
 import { CameraTileStatusPill } from '@/components/map/CameraTileStatusPill';
 import { TimelineBar } from '@/modes/timeline/TimelineBar';
-import { Route, Compass, Network, Radar, Map as MapIcon } from 'lucide-react';
+import { Route, Compass, Network, DatabaseZap, Map as MapIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { AppMode } from '@/store';
 
@@ -42,7 +43,7 @@ const MODE_LABELS: Record<AppMode, { icon: typeof Route; label: string }> = {
   map: { icon: MapIcon, label: 'Map' },
   route: { icon: Route, label: 'Route' },
   explore: { icon: Compass, label: 'Timeline' },
-  leak: { icon: Radar, label: 'Flock Leak' },
+  leak: { icon: DatabaseZap, label: 'Flock Leak' },
   network: { icon: Network, label: 'Network' },
 };
 
@@ -414,8 +415,10 @@ export function MapPage() {
             {appMode === 'leak' && <FlockLeakStatusPill />}
             <MapThemeControl />
             <CameraFilterControl />
-            {/* Desktop keeps the Flock filters in the side panel's layer list. */}
-            {appMode === 'leak' && isMobile && <FlockLeakFilterControl />}
+            {appMode === 'leak' && <FlockLeakFilterControl />}
+            {/* Desktop map key with the OSM compare switch; mobile carries
+                the switch and a short key in the drawer peek. */}
+            {appMode === 'leak' && !isMobile && <FlockMapLegend />}
             {appMode === 'map' && <BoundaryControl />}
             {appMode === 'map' && <BoundaryFeaturePopup />}
 

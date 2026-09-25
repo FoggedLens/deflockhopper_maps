@@ -1,6 +1,6 @@
 import type maplibregl from 'maplibre-gl';
 import { FLOCK_GROUPS, type FlockGroup } from '../../../lib/flockInventory';
-import { FLOCK_PLANNED_ICON, FLOCK_COMPARE_COLOR } from './flockCompareStyle';
+import { FLOCK_PLANNED_ICON, FLOCK_COMPARE_COLOR, FLOCK_PLANNED_CORE, flockPlannedLensId } from './flockCompareStyle';
 
 /**
  * Flock device marks by group, drawn on a canvas at runtime and registered
@@ -8,7 +8,8 @@ import { FLOCK_PLANNED_ICON, FLOCK_COMPARE_COLOR } from './flockCompareStyle';
  * Every group differs from the others in hue AND shape (redundant encoding,
  * so the marks survive color-vision deficiency), and no group uses the OSM
  * blue. Video, Wing and Trailer were three near-identical oranges until
- * 2026-09-24; Wing (other people's cameras) is now pink and Trailer slate.
+ * 2026-09-24; Wing (other people's cameras) is now pink, and trailers (146
+ * devices) share the Other class's small gray dot.
  * Planned (s = 2) is the same shape as a dashed outline; decommissioned is
  * the solid mark at reduced opacity (a paint property, not an image).
  */
@@ -18,12 +19,12 @@ export const FLOCK_GROUP_COLOR: Record<FlockGroup, string> = {
   3: '#f472b6', // third-party cameras (Wing)
   4: '#a78bfa', // audio sensors
   5: '#34d399', // drones
-  6: '#cbd5e1', // mobile trailers
+  6: '#9ca3af', // mobile trailers (drawn as Other)
   7: '#9ca3af', // components / other
   8: '#6b7280', // factory fixtures (q = 2, hidden by default)
 };
 
-export type FlockShape = 'lens' | 'diamond' | 'hollow-square' | 'ring' | 'triangle' | 'pill' | 'dot' | 'cross';
+export type FlockShape = 'lens' | 'diamond' | 'hollow-square' | 'ring' | 'triangle' | 'dot' | 'cross';
 
 export const FLOCK_GROUP_SHAPE: Record<FlockGroup, FlockShape> = {
   1: 'lens', // on the map, plate readers are circle layers (flockCompareStyle); this shape feeds the swatches
@@ -31,7 +32,7 @@ export const FLOCK_GROUP_SHAPE: Record<FlockGroup, FlockShape> = {
   3: 'hollow-square',
   4: 'ring',
   5: 'triangle',
-  6: 'pill',
+  6: 'dot', // folded into the Other class (FLOCK_DEVICE_CLASSES)
   7: 'dot',
   8: 'cross',
 };
@@ -50,15 +51,22 @@ export const flockHollowIconId = (g: FlockGroup): string => `flock-g${g}-hollow`
 export const FLOCK_ICON_IDS: readonly string[] = [
   ...FLOCK_GROUPS.flatMap((g) => [flockIconId(g, false), flockIconId(g, true), flockHollowIconId(g)]),
   FLOCK_PLANNED_ICON,
+  flockPlannedLensId('dark'),
+  flockPlannedLensId('light'),
 ];
 
-/** Compare views: a dashed red ring for planned devices, sized to the
- *  Overlay ring (r 7.5 at icon-size 1). */
-export function drawPlannedRing(ctx: CanvasRenderingContext2D, size: number): void {
+/** A dashed red ring for planned plate readers, sized to the Overlay ring
+ *  (r 7.5 at icon-size 1). With `core`, the ring is filled first (the Flock
+ *  view's planned lens); without, it stays open (Overlay). */
+export function drawPlannedRing(ctx: CanvasRenderingContext2D, size: number, core?: string): void {
   const c = size / 2;
   ctx.save();
   ctx.beginPath();
   ctx.arc(c, c, size * 0.3, 0, Math.PI * 2);
+  if (core) {
+    ctx.fillStyle = core;
+    ctx.fill();
+  }
   ctx.setLineDash([size * 0.13, size * 0.1]);
   ctx.lineWidth = size * 0.1;
   ctx.strokeStyle = FLOCK_COMPARE_COLOR.line;
@@ -93,9 +101,6 @@ export function drawFlockIcon(ctx: CanvasRenderingContext2D, g: FlockGroup, size
       ctx.lineTo(c + r * 1.15, c + r * 0.9);
       ctx.lineTo(c - r * 1.15, c + r * 0.9);
       ctx.closePath();
-      break;
-    case 'pill':
-      ctx.rect(c - r * 1.25, c - r * 0.6, r * 2.5, r * 1.2);
       break;
     case 'cross':
       ctx.moveTo(c - r, c - r);
@@ -165,7 +170,13 @@ export function ensureFlockIcons(map: Pick<maplibregl.Map, 'hasImage' | 'addImag
     }
   }
   if (!map.hasImage(FLOCK_PLANNED_ICON)) {
-    const img = renderIcon(drawPlannedRing, 22);
+    const img = renderIcon((ctx, px) => drawPlannedRing(ctx, px), 22);
     if (img) map.addImage(FLOCK_PLANNED_ICON, img, { pixelRatio: RATIO });
+  }
+  for (const theme of ['dark', 'light'] as const) {
+    const id = flockPlannedLensId(theme);
+    if (map.hasImage(id)) continue;
+    const img = renderIcon((ctx, px) => drawPlannedRing(ctx, px, FLOCK_PLANNED_CORE[theme]), 22);
+    if (img) map.addImage(id, img, { pixelRatio: RATIO });
   }
 }

@@ -10,40 +10,39 @@ function passes(filter: unknown, properties: Record<string, unknown>): boolean {
 }
 
 describe('flockLayerFilter', () => {
-  it('default (clean, in service) at a national zoom with only g/s/q present', () => {
-    const f = flockLayerFilter([], [1], false);
+  it('in service only at a national zoom with only g/s/q present', () => {
+    const f = flockLayerFilter([], [1]);
     expect(passes(f, { g: 1, s: 1, q: 0 })).toBe(true);
     expect(passes(f, { g: 1, s: 2, q: 0 })).toBe(false);
     expect(passes(f, { g: 1, s: 1, q: 3 })).toBe(false);
   });
 
-  it('is undefined only when suspect records are shown, every status is on and no group is picked', () => {
-    expect(flockLayerFilter([], [1, 2, 3], true)).toBeUndefined();
-    expect(flockLayerFilter([], [1, 2, 3], false)).toEqual(['==', ['get', 'q'], 0]);
+  it('is only the clean-record clause for the default (every group, every status)', () => {
+    expect(flockLayerFilter([], [1, 2, 3])).toEqual(['==', ['get', 'q'], 0]);
   });
 
-  it('shows suspect records when asked', () => {
-    const f = flockLayerFilter([], [1, 2, 3], true);
-    expect(passes(f, { g: 8, s: 1, q: 2 })).toBe(true);
-    expect(passes(f, { g: 1, s: 4, q: 1 })).toBe(true);
+  it('never draws flagged records', () => {
+    const f = flockLayerFilter([], [1, 2, 3]);
+    expect(passes(f, { g: 8, s: 1, q: 2 })).toBe(false);
+    expect(passes(f, { g: 1, s: 4, q: 1 })).toBe(false);
   });
 
   it('filters by group', () => {
-    const f = flockLayerFilter([1, 3], [1, 2, 3], false);
+    const f = flockLayerFilter([1, 3], [1, 2, 3]);
     expect(passes(f, { g: 1, s: 1, q: 0 })).toBe(true);
     expect(passes(f, { g: 3, s: 3, q: 0 })).toBe(true);
     expect(passes(f, { g: 2, s: 1, q: 0 })).toBe(false);
   });
 
   it('combines group and status', () => {
-    const f = flockLayerFilter([5], [2], false);
+    const f = flockLayerFilter([5], [2]);
     expect(passes(f, { g: 5, s: 2, q: 0 })).toBe(true);
     expect(passes(f, { g: 5, s: 1, q: 0 })).toBe(false);
     expect(passes(f, { g: 1, s: 2, q: 0 })).toBe(false);
   });
 
   it('matches the contract example shape', () => {
-    expect(flockLayerFilter([1, 3], [1], false)).toEqual([
+    expect(flockLayerFilter([1, 3], [1])).toEqual([
       'all',
       ['==', ['get', 'q'], 0],
       ['in', ['get', 'g'], ['literal', [1, 3]]],

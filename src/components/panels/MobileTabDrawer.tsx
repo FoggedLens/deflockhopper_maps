@@ -5,7 +5,7 @@ import type { AppMode } from '../../store';
 import { BottomSheet, type SnapPoint } from '../common/BottomSheet';
 import { LegacyMapLink } from '../common/LegacyMapLink';
 import { isModeAvailable } from '../../services/cameraDataService';
-import { AlertTriangle, ChevronUp, Navigation2, Share2, History, Radar, X, ExternalLink } from 'lucide-react';
+import { AlertTriangle, ChevronUp, Navigation2, Share2, History, DatabaseZap, X, ExternalLink } from 'lucide-react';
 import { TimelineBar } from '../../modes/timeline/TimelineBar';
 import { RoutePanelContent } from './RoutePanelContent';
 import { FlockHopperCTA } from './FlockHopperCTA';
@@ -72,7 +72,7 @@ const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon: typeof 
   // route renders the FlockHopper start ad instead of IdentityRow; entry kept so the peek effects treat route as peekable
   route:   { title: 'Route', desc: 'Set a start and destination to see ALPR exposure along your route — and safer alternatives.', Icon: Navigation2 },
   explore: { title: 'Timeline', desc: 'Watch the ALPR camera network grow as volunteers documented it on OpenStreetMap.', Icon: History },
-  leak:    { title: FLOCK_LEAK_COPY.title, desc: FLOCK_LEAK_COPY.peek, Icon: Radar, tint: 'danger' },
+  leak:    { title: FLOCK_LEAK_COPY.title, desc: FLOCK_LEAK_COPY.peek, Icon: DatabaseZap, tint: 'danger' },
   network: { title: 'Flock Sharing Network', desc: 'Law enforcement agencies sharing Flock ALPR data with each other, as publicly disclosed. Tap an agency to trace its connections.', Icon: Share2 },
 };
 
@@ -409,7 +409,7 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
           <IdentityRow
             mode={appMode}
             onExpand={handleExpandSheet}
-            desc={appMode === 'leak' && leakCompare ? <FlockCompareKey inline className="mt-1" /> : undefined}
+            desc={appMode === 'leak' && leakCompare ? <FlockCompareKey className="mt-1" /> : undefined}
             extra={
               appMode === 'leak'
                 ? <FlockCompareToggle className="mt-3" />

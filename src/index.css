@@ -409,6 +409,12 @@ input[type="range"]::-moz-range-thumb {
   left: 16px;
 }
 
+/* Flock Leak device filters take the country button's slot (hidden on that tab) */
+.map-page .map-flock-filter-control {
+  bottom: 72px;
+  left: 16px;
+}
+
 /* Theme (light/dark) pill — right column, above geolocate + zoom.
    24px (ctrl offset) + 76px (zoom group) + 10px margin + 40px (geolocate) + 12px gap */
 .map-page .map-theme-control {
@@ -482,8 +488,7 @@ input[type="range"]::-moz-range-thumb {
     height: 38px;
   }
 
-  /* Flock Leak device filters take the country button's slot (hidden on
-     that tab). Mobile only: desktop keeps them in the side panel. */
+  /* Flock Leak device filters: the country button's slot, above the drawer. */
   .map-page .map-flock-filter-control {
     bottom: calc(var(--drawer-height, 80px) + 76px);
     left: 12px;

@@ -26,10 +26,11 @@ beforeEach(() => {
 });
 
 describe('turning on the OSM comparison', () => {
-  it('narrows Flock to plate readers and OSM to brand Flock Safety', () => {
+  it('narrows Flock to plate readers in service and OSM to brand Flock Safety', () => {
     leak().beginVisit();
     leak().setView('overlay');
     expect(leak().groups).toEqual([1]);
+    expect(leak().statuses).toEqual([1]);
     expect(osm().brands).toEqual(['Flock Safety']);
     expect(osm().showAll).toBe(false);
   });
@@ -84,12 +85,10 @@ describe('leaving the tab', () => {
     leak().beginVisit();
     leak().setView('overlay');
     leak().toggleStatus(2);
-    leak().setShowSuspect(true);
     leak().endVisit();
     expect(leak().view).toBe('flock');
     expect(leak().groups).toEqual([]);
-    expect(leak().statuses).toEqual([1]);
-    expect(leak().showSuspect).toBe(false);
+    expect(leak().statuses).toEqual([1, 2, 3]);
   });
 
   it('seeds again on the next visit', () => {

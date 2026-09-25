@@ -1,16 +1,19 @@
 import type { CameraFilters } from '../types';
-import type { FlockGroup } from '../lib/flockInventory';
+import type { FlockGroup, FlockStatus } from '../lib/flockInventory';
 import type { FlockLeakView } from '../store/flockLeakStore';
 
 /**
  * Defaults for the Leak tab's compare views (approved 2026-09-24). The
  * landing view shows every device; turning on the OSM comparison narrows both
- * sides to the comparison that matters: Flock's plate readers against OSM
- * cameras tagged Flock Safety. Seeded once per tab visit; after that the
+ * sides to the comparison that matters: Flock's plate readers in service
+ * against OSM cameras tagged Flock Safety. Seeded once per tab visit; after that the
  * filters are the user's.
  */
 export const LEAK_OSM_DEFAULT_BRAND = 'Flock Safety';
 export const LEAK_COMPARE_FLOCK_GROUPS: readonly FlockGroup[] = [1];
+/** In service only: a planned or removed device missing from OSM is not a
+ *  gap, and the whole list stays one filter away. */
+export const LEAK_COMPARE_FLOCK_STATUSES: readonly FlockStatus[] = [1];
 
 export const isCompareView = (view: FlockLeakView): boolean => view === 'overlay';
 

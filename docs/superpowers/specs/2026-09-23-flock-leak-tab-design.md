@@ -389,3 +389,47 @@ section differs from sections 3, 5, 7, 8, 9 and 18, this section wins.
 - **Palette.** Video, Wing and Trailer were three near-identical oranges. Wing is now pink
   (`#f472b6`, hollow square) and Trailer slate (`#cbd5e1`, pill). Every group differs from
   the others in hue and shape, and none uses the OSM blue.
+
+## 20. Amendments, 2026-09-24 (desktop feedback round)
+
+From the user's review of section 19 on desktop. Where this differs from section 19, this
+section wins.
+
+- **Map legend with the compare switch** (`FlockMapLegend`, desktop, top right). It lists
+  only what the map draws (the device classes and statuses the filters leave on) in the
+  mark style in use (filled, or hollow while comparing), then the switch "Compare with
+  OSM cameras", then while comparing one line for the overlap ("Blue dot in a red ring:
+  on both maps") and, while the compare seed holds, what the seed narrowed. Each mark is
+  named once. A single status shows as text ("In service only"), not a repeated mark.
+  The side panel's layer list and key are gone (the user found them duplicative); the
+  mobile peek keeps its switch and short key.
+- **Panel order:** explainer and links, then "Filter Flock's records", then the caveat and
+  CTA, then a note on what is not drawn and the credit. The mobile sheet shows the same
+  content, filters included.
+- **Flock filter button back on the desktop map**, next to the OSM one, so both datasets
+  are filtered from the same place. The panel keeps its chips too.
+- **Suspect-records switch removed.** It changed nothing visible in most views (unknown
+  status records never passed the status filter; fixtures, placeholder stacks and
+  non-North-America records are elsewhere). `q > 0` is never drawn; the panel says
+  "Not on the map: 23,794 records ...".
+- **Defaults:** every status is on (in service, planned, decommissioned). Turning the
+  comparison on also narrows statuses to in service (`LEAK_COMPARE_FLOCK_STATUSES`): a
+  planned or removed device missing from OSM is not a gap. Leaving the tab restores both.
+- **Device classes** (`FLOCK_DEVICE_CLASSES`): ALPR, Video, Wing, Raven, Drones, Other.
+  Group 4 is only ever `raven`, so it is named Raven. Mobile trailers (146 devices, 5 in
+  service) fold into Other with components: a legend class that rare costs more to read
+  than it tells, and the block-shaped trailer mark is gone. The popup still names the
+  exact type.
+- **Stacks.** A Falcon and its Picard compute box share a coordinate. The Other class now
+  draws on its own layer (`flock-leak-minor`) beneath the plate readers, at 0.8 icon size,
+  so the lens covers it. The Flock view's planned plate reader (`flock-planned-lens-{theme}`)
+  has an opaque core in the basemap's ground color (sampled: dark `#1f1f1f`, light
+  `#e2dfda`), so it still reads as an open dashed ring but hides what is beneath. Overlay
+  keeps the see-through ring so OSM dots show inside.
+- **Swatches match the map.** Legend and chip marks render from `drawFlockIcon` (the code
+  that registers the map icons), plate readers from the SVG lens and ring.
+- **Popup:** single device titled by its type ("Falcon", "Plate reader"); stacks titled
+  "N devices on one spot" with only the lead device's detail rows; the mount angle row is
+  gone (the contract calls it a housing angle, and the researcher's table has it); no fixed
+  anchor, so MapLibre picks the side with room.
+- **Tab icon:** `DatabaseZap` (an exposed dataset) replaces `Radar`.

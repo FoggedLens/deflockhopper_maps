@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { flockIconId, flockHollowIconId, drawFlockIcon, ensureFlockIcons, FLOCK_GROUP_COLOR, FLOCK_GROUP_SHAPE, FLOCK_ICON_IDS } from './flockLeakIcons';
+import { flockIconId, flockHollowIconId, drawFlockIcon, drawPlannedRing, ensureFlockIcons, FLOCK_GROUP_COLOR, FLOCK_GROUP_SHAPE, FLOCK_ICON_IDS } from './flockLeakIcons';
 import { FLOCK_GROUPS } from '../../../lib/flockInventory';
 
 describe('flockIconId', () => {
@@ -9,7 +9,7 @@ describe('flockIconId', () => {
   });
 
   it('lists every group solid, planned and hollow, plus the planned ring, with a color and a shape per group', () => {
-    expect(FLOCK_ICON_IDS).toHaveLength(FLOCK_GROUPS.length * 3 + 1);
+    expect(FLOCK_ICON_IDS).toHaveLength(FLOCK_GROUPS.length * 3 + 3);
     for (const g of FLOCK_GROUPS) {
       expect(FLOCK_ICON_IDS).toContain(flockIconId(g, false));
       expect(FLOCK_ICON_IDS).toContain(flockIconId(g, true));
@@ -85,6 +85,17 @@ describe('planned ring icon for the compare views', () => {
     const map = { hasImage: () => false, addImage: (id: string) => { added.push(id); } };
     ensureFlockIcons(map as never);
     expect(added).toContain('flock-planned-ring');
+    expect(added).toContain('flock-planned-lens-dark');
+    expect(added).toContain('flock-planned-lens-light');
+  });
+
+  it('fills the core only for the planned lens', () => {
+    const fills: string[] = [];
+    const spy = { ...ctx, fill: () => { fills.push(spy.fillStyle); } } as unknown as CanvasRenderingContext2D & { fillStyle: string };
+    drawPlannedRing(spy, 44);
+    expect(fills).toEqual([]);
+    drawPlannedRing(spy, 44, '#15151c');
+    expect(fills).toEqual(['#15151c']);
   });
 });
 

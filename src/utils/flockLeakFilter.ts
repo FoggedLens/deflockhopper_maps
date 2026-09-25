@@ -16,16 +16,15 @@ export function combineFilters(
  * because g, s and q are present on every feature. Never triggers a tile
  * request: it is a layer filter over tiles already loaded.
  *
- * - quality: q must be 0 unless suspect records are shown
+ * - quality: q must be 0 (flagged records are never drawn)
  * - groups: empty means all
  * - statuses: all three selectable statuses on means no status clause
  */
 export function flockLayerFilter(
   groups: FlockGroup[],
-  statuses: FlockStatus[],
-  showSuspect: boolean
+  statuses: FlockStatus[]
 ): FilterSpecification | undefined {
-  const quality = showSuspect ? undefined : (['==', ['get', 'q'], 0] as unknown as FilterSpecification);
+  const quality = ['==', ['get', 'q'], 0] as unknown as FilterSpecification;
   const group =
     groups.length > 0 ? (['in', ['get', 'g'], ['literal', groups]] as unknown as FilterSpecification) : undefined;
   const allStatuses = FLOCK_SELECTABLE_STATUSES.every((s) => statuses.includes(s));

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { flockHitLayers, hasFlockHitLayers, layersToRaise, FLOCK_LAYER_ORDER, FLOCK_LEAK_OTHERS_LAYER, FLOCK_LEAK_DOTS_LAYER, FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER } from './flockLeakLayerIds';
+import { flockHitLayers, hasFlockHitLayers, layersToRaise, FLOCK_LAYER_ORDER, FLOCK_LEAK_OTHERS_LAYER, FLOCK_LEAK_MINOR_LAYER, FLOCK_LEAK_DOTS_LAYER, FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER } from './flockLeakLayerIds';
 
 const mapWith = (...ids: string[]) => ({ getLayer: (id: string) => (ids.includes(id) ? {} : undefined) });
 
@@ -48,6 +48,11 @@ describe('the other-groups layer', () => {
 
   it('is part of the Flock layer order', () => {
     expect(FLOCK_LAYER_ORDER).toContain(FLOCK_LEAK_OTHERS_LAYER);
+  });
+
+  it('puts trailers and components beneath the plate-reader marks and queries them for taps', () => {
+    expect(FLOCK_LAYER_ORDER.indexOf(FLOCK_LEAK_MINOR_LAYER)).toBeLessThan(FLOCK_LAYER_ORDER.indexOf(FLOCK_LEAK_CORE_LAYER));
+    expect(flockHitLayers(mapWith(FLOCK_LEAK_MINOR_LAYER))).toEqual([FLOCK_LEAK_MINOR_LAYER]);
   });
 });
 

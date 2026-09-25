@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   FLOCK_GROUPS,
-  FLOCK_SELECTABLE_GROUPS,
+  FLOCK_DEVICE_CLASSES,
   FLOCK_SELECTABLE_STATUSES,
   FLOCK_GROUP_LABEL,
   FLOCK_TYPE_LABEL,
@@ -38,7 +38,7 @@ describe('codes', () => {
 
   it('group 8 is never selectable; statuses 1..3 are', () => {
     expect(FLOCK_GROUPS).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect(FLOCK_SELECTABLE_GROUPS).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(FLOCK_DEVICE_CLASSES.flatMap((c) => c.groups).sort()).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(FLOCK_SELECTABLE_STATUSES).toEqual([1, 2, 3]);
     for (const g of FLOCK_GROUPS) expect(FLOCK_GROUP_LABEL[g].length).toBeGreaterThan(0);
   });
@@ -167,14 +167,15 @@ describe('FLOCK_INVENTORY totals', () => {
 
 describe('cleanPointsFor', () => {
   it('sums the clean points for the selected statuses', () => {
-    expect(cleanPointsFor(1, [1])).toBe(117_959);
-    expect(cleanPointsFor(1, [1, 2, 3])).toBe(117_959 + 39_701 + 18_196);
-    expect(cleanPointsFor(4, [2, 3])).toBe(6_429 + 4_961);
+    expect(cleanPointsFor([1], [1])).toBe(117_959);
+    expect(cleanPointsFor([1], [1, 2, 3])).toBe(117_959 + 39_701 + 18_196);
+    expect(cleanPointsFor([4], [2, 3])).toBe(6_429 + 4_961);
+    expect(cleanPointsFor([6, 7], [1])).toBe(5 + 347);
   });
 
   it('is zero with no statuses, for unknown status and for fixtures', () => {
-    expect(cleanPointsFor(1, [])).toBe(0);
-    expect(cleanPointsFor(1, [4])).toBe(0);
-    expect(cleanPointsFor(8, [1, 2, 3])).toBe(0);
+    expect(cleanPointsFor([1], [])).toBe(0);
+    expect(cleanPointsFor([1], [4])).toBe(0);
+    expect(cleanPointsFor([8], [1, 2, 3])).toBe(0);
   });
 });
