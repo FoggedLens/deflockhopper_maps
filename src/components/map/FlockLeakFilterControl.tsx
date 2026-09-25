@@ -7,12 +7,15 @@ import { FlockFilterChips } from './FlockFilterChips';
 /** Flock device filters: a button in the left control column (the country
  *  switch's slot, hidden on this tab) opening device type and status chips.
  *  Same popover idiom as BoundaryControl. Leak mode only.
- *  Captioned "Flock" because it sits above the OSM filter button, which is
- *  captioned "OSM" on this tab: each says which side of the compare it narrows. */
+ *  Captioned "Flock" because while comparing it sits above the OSM filter
+ *  button, captioned "OSM": each says which side of the compare it narrows.
+ *  In Flock's records view the OSM button is hidden, so this one and the
+ *  Legend drop one slot (map-flock-slot-down) instead of leaving a hole. */
 export function FlockLeakFilterControl() {
   const appMode = useAppModeStore((s) => s.appMode);
   const groups = useFlockLeakStore((s) => s.groups);
   const statuses = useFlockLeakStore((s) => s.statuses);
+  const slotDown = useFlockLeakStore((s) => s.view === 'flock');
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const badge = activeFlockFilterCount({ groups, statuses });
@@ -31,7 +34,7 @@ export function FlockLeakFilterControl() {
   // Open, the control stacks above its sibling map buttons: they share
   // z-10, so a later sibling would otherwise paint over this popover.
   return (
-    <div ref={panelRef} className={`map-flock-filter-control absolute ${open ? 'z-20' : 'z-10'} flex flex-col items-start`}>
+    <div ref={panelRef} className={`map-flock-filter-control ${slotDown ? 'map-flock-slot-down' : ''} absolute ${open ? 'z-20' : 'z-10'} flex flex-col items-start`}>
       {open && (
         <div className="absolute z-10 bottom-full left-0 mb-3 w-72 bg-dark-800 rounded-md border border-dark-600 shadow-xl shadow-black/40">
           <div className="px-3 py-2 border-b border-dark-600">

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { useCameraStore, useMapStore } from '../../store';
 import { useAppModeStore } from '../../store/appModeStore';
+import { useFlockLeakStore } from '../../store/flockLeakStore';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import {
   US_STATES,
@@ -387,6 +388,9 @@ export function CameraFilterControl() {
   const appMode = useAppModeStore((s) => s.appMode);
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  // Leak tab, Flock's records view: no OSM cameras are drawn, so there is
+  // nothing for this control to narrow.
+  const hiddenOnLeak = useFlockLeakStore((s) => appMode === 'leak' && s.view === 'flock');
   const rootRef = useRef<HTMLDivElement>(null);
   // Swipe-down-to-close: drag starts only from the handle/header so the
   // scrollable body keeps its own touch gestures.
@@ -474,8 +478,12 @@ export function CameraFilterControl() {
   };
 
   // Map and Flock Leak: on the Leak tab the OSM filters narrow the OSM side of
-  // the compare (for example, OSM cameras tagged Flock).
+  // the compare (for example, OSM cameras tagged Flock), so they show only
+  // while comparing.
   if (appMode !== 'map' && appMode !== 'leak') return null;
+  if (hiddenOnLeak) return null;
+
+  const title = appMode === 'leak' ? 'Filter OSM cameras' : 'Filters';
 
   const filterGroups = (roomy: boolean) => (
     <FilterDataGate>
@@ -525,7 +533,7 @@ export function CameraFilterControl() {
         <div className="absolute bottom-full left-0 mb-2 w-[320px] bg-dark-900/95 backdrop-blur-md rounded-xl border border-dark-600 shadow-xl shadow-black/40 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-dark-700/50">
             <div className="flex items-center gap-2.5">
-              <span className="text-[13px] font-semibold text-white tracking-tight">Filters</span>
+              <span className="text-[13px] font-semibold text-white tracking-tight">{title}</span>
               {appliedFilterCount > 0 && (
                 <span className="min-w-[20px] h-5 px-1.5 rounded-md bg-accent/15 text-accent text-[11px] font-bold flex items-center justify-center tabular-nums">
                   {appliedFilterCount}
@@ -610,7 +618,7 @@ export function CameraFilterControl() {
                     </div>
                     <div className="flex items-center justify-between px-5 pb-3 pt-1">
                       <div className="flex items-center gap-2.5">
-                        <span className="text-base font-semibold text-white tracking-tight">Filters</span>
+                        <span className="text-base font-semibold text-white tracking-tight">{title}</span>
                         {appliedFilterCount > 0 && (
                           <span className="min-w-[22px] h-[22px] px-1.5 rounded-md bg-accent/15 text-accent text-xs font-bold flex items-center justify-center tabular-nums">
                             {appliedFilterCount}

@@ -419,6 +419,13 @@ input[type="range"]::-moz-range-thumb {
   bottom: 120px;
   left: 16px;
 }
+/* Flock's records view hides the OSM filter button, so both drop a slot. */
+.map-page .map-flock-filter-control.map-flock-slot-down {
+  bottom: 24px;
+}
+.map-page .map-flock-legend-control.map-flock-slot-down {
+  bottom: 72px;
+}
 
 /* Theme (light/dark) pill — right column, above geolocate + zoom.
    24px (ctrl offset) + 76px (zoom group) + 10px margin + 40px (geolocate) + 12px gap */
@@ -509,6 +516,12 @@ input[type="range"]::-moz-range-thumb {
   .map-page .map-flock-legend-control > button {
     width: 38px;
     height: 38px;
+  }
+  .map-page .map-flock-filter-control.map-flock-slot-down {
+    bottom: calc(var(--drawer-height, 80px) + 30px);
+  }
+  .map-page .map-flock-legend-control.map-flock-slot-down {
+    bottom: calc(var(--drawer-height, 80px) + 76px);
   }
 
   /* Theme pill floats above geolocate with a small gap.

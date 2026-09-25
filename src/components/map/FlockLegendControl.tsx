@@ -31,6 +31,8 @@ export function FlockLegendControl() {
   const groups = useFlockLeakStore((s) => s.groups);
   const statuses = useFlockLeakStore((s) => s.statuses);
   const compare = useFlockLeakStore((s) => s.view === 'overlay');
+  // Without the OSM filter button (Flock's records view) the column is one
+  // button shorter; see FlockLeakFilterControl.
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +61,7 @@ export function FlockLegendControl() {
   // Open, the control stacks above its sibling map buttons: they share
   // z-10, so a later sibling would otherwise paint over this popover.
   return (
-    <div ref={panelRef} className={`map-flock-legend-control absolute ${open ? 'z-20' : 'z-10'} flex flex-col items-start`}>
+    <div ref={panelRef} className={`map-flock-legend-control ${compare ? '' : 'map-flock-slot-down'} absolute ${open ? 'z-20' : 'z-10'} flex flex-col items-start`}>
       {open && (
         <section
           aria-label="Legend"
