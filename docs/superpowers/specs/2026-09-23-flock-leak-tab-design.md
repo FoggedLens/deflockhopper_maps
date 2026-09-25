@@ -488,8 +488,10 @@ the user chose the segmented control. Where this differs from section 21, this s
   every plate-reader mark means and seeds both sides' filters, so it behaves like a view
   of the same map, and the picker shows both views before anyone clicks. Section 19's
   "layer switch" framing is history.
-- The panel header keeps its icon tile and the panel order is unchanged (the wider
-  reorder shown as option D was not chosen).
+- The panel order is unchanged (the wider reorder shown as option D was not chosen).
+  Later the same day the user picked "no mark" from six mocked header marks, so the
+  panel header and the mobile peek row are title only, like the Map tab; the red icon
+  tile is gone from both.
 
 ## 24. Amendments, 2026-09-25 (each view keeps its own filters)
 

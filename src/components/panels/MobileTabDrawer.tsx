@@ -5,7 +5,7 @@ import type { AppMode } from '../../store';
 import { BottomSheet, type SnapPoint } from '../common/BottomSheet';
 import { LegacyMapLink } from '../common/LegacyMapLink';
 import { isModeAvailable } from '../../services/cameraDataService';
-import { AlertTriangle, ChevronUp, Navigation2, Share2, History, DatabaseZap, X, ExternalLink } from 'lucide-react';
+import { AlertTriangle, ChevronUp, Navigation2, Share2, History, X, ExternalLink } from 'lucide-react';
 import { TimelineBar } from '../../modes/timeline/TimelineBar';
 import { RoutePanelContent } from './RoutePanelContent';
 import { FlockHopperCTA } from './FlockHopperCTA';
@@ -68,11 +68,12 @@ function StopSheetDrag({ children }: { children: React.ReactNode }) {
   return <div ref={ref}>{children}</div>;
 }
 
-const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon: typeof Navigation2; tint?: 'danger' }>> = {
+/** Icon is optional: the Leak tab is title only, like the Map tab (user's call, 2026-09-25). */
+const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon?: typeof Navigation2; tint?: 'danger' }>> = {
   // route renders the FlockHopper start ad instead of IdentityRow; entry kept so the peek effects treat route as peekable
   route:   { title: 'Route', desc: 'Set a start and destination to see ALPR exposure along your route — and safer alternatives.', Icon: Navigation2 },
   explore: { title: 'Timeline', desc: 'Watch the ALPR camera network grow as volunteers documented it on OpenStreetMap.', Icon: History },
-  leak:    { title: FLOCK_LEAK_COPY.title, desc: FLOCK_LEAK_COPY.peek, Icon: DatabaseZap, tint: 'danger' },
+  leak:    { title: FLOCK_LEAK_COPY.title, desc: FLOCK_LEAK_COPY.peek },
   network: { title: 'Flock Sharing Network', desc: 'Law enforcement agencies sharing Flock ALPR data with each other, as publicly disclosed. Tap an agency to trace its connections.', Icon: Share2 },
 };
 
@@ -99,9 +100,11 @@ function IdentityRow({ mode, onExpand, extra, desc }: { mode: AppMode; onExpand:
         className="w-full flex items-center gap-3 text-left active:opacity-70 transition-opacity min-h-11"
         aria-label={`${cfg.title} — open controls and details`}
       >
-        <div className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 ${boxClass}`}>
-          <Icon className={`w-[18px] h-[18px] ${iconClass}`} aria-hidden="true" />
-        </div>
+        {Icon && (
+          <div className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 ${boxClass}`}>
+            <Icon className={`w-[18px] h-[18px] ${iconClass}`} aria-hidden="true" />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <h2 className="text-[15px] font-display font-semibold text-white leading-tight">{cfg.title}</h2>
           {desc ?? <p className="text-xs text-dark-400 leading-snug mt-0.5">{cfg.desc}</p>}

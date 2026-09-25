@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, DatabaseZap } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { FlockLeakPanelContent, FLOCK_LEAK_COPY } from './FlockLeakPanelContent';
 
 /** Desktop side panel for the Flock Leak tab (MapPage mounts it only above lg). */
@@ -20,16 +20,10 @@ export function FlockLeakPanel() {
         }`}
         style={{ width: isCollapsed ? 0 : 400, minWidth: isCollapsed ? 0 : 400 }}
       >
+        {/* Title only, like the Map tab: no icon tile (user's call, 2026-09-25). */}
         <div className="flex-shrink-0 px-6 py-5 border-b border-dark-700/50">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-danger/10 border border-danger/35 flex items-center justify-center flex-shrink-0">
-              <DatabaseZap className="w-[18px] h-[18px] text-danger" aria-hidden="true" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-white">{FLOCK_LEAK_COPY.title}</h2>
-              <p className="text-xs text-dark-400">{FLOCK_LEAK_COPY.subtitle}</p>
-            </div>
-          </div>
+          <h2 className="text-base font-semibold text-white">{FLOCK_LEAK_COPY.title}</h2>
+          <p className="text-xs text-dark-400">{FLOCK_LEAK_COPY.subtitle}</p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
