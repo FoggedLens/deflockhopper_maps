@@ -28,8 +28,10 @@ export function FlockLeakFilterControl() {
 
   if (appMode !== 'leak') return null;
 
+  // Open, the control stacks above its sibling map buttons: they share
+  // z-10, so a later sibling would otherwise paint over this popover.
   return (
-    <div ref={panelRef} className="map-flock-filter-control absolute z-10 flex flex-col items-start">
+    <div ref={panelRef} className={`map-flock-filter-control absolute ${open ? 'z-20' : 'z-10'} flex flex-col items-start`}>
       {open && (
         <div className="absolute z-10 bottom-full left-0 mb-3 w-72 bg-dark-800 rounded-md border border-dark-600 shadow-xl shadow-black/40">
           <div className="px-3 py-2 border-b border-dark-600">

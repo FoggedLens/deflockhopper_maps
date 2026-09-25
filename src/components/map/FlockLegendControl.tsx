@@ -56,8 +56,10 @@ export function FlockLegendControl() {
   const anyHidden = FLOCK_DEVICE_CLASSES.some((c) => !classShown(c.groups))
     || FLOCK_SELECTABLE_STATUSES.some((s) => !statuses.includes(s));
 
+  // Open, the control stacks above its sibling map buttons: they share
+  // z-10, so a later sibling would otherwise paint over this popover.
   return (
-    <div ref={panelRef} className="map-flock-legend-control absolute z-10 flex flex-col items-start">
+    <div ref={panelRef} className={`map-flock-legend-control absolute ${open ? 'z-20' : 'z-10'} flex flex-col items-start`}>
       {open && (
         <section
           aria-label="Legend"
