@@ -18,7 +18,7 @@ import { MapPanelContent } from './MapPanel';
 import { Skeleton } from '../common';
 import { useDelayedFlag } from '../../hooks/useDelayedFlag';
 import { BrandBreakdown } from '../map/BrandBreakdown';
-import { FlockCompareToggle } from '../map/FlockCompareToggle';
+import { FlockCompareControl } from '../map/FlockCompareControl';
 import { FlockLeakPanelContent, FlockCompareKey, FLOCK_LEAK_COPY } from './FlockLeakPanelContent';
 import { useFlockLeakStore } from '../../store/flockLeakStore';
 
@@ -412,7 +412,7 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
             desc={appMode === 'leak' && leakCompare ? <FlockCompareKey className="mt-1" /> : undefined}
             extra={
               appMode === 'leak'
-                ? <FlockCompareToggle className="mt-3" />
+                ? <FlockCompareControl className="mt-3" />
                 : appMode === 'network'
                   ? (
                     <div className="mt-3 flex items-center justify-center gap-1 text-dark-400">

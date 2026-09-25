@@ -84,7 +84,7 @@ The map has 5 modes, selectable via the header tabs:
 | `src/components/map/layers/CameraTileLayers.tsx` | Default camera rendering — dots/points/cones from the camera vector tiles |
 | `src/services/flockLeakTilesService.ts` | Flock TileJSON URL and loader, never fails the app over |
 | `src/store/flockLeakStore.ts` | view (`flock` or `overlay`), filters, TileJSON load state, per-visit filter snapshot and compare seeding |
-| `src/components/panels/FlockLeakPanelContent.tsx` | Every Leak tab string; the side panel and mobile sheet: the OSM compare switch first (with its key), then the explainer with the researcher's links, filters, caveat, credit |
+| `src/components/panels/FlockLeakPanelContent.tsx` | Every Leak tab string; the side panel and mobile sheet: the two-segment view picker first (Flock's records, Compare with OSM; `FlockCompareControl`, also the mobile peek's control) with its one-line key, then the explainer with the researcher's links, filters, caveat, credit |
 | `src/components/map/FlockLegendControl.tsx` | Legend button in the map's left control column; a popover listing every device type and status, dimming the filtered ones |
 | `src/components/map/layers/FlockLeakLayers.tsx` | density dots plus the filled or hollow marks from flockCompareStyle; keeps itself above the OSM layers |
 | `src/components/panels/MapPanel.tsx` | Main panel container component |

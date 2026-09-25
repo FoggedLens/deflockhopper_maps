@@ -465,3 +465,28 @@ User's call. Where this differs from sections 18 to 21, this section wins.
   Flock view, gray ring while comparing, gray variants of every other group's icon
   (`flock-g{g}[-hollow]-decom`), gray density dots below z10, and gray swatches in the
   legend and status chips. The 35% dimming helper (`zoomOpacityByStatus`) is gone.
+
+## 23. Amendments, 2026-09-25 (the view picker replaces the compare switch)
+
+The user rejected section 21's blue-bordered compare block ("big blue box vibe-cody
+feel"). It was the only filled object in a hairline panel, it matched the icon, title,
+description and switch card shape common in generated UIs, and it spent blue, which on
+this tab means OSM cameras, on chrome. Four replacements were mocked in the live app and
+the user chose the segmented control. Where this differs from section 21, this section wins.
+
+- **The compare control is a two-segment view picker** (`FlockCompareControl`, a
+  `radiogroup` named "Map view"): "Flock's records" with the red lens mark, "Compare with
+  OSM" with the ring-and-dot mark. The selected segment shows by contrast (`bg-white/10`)
+  inside a hairline container; no fill color, no icon tile, no switch. Arrow keys move the
+  selection. It replaces the switch on the desktop panel, the mobile sheet and the mobile
+  peek, at the peek's 44 px row height so the sheet height does not change.
+- **One line under it.** Off: "Compare to see which of these devices volunteers have
+  already mapped." On: the one-line key (Both, Flock only, OSM only; `FlockCompareKey`,
+  now shared by the panel, the sheet and the peek) and, while the compare seed still
+  holds (`compareSeedHolds` in `leakCompareDefaults.ts`), the note on what it narrowed.
+- The rationale for a segmented control over a switch: turning compare on changes what
+  every plate-reader mark means and seeds both sides' filters, so it behaves like a view
+  of the same map, and the picker shows both views before anyone clicks. Section 19's
+  "layer switch" framing is history.
+- The panel header keeps its icon tile and the panel order is unchanged (the wider
+  reorder shown as option D was not chosen).

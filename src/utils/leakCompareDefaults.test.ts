@@ -7,6 +7,7 @@ import {
   isCompareView,
   shouldSeedCompare,
   seedOsmFilters,
+  compareSeedHolds,
 } from './leakCompareDefaults';
 
 const clean: CameraFilters = {
@@ -72,5 +73,20 @@ describe('seedOsmFilters', () => {
     seedOsmFilters(input);
     expect(input.brands).toEqual(['Genetec']);
     expect(input.showAll).toBe(true);
+  });
+});
+
+describe('compareSeedHolds', () => {
+  const seeded = { groups: [1], statuses: [1, 2, 3], brands: ['Flock Safety'] } as const;
+
+  it('holds right after the seed, whatever the order of the arrays', () => {
+    expect(compareSeedHolds({ groups: [1], statuses: [3, 1, 2], brands: ['Flock Safety'] })).toBe(true);
+  });
+
+  it('breaks once the user widens or narrows either side', () => {
+    expect(compareSeedHolds({ ...seeded, groups: [1, 2] })).toBe(false);
+    expect(compareSeedHolds({ ...seeded, statuses: [1] })).toBe(false);
+    expect(compareSeedHolds({ ...seeded, brands: [] })).toBe(false);
+    expect(compareSeedHolds({ ...seeded, brands: ['Flock Safety', 'Genetec'] })).toBe(false);
   });
 });

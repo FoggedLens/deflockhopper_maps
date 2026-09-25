@@ -27,3 +27,17 @@ export function shouldSeedCompare(prev: FlockLeakView, next: FlockLeakView, seed
 export function seedOsmFilters(filters: CameraFilters): CameraFilters {
   return { ...filters, brands: [LEAK_OSM_DEFAULT_BRAND], showAll: false };
 }
+
+const sameSet = <T,>(a: readonly T[], b: readonly T[]): boolean => a.length === b.length && a.every((x) => b.includes(x));
+
+/** True while both sides still match the compare seed exactly, so the panel
+ *  can say what the seed narrowed; false once the user edits either side. */
+export function compareSeedHolds(current: {
+  groups: readonly FlockGroup[];
+  statuses: readonly FlockStatus[];
+  brands: readonly string[];
+}): boolean {
+  return sameSet(current.groups, LEAK_COMPARE_FLOCK_GROUPS)
+    && sameSet(current.statuses, LEAK_COMPARE_FLOCK_STATUSES)
+    && sameSet(current.brands, [LEAK_OSM_DEFAULT_BRAND]);
+}
