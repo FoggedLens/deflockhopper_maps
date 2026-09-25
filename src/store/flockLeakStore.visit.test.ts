@@ -44,14 +44,16 @@ describe('turning on the OSM comparison', () => {
     expect(osm().brands).toEqual(['Flock Safety']);
   });
 
-  it('seeds once per visit, so edits survive a trip back to Flock', () => {
+  it('seeds once per visit, so edits made while comparing survive a trip back to Flock', () => {
     leak().beginVisit();
     leak().setView('overlay');
     leak().toggleGroup(2);
+    leak().toggleStatus(3);
     useCameraStore.setState({ filters: { ...clean } });
     leak().setView('flock');
     leak().setView('overlay');
     expect(leak().groups).toEqual([1, 2]);
+    expect(leak().statuses).toEqual([1, 2]);
     expect(osm().brands).toEqual([]);
   });
 
@@ -68,6 +70,57 @@ describe('turning on the OSM comparison', () => {
     leak().beginVisit();
     expect(leak().groups).toEqual([]);
     expect(osm().brands).toEqual([]);
+  });
+});
+
+describe('each view keeps its own filters', () => {
+  it('going back to Flock restores what both sides had before comparing', () => {
+    useCameraStore.setState({ filters: { ...clean, brands: ['Genetec'], showAll: false } });
+    leak().beginVisit();
+    leak().toggleStatus(3);
+    leak().setView('overlay');
+    expect(leak().groups).toEqual([1]);
+    expect(leak().statuses).toEqual([1, 2, 3]);
+    expect(osm().brands).toEqual(['Flock Safety']);
+    leak().setView('flock');
+    expect(leak().groups).toEqual([]);
+    expect(leak().statuses).toEqual([1, 2]);
+    expect(osm().brands).toEqual(['Genetec']);
+    expect(osm().showAll).toBe(false);
+  });
+
+  it('an edit made in Flock survives a trip through the comparison', () => {
+    leak().beginVisit();
+    leak().toggleGroup(4);
+    leak().setView('overlay');
+    expect(leak().groups).toEqual([1]);
+    leak().setView('flock');
+    expect(leak().groups).toEqual([4]);
+  });
+
+  it('the comparison keeps its own set after the seed; Flock keeps its own', () => {
+    leak().beginVisit();
+    leak().setView('overlay');
+    leak().clearGroups();
+    leak().setView('flock');
+    leak().toggleGroup(5);
+    leak().setView('overlay');
+    expect(leak().groups).toEqual([]);
+    leak().setView('flock');
+    expect(leak().groups).toEqual([5]);
+  });
+
+  it('a parked set never leaks into the next visit', () => {
+    leak().beginVisit();
+    leak().setView('overlay');
+    leak().toggleGroup(2);
+    leak().setView('flock');
+    leak().endVisit();
+    leak().beginVisit();
+    leak().setView('overlay');
+    expect(leak().groups).toEqual([1]);
+    leak().setView('flock');
+    expect(leak().groups).toEqual([]);
   });
 });
 

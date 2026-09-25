@@ -490,3 +490,22 @@ the user chose the segmented control. Where this differs from section 21, this s
   "layer switch" framing is history.
 - The panel header keeps its icon tile and the panel order is unchanged (the wider
   reorder shown as option D was not chosen).
+
+## 24. Amendments, 2026-09-25 (each view keeps its own filters)
+
+The user found it counterintuitive that going back to Flock's records kept the filters the
+compare seed had set (plate readers only, OSM brand pinned, the OSM filter badge still
+lit). With the view picker presenting two views, each view now keeps its own filter set
+within a visit. Where this differs from sections 18 and 19, this section wins.
+
+- `setView` parks the departing view's filters (Flock groups and statuses, and the OSM
+  filters) in `parked` and restores the arriving view's. The first move into the
+  comparison in a visit still seeds the compare defaults instead of restoring; after that
+  the comparison shows its own set, including the user's edits, with no re-seed.
+- Flock's records shows what it had before comparing plus any edits made while in that
+  view; the OSM filters go back with it, so the OSM badge clears.
+- Leaving the tab restores the visit snapshot as before and clears the parked set, so a
+  parked set never leaks into the next visit.
+- Verified in the browser (`.superpowers/check-view-filters.mjs`): status edits made in
+  Flock survive a round trip through the comparison, a device type added while comparing
+  survives a round trip through Flock, and the OSM badge follows the view.

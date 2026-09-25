@@ -37,7 +37,9 @@ export const DEFAULT_FLOCK_STATUSES: readonly FlockStatus[] = [...FLOCK_SELECTAB
 
 /** Both sides' filters as they were when the tab was entered. The Leak
  *  tab's filters are per visit: leaving puts everything back. */
-interface VisitSnapshot {
+/** Both sides' filters at one moment: what a visit began with, or what the
+ *  view you are not in was showing. */
+interface FilterSet {
   osm: CameraFilters;
   groups: FlockGroup[];
   statuses: FlockStatus[];
@@ -59,14 +61,19 @@ interface FlockLeakState {
   /** True once this visit's compare defaults (Flock plate readers, every
    *  status, OSM brand Flock Safety) have been applied. Reset by beginVisit. */
   compareSeeded: boolean;
-  visitSnapshot: VisitSnapshot | null;
+  visitSnapshot: FilterSet | null;
+  /** The other view's filters, parked while this view shows its own. Each
+   *  view keeps its own set within a visit (user's call, 2026-09-25): going
+   *  back to Flock's records shows what it had before comparing. */
+  parked: FilterSet | null;
 
   /** Tab entered: snapshot both sides' filters. */
   beginVisit: () => void;
   /** Tab left: restore the snapshot and land the next visit on Flock. */
   endVisit: () => void;
-  /** Changes the view; the first move from Flock into Overlay in a visit
-   *  seeds the compare defaults on both sides. */
+  /** Changes the view, parking this view's filters and restoring the other
+   *  view's. The first move from Flock into Overlay in a visit seeds the
+   *  compare defaults on both sides instead. */
   setView: (view: FlockLeakView) => void;
   toggleGroup: (group: FlockGroup) => void;
   /** One chip can stand for several groups (Other is trailers + components):
@@ -91,7 +98,8 @@ const INITIAL = {
   tilesFailed: false,
   sourceEpoch: 0,
   compareSeeded: false,
-  visitSnapshot: null as VisitSnapshot | null,
+  visitSnapshot: null as FilterSet | null,
+  parked: null as FilterSet | null,
 };
 
 export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
@@ -106,6 +114,7 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
         statuses: [...s.statuses],
       },
       compareSeeded: false,
+      parked: null,
     });
   },
   endVisit: () => {
@@ -117,24 +126,29 @@ export const useFlockLeakStore = create<FlockLeakState>((set, get) => ({
       statuses: snap.statuses,
       compareSeeded: false,
       visitSnapshot: null,
+      parked: null,
     });
     useCameraStore.getState().setFilters(snap.osm);
   },
   setView: (view) => {
     const s = get();
     if (s.view === view) return;
-    if (!shouldSeedCompare(s.view, view, s.compareSeeded)) {
-      set({ view });
+    const cam = useCameraStore.getState();
+    const leaving: FilterSet = { osm: { ...cam.filters }, groups: [...s.groups], statuses: [...s.statuses] };
+    if (shouldSeedCompare(s.view, view, s.compareSeeded)) {
+      set({
+        view,
+        groups: [...LEAK_COMPARE_FLOCK_GROUPS],
+        statuses: [...LEAK_COMPARE_FLOCK_STATUSES],
+        compareSeeded: true,
+        parked: leaving,
+      });
+      cam.setFilters(seedOsmFilters(cam.filters));
       return;
     }
-    set({
-      view,
-      groups: [...LEAK_COMPARE_FLOCK_GROUPS],
-      statuses: [...LEAK_COMPARE_FLOCK_STATUSES],
-      compareSeeded: true,
-    });
-    const cam = useCameraStore.getState();
-    cam.setFilters(seedOsmFilters(cam.filters));
+    const arriving = s.parked;
+    set({ view, parked: leaving, ...(arriving && { groups: arriving.groups, statuses: arriving.statuses }) });
+    if (arriving) cam.setFilters(arriving.osm);
   },
   toggleGroup: (group) =>
     set((s) => ({
