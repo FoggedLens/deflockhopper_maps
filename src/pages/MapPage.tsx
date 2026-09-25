@@ -343,7 +343,12 @@ export function MapPage() {
                 <ShareButton variant="icon" className="-mr-2" />
               </div>
 
+              {/* Desktop: the Leak tab's count sits beside Share, the same line
+                  the phone header shows, so each screen size names it once.
+                  From xl only: below 1280 px it squeezes the tab row until
+                  "Flock Leak" wraps. */}
               <div className="hidden lg:flex items-center gap-4 flex-shrink-0">
+                {appMode === 'leak' && <FlockHeaderCount className="hidden xl:inline" />}
                 <ShareButton variant="header" />
                 <div className="w-px h-4 bg-dark-600" />
                 <LegacyMapLink variant="header" />
