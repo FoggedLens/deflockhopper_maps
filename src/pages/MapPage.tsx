@@ -27,7 +27,7 @@ import { MapStyleControl } from '@/components/map/MapStyleControl';
 import { CameraFilterControl } from '@/components/map/CameraFilterControl';
 import { BoundaryControl } from '@/components/map/BoundaryControl';
 import { FlockLeakFilterControl } from '@/components/map/FlockLeakFilterControl';
-import { FlockMapLegend } from '@/components/map/FlockMapLegend';
+import { FlockLegendControl } from '@/components/map/FlockLegendControl';
 import { BoundaryFeaturePopup } from '@/components/map/BoundaryFeaturePopup';
 import { MapThemeControl } from '@/components/map/MapThemeControl';
 import { CameraTileStatusPill } from '@/components/map/CameraTileStatusPill';
@@ -416,9 +416,7 @@ export function MapPage() {
             <MapThemeControl />
             <CameraFilterControl />
             {appMode === 'leak' && <FlockLeakFilterControl />}
-            {/* Desktop map key with the OSM compare switch; mobile carries
-                the switch and a short key in the drawer peek. */}
-            {appMode === 'leak' && !isMobile && <FlockMapLegend />}
+            {appMode === 'leak' && <FlockLegendControl />}
             {appMode === 'map' && <BoundaryControl />}
             {appMode === 'map' && <BoundaryFeaturePopup />}
 

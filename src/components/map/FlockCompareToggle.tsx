@@ -27,14 +27,16 @@ export function FlockCompareToggle({ className = '' }: { className?: string }) {
 }
 
 /** The visual half of a switch; the caller owns the role and the click. */
-export function Switch({ on }: { on: boolean }) {
+export function Switch({ on, large = false }: { on: boolean; large?: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`relative block w-9 h-5 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-accent' : 'bg-dark-600'}`}
+      className={`relative block rounded-full transition-colors flex-shrink-0 ${large ? 'w-12 h-7' : 'w-9 h-5'} ${on ? 'bg-accent' : 'bg-dark-600'}`}
     >
       <span
-        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${on ? 'translate-x-4' : 'translate-x-0'}`}
+        className={`absolute top-0.5 left-0.5 rounded-full bg-white shadow transition-transform ${
+          large ? `w-6 h-6 ${on ? 'translate-x-5' : 'translate-x-0'}` : `w-4 h-4 ${on ? 'translate-x-4' : 'translate-x-0'}`
+        }`}
       />
     </span>
   );

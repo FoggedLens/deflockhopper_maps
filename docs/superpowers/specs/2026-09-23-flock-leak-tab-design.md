@@ -433,3 +433,22 @@ section wins.
   gone (the contract calls it a housing angle, and the researcher's table has it); no fixed
   anchor, so MapLibre picks the side with room.
 - **Tab icon:** `DatabaseZap` (an exposed dataset) replaces `Radar`.
+
+## 21. Amendments, 2026-09-24 (switch in the panel, legend behind a button)
+
+The user rejected section 20's map legend: a switch bolted onto a legend is odd, and when
+the compare seed narrowed the view to plate readers the list shrank to one row, so the
+legend looked like it disappeared. Where this differs from section 20, this section wins.
+
+- **The compare switch is the first thing in the side panel** (and the mobile sheet), the
+  one emphasized element on the tab: a blue-bordered block with the overlap mark as its
+  icon, "Compare with OSM cameras", one line on what it does, and a large switch. While
+  on, the key sits directly under it (on both maps, only in Flock's records, only on
+  OSM) with the note on what the compare seed narrowed. The mobile peek keeps its own
+  switch and short key.
+- **The legend is a button** ("Legend", `FlockLegendControl`) in the map's left control
+  column, in the Map tab's layers slot above the Flock and OSM filter buttons, opening a
+  popover like the filters. It always lists every device type and status, in the map's
+  current mark style; entries the filters hide are dimmed, never removed, so the list
+  never changes length. It does not repeat the compare key.
+- `FlockMapLegend` is deleted.
