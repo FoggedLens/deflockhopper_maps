@@ -17,7 +17,9 @@ const VIEWS: ReadonlyArray<{ view: FlockLeakView; label: string; mark: JSX.Eleme
  * filters, so it reads as a view of the same map, and both states are
  * visible before anyone clicks. Selection shows by contrast, not color:
  * blue on this tab means OSM cameras. Leads the desktop panel, the mobile
- * sheet and the mobile peek.
+ * sheet and the mobile peek. The whole control is 44 px on mobile (36 px
+ * segments plus the container's padding and border): the peek has no slack
+ * below the identity row, so anything taller is clipped at the sheet's edge.
  */
 export function FlockCompareControl({ className = '' }: { className?: string }) {
   const view = useFlockLeakStore((s) => s.view);
@@ -53,7 +55,7 @@ export function FlockCompareControl({ className = '' }: { className?: string }) 
             aria-checked={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => setView(v.view)}
-            className={`flex items-center justify-center gap-2 min-h-11 lg:min-h-[34px] px-2 rounded-md text-[13px] font-medium transition-colors ${
+            className={`flex items-center justify-center gap-2 min-h-9 lg:min-h-[34px] px-2 rounded-md text-[13px] font-medium transition-colors ${
               selected ? 'bg-white/[0.10] text-white' : 'text-dark-400 hover:text-dark-200'
             }`}
           >
