@@ -26,11 +26,12 @@ beforeEach(() => {
 });
 
 describe('turning on the OSM comparison', () => {
-  it('narrows Flock to plate readers in service and OSM to brand Flock Safety', () => {
+  it('narrows Flock to plate readers (every status) and OSM to brand Flock Safety', () => {
     leak().beginVisit();
+    leak().toggleStatus(3);
     leak().setView('overlay');
     expect(leak().groups).toEqual([1]);
-    expect(leak().statuses).toEqual([1]);
+    expect(leak().statuses).toEqual([1, 2, 3]);
     expect(osm().brands).toEqual(['Flock Safety']);
     expect(osm().showAll).toBe(false);
   });

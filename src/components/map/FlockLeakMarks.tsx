@@ -1,4 +1,4 @@
-import { FLOCK_COMPARE_COLOR, FLOCK_PLANNED_CORE } from './layers/flockCompareStyle';
+import { FLOCK_COMPARE_COLOR, FLOCK_DECOMMISSIONED_COLOR, FLOCK_PLANNED_CORE } from './layers/flockCompareStyle';
 import { drawFlockIcon } from './layers/flockLeakIcons';
 import type { FlockGroup } from '../../lib/flockInventory';
 
@@ -29,28 +29,37 @@ function Svg({ children, label, size = BOX }: { children: React.ReactNode; label
 }
 
 const OsmDot = () => <circle cx={C} cy={C} r={5} fill={OSM.fill} stroke={OSM.ring} strokeWidth={2} />;
-const FlockRing = () => <circle cx={C} cy={C} r={7.5} fill="none" stroke={FLOCK_COMPARE_COLOR.line} strokeWidth={2.5} />;
+const FlockRing = ({ stroke = FLOCK_COMPARE_COLOR.line }: { stroke?: string }) => (
+  <circle cx={C} cy={C} r={7.5} fill="none" stroke={stroke} strokeWidth={2.5} />
+);
 
 /** An OSM camera: the blue point with its light ring. */
 export function OsmDotMark({ size }: { size?: number }) {
   return <Svg size={size}><OsmDot /></Svg>;
 }
 
-/** A Flock plate reader in the Flock view: the red lens (glow, core, ring). */
-export function FlockLensMark({ size, dimmed = false }: { size?: number; dimmed?: boolean }) {
+/** A Flock plate reader in the Flock view: the red lens (glow, core, ring);
+ *  decommissioned, the same lens in gray without the glow. */
+export function FlockLensMark({ size, decommissioned = false }: { size?: number; decommissioned?: boolean }) {
+  if (decommissioned) {
+    return (
+      <Svg size={size}>
+        <circle cx={C} cy={C} r={5} fill={FLOCK_DECOMMISSIONED_COLOR.core} stroke={FLOCK_DECOMMISSIONED_COLOR.ring} strokeWidth={2} />
+      </Svg>
+    );
+  }
   return (
     <Svg size={size}>
-      <g opacity={dimmed ? 0.35 : 1}>
-        <circle cx={C} cy={C} r={9} fill={FLOCK_COMPARE_COLOR.glow} opacity={0.25} />
-        <circle cx={C} cy={C} r={5} fill={FLOCK_COMPARE_COLOR.core} stroke={FLOCK_COMPARE_COLOR.ring} strokeWidth={2} />
-      </g>
+      <circle cx={C} cy={C} r={9} fill={FLOCK_COMPARE_COLOR.glow} opacity={0.25} />
+      <circle cx={C} cy={C} r={5} fill={FLOCK_COMPARE_COLOR.core} stroke={FLOCK_COMPARE_COLOR.ring} strokeWidth={2} />
     </Svg>
   );
 }
 
-/** A Flock plate reader while comparing: the hollow red ring. */
-export function FlockRingMark({ size }: { size?: number }) {
-  return <Svg size={size}><FlockRing /></Svg>;
+/** A Flock plate reader while comparing: the hollow red ring (gray when
+ *  decommissioned). */
+export function FlockRingMark({ size, decommissioned = false }: { size?: number; decommissioned?: boolean }) {
+  return <Svg size={size}><FlockRing stroke={decommissioned ? FLOCK_DECOMMISSIONED_COLOR.line : undefined} /></Svg>;
 }
 
 /** Planned: the dashed red ring. Open while comparing (FLOCK_PLANNED_ICON);
@@ -79,8 +88,8 @@ export function BothMark({ size }: { size?: number }) {
 const iconUrls = new Map<string, string>();
 
 /** The map's own canvas icon for a group, as a data URL (cached). */
-function groupIconUrl(g: FlockGroup, hollow: boolean, planned: boolean, px: number): string | null {
-  const key = `${g}-${hollow ? 'h' : 'f'}-${planned ? 'p' : 's'}-${px}`;
+function groupIconUrl(g: FlockGroup, hollow: boolean, planned: boolean, decommissioned: boolean, px: number): string | null {
+  const key = `${g}-${hollow ? 'h' : 'f'}-${planned ? 'p' : decommissioned ? 'd' : 's'}-${px}`;
   const hit = iconUrls.get(key);
   if (hit) return hit;
   const canvas = document.createElement('canvas');
@@ -88,7 +97,7 @@ function groupIconUrl(g: FlockGroup, hollow: boolean, planned: boolean, px: numb
   canvas.height = px;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
-  drawFlockIcon(ctx, g, px, planned, hollow);
+  drawFlockIcon(ctx, g, px, planned, hollow, decommissioned);
   const url = canvas.toDataURL();
   iconUrls.set(key, url);
   return url;
@@ -100,12 +109,20 @@ function groupIconUrl(g: FlockGroup, hollow: boolean, planned: boolean, px: numb
  * code that registers the map icons (flockLeakIcons). Used by the legend and
  * the filter chips, so a swatch can never drift from the map.
  */
-export function FlockGroupMark({ g, hollow = false, planned = false, size = BOX }: { g: FlockGroup; hollow?: boolean; planned?: boolean; size?: number }) {
+export function FlockGroupMark({ g, hollow = false, planned = false, decommissioned = false, size = BOX }: {
+  g: FlockGroup;
+  hollow?: boolean;
+  planned?: boolean;
+  decommissioned?: boolean;
+  size?: number;
+}) {
   if (g === 1) {
     if (planned) return <FlockPlannedMark size={size} open={hollow} />;
-    return hollow ? <FlockRingMark size={size} /> : <FlockLensMark size={size} />;
+    return hollow
+      ? <FlockRingMark size={size} decommissioned={decommissioned} />
+      : <FlockLensMark size={size} decommissioned={decommissioned} />;
   }
-  const url = groupIconUrl(g, hollow, planned, size * 2);
+  const url = groupIconUrl(g, hollow, planned, decommissioned, size * 2);
   if (!url) return null;
   return <img src={url} width={size} height={size} alt="" aria-hidden="true" className="flex-shrink-0" />;
 }

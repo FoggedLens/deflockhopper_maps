@@ -30,7 +30,7 @@ function Chip({ on, onClick, children, count }: { on: boolean; onClick: () => vo
 const STATUS_MARK: Record<FlockStatus, ReactNode> = {
   1: <FlockLensMark size={14} />,
   2: <FlockPlannedMark size={14} />,
-  3: <FlockLensMark size={14} dimmed />,
+  3: <FlockLensMark size={14} decommissioned />,
   4: null,
 };
 

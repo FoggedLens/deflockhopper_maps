@@ -20,9 +20,9 @@ const clean: CameraFilters = {
 };
 
 describe('compare defaults', () => {
-  it('narrows Flock to plate readers in service and OSM to Flock Safety', () => {
+  it('narrows Flock to plate readers (every status) and OSM to Flock Safety', () => {
     expect(LEAK_COMPARE_FLOCK_GROUPS).toEqual([1]);
-    expect(LEAK_COMPARE_FLOCK_STATUSES).toEqual([1]);
+    expect(LEAK_COMPARE_FLOCK_STATUSES).toEqual([1, 2, 3]);
     expect(LEAK_OSM_DEFAULT_BRAND).toBe('Flock Safety');
   });
 

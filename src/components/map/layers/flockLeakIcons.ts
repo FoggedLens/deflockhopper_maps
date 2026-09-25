@@ -1,6 +1,6 @@
 import type maplibregl from 'maplibre-gl';
 import { FLOCK_GROUPS, type FlockGroup } from '../../../lib/flockInventory';
-import { FLOCK_PLANNED_ICON, FLOCK_COMPARE_COLOR, FLOCK_PLANNED_CORE, flockPlannedLensId } from './flockCompareStyle';
+import { FLOCK_PLANNED_ICON, FLOCK_COMPARE_COLOR, FLOCK_DECOMMISSIONED_COLOR, FLOCK_PLANNED_CORE, flockPlannedLensId } from './flockCompareStyle';
 
 /**
  * Flock device marks by group, drawn on a canvas at runtime and registered
@@ -10,8 +10,8 @@ import { FLOCK_PLANNED_ICON, FLOCK_COMPARE_COLOR, FLOCK_PLANNED_CORE, flockPlann
  * blue. Video, Wing and Trailer were three near-identical oranges until
  * 2026-09-24; Wing (other people's cameras) is now pink, and trailers (146
  * devices) share the Other class's small gray dot.
- * Planned (s = 2) is the same shape as a dashed outline; decommissioned is
- * the solid mark at reduced opacity (a paint property, not an image).
+ * Planned (s = 2) is the same shape as a dashed outline; decommissioned
+ * (s = 3) is the same shape in gray (its own image, filled and hollow).
  */
 export const FLOCK_GROUP_COLOR: Record<FlockGroup, string> = {
   1: '#ef4444', // plate readers
@@ -47,9 +47,19 @@ export const flockIconId = (g: FlockGroup, planned: boolean): string =>
 /** Overlay compare: the group's shape as an undashed outline, so the OSM
  *  mark shows through. Raven keeps its center dot. */
 export const flockHollowIconId = (g: FlockGroup): string => `flock-g${g}-hollow`;
+/** Decommissioned: the group's shape in gray, filled or hollow. Matches
+ *  groupIconExpression's `suffix + '-decom'`. */
+export const flockDecomIconId = (g: FlockGroup, hollow: boolean): string =>
+  `flock-g${g}${hollow ? '-hollow' : ''}-decom`;
 
 export const FLOCK_ICON_IDS: readonly string[] = [
-  ...FLOCK_GROUPS.flatMap((g) => [flockIconId(g, false), flockIconId(g, true), flockHollowIconId(g)]),
+  ...FLOCK_GROUPS.flatMap((g) => [
+    flockIconId(g, false),
+    flockIconId(g, true),
+    flockHollowIconId(g),
+    flockDecomIconId(g, false),
+    flockDecomIconId(g, true),
+  ]),
   FLOCK_PLANNED_ICON,
   flockPlannedLensId('dark'),
   flockPlannedLensId('light'),
@@ -74,8 +84,15 @@ export function drawPlannedRing(ctx: CanvasRenderingContext2D, size: number, cor
   ctx.restore();
 }
 
-export function drawFlockIcon(ctx: CanvasRenderingContext2D, g: FlockGroup, size: number, planned: boolean, hollow = false): void {
-  const color = FLOCK_GROUP_COLOR[g];
+export function drawFlockIcon(
+  ctx: CanvasRenderingContext2D,
+  g: FlockGroup,
+  size: number,
+  planned: boolean,
+  hollow = false,
+  decommissioned = false
+): void {
+  const color = decommissioned ? FLOCK_DECOMMISSIONED_COLOR.line : FLOCK_GROUP_COLOR[g];
   const shape = FLOCK_GROUP_SHAPE[g];
   const c = size / 2;
   const r = size * 0.36;
@@ -126,10 +143,10 @@ export function drawFlockIcon(ctx: CanvasRenderingContext2D, g: FlockGroup, size
       ctx.fill();
     }
   } else if (shape === 'lens') {
-    ctx.fillStyle = FLOCK_COMPARE_COLOR.core;
+    ctx.fillStyle = decommissioned ? FLOCK_DECOMMISSIONED_COLOR.core : FLOCK_COMPARE_COLOR.core;
     ctx.fill();
     ctx.lineWidth = size * 0.13;
-    ctx.strokeStyle = FLOCK_COMPARE_COLOR.ring;
+    ctx.strokeStyle = decommissioned ? FLOCK_DECOMMISSIONED_COLOR.ring : FLOCK_COMPARE_COLOR.ring;
     ctx.stroke();
   } else {
     ctx.fillStyle = color;
@@ -167,6 +184,12 @@ export function ensureFlockIcons(map: Pick<maplibregl.Map, 'hasImage' | 'addImag
     if (!map.hasImage(hollowId)) {
       const img = renderIcon((ctx, px) => drawFlockIcon(ctx, g, px, false, true), FLOCK_ICON_PX);
       if (img) map.addImage(hollowId, img, { pixelRatio: RATIO });
+    }
+    for (const hollow of [false, true]) {
+      const decomId = flockDecomIconId(g, hollow);
+      if (map.hasImage(decomId)) continue;
+      const img = renderIcon((ctx, px) => drawFlockIcon(ctx, g, px, false, hollow, true), FLOCK_ICON_PX);
+      if (img) map.addImage(decomId, img, { pixelRatio: RATIO });
     }
   }
   if (!map.hasImage(FLOCK_PLANNED_ICON)) {

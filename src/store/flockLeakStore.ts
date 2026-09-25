@@ -56,8 +56,8 @@ interface FlockLeakState {
   tilesFailed: boolean;
   /** Bumped by retry so the map remounts the Flock source. */
   sourceEpoch: number;
-  /** True once this visit's compare defaults (Flock plate readers in
-   *  service, OSM brand Flock Safety) have been applied. Reset by beginVisit. */
+  /** True once this visit's compare defaults (Flock plate readers, every
+   *  status, OSM brand Flock Safety) have been applied. Reset by beginVisit. */
   compareSeeded: boolean;
   visitSnapshot: VisitSnapshot | null;
 

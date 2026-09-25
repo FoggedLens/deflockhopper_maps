@@ -31,7 +31,7 @@ export const FLOCK_LEAK_COPY = {
   source: `Security researcher ${FLOCK_LEAK_RESEARCHER} downloaded the list from Flock's systems on December 14, 2025, through a flaw he had reported to Flock a month earlier. It is a snapshot and is never updated.`,
   compareTitle: 'Compare with OSM cameras',
   compareDetail: 'See which of these devices volunteers have already mapped.',
-  compareSeed: `Showing Flock's plate readers in service and OSM cameras tagged ${LEAK_OSM_DEFAULT_BRAND}. Widen either side with its filter.`,
+  compareSeed: `Showing Flock's plate readers and OSM cameras tagged ${LEAK_OSM_DEFAULT_BRAND}. Widen either side with its filter.`,
   caveat: "Flock's list stops at December 14, 2025, and OSM is live. A camera on one map and not the other is a lead, not proof. Check it in person before you add or remove anything.",
   ctaButton: 'Add a camera with the DeFlock app',
   hidden: `Not on the map: ${FLAGGED} records with an unknown status, factory test units, placeholder locations that stack many devices on one point, and positions outside North America.`,

@@ -14,8 +14,8 @@ import { FlockGroupMark, FlockLensMark, FlockPlannedMark, FlockRingMark } from '
 
 function StatusMark({ s, hollow }: { s: FlockStatus; hollow: boolean }) {
   if (s === 2) return <FlockPlannedMark size={16} open={hollow} />;
-  if (hollow) return <span className={s === 3 ? 'opacity-35' : undefined}><FlockRingMark size={16} /></span>;
-  return <FlockLensMark size={16} dimmed={s === 3} />;
+  if (hollow) return <FlockRingMark size={16} decommissioned={s === 3} />;
+  return <FlockLensMark size={16} decommissioned={s === 3} />;
 }
 
 /**

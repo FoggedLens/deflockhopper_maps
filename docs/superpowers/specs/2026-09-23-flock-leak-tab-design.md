@@ -452,3 +452,16 @@ legend looked like it disappeared. Where this differs from section 20, this sect
   current mark style; entries the filters hide are dimmed, never removed, so the list
   never changes length. It does not repeat the compare key.
 - `FlockMapLegend` is deleted.
+
+## 22. Amendments, 2026-09-24 (compare keeps every status; decommissioned is gray)
+
+User's call. Where this differs from sections 18 to 21, this section wins.
+
+- Turning the comparison on seeds statuses to all three (in service, planned,
+  decommissioned); only the device type (plate readers) and the OSM brand narrow. A
+  narrower status selection made before comparing is reset to the full set.
+- Decommissioned devices are gray (`FLOCK_DECOMMISSIONED_COLOR`: core `#4b5563`, ring and
+  line `#9ca3af`) at full opacity instead of the dimmed mark: gray lens without glow in the
+  Flock view, gray ring while comparing, gray variants of every other group's icon
+  (`flock-g{g}[-hollow]-decom`), gray density dots below z10, and gray swatches in the
+  legend and status chips. The 35% dimming helper (`zoomOpacityByStatus`) is gone.

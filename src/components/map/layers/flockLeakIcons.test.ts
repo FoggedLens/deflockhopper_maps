@@ -9,7 +9,7 @@ describe('flockIconId', () => {
   });
 
   it('lists every group solid, planned and hollow, plus the planned ring, with a color and a shape per group', () => {
-    expect(FLOCK_ICON_IDS).toHaveLength(FLOCK_GROUPS.length * 3 + 3);
+    expect(FLOCK_ICON_IDS).toHaveLength(FLOCK_GROUPS.length * 5 + 3);
     for (const g of FLOCK_GROUPS) {
       expect(FLOCK_ICON_IDS).toContain(flockIconId(g, false));
       expect(FLOCK_ICON_IDS).toContain(flockIconId(g, true));

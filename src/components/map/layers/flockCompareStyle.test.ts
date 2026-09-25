@@ -39,7 +39,7 @@ describe('buildFlockMarkSpecs', () => {
     const points = byId(layers, FLOCK_LEAK_CORE_LAYER) as CircleLayerSpecification;
     expect(points.type).toBe('circle');
     expect(points.paint?.['circle-opacity']).toBe(0);
-    expect(points.paint?.['circle-stroke-color']).toBe('#ef4444');
+    expect(JSON.stringify(points.paint?.['circle-stroke-color'])).toContain('"#ef4444"]');
   });
 
   it('filled draws the fogged lens: glow beneath a filled core with the OSM radii', () => {
@@ -49,7 +49,7 @@ describe('buildFlockMarkSpecs', () => {
     expect(byId(layers, FLOCK_LEAK_GLOW_LAYER)?.type).toBe('circle');
     const points = byId(layers, FLOCK_LEAK_CORE_LAYER) as CircleLayerSpecification;
     expect(points.paint?.['circle-radius']).toEqual(['interpolate', ['linear'], ['zoom'], 9, 4.3, 10, 6]);
-    expect(points.paint?.['circle-stroke-color']).toBe('#fca5a5');
+    expect(JSON.stringify(points.paint?.['circle-stroke-color'])).toContain('"#fca5a5"]');
   });
 
   it('planned devices get the dashed ring icon and are excluded from the core layers', () => {
@@ -68,13 +68,20 @@ describe('buildFlockMarkSpecs', () => {
     }
   });
 
-  it('dims decommissioned devices to 35% of the in-service opacity', () => {
-    const points = byId(buildFlockMarkSpecs('hollow'), FLOCK_LEAK_CORE_LAYER) as CircleLayerSpecification;
-    const res = createPropertyExpression(points.paint?.['circle-stroke-opacity'] as never, v8.paint_circle['circle-stroke-opacity'] as never);
-    if (res.result !== 'success') throw new Error(JSON.stringify(res.value));
-    const ev = (s: number) => res.value.evaluate({ zoom: 12 }, { type: 1, properties: { s }, geometry: null } as never);
-    expect(ev(1)).toBeCloseTo(0.9);
-    expect(ev(3)).toBeCloseTo(0.9 * 0.35);
+  it('draws decommissioned plate readers gray in both modes, at full opacity, without the glow', () => {
+    const colorAt = (expr: unknown, name: 'circle-color' | 'circle-stroke-color', s: number): string => {
+      const res = createPropertyExpression(expr as never, v8.paint_circle[name] as never);
+      if (res.result !== 'success') throw new Error(JSON.stringify(res.value));
+      return String(res.value.evaluate({ zoom: 12 }, { type: 1, properties: { s }, geometry: null } as never));
+    };
+    const hollow = byId(buildFlockMarkSpecs('hollow'), FLOCK_LEAK_CORE_LAYER) as CircleLayerSpecification;
+    expect(colorAt(hollow.paint?.['circle-stroke-color'], 'circle-stroke-color', 3)).toBe('rgba(156,163,175,1)');
+    expect(colorAt(hollow.paint?.['circle-stroke-color'], 'circle-stroke-color', 1)).toBe('rgba(239,68,68,1)');
+    const filledLayers = buildFlockMarkSpecs('filled');
+    const filled = byId(filledLayers, FLOCK_LEAK_CORE_LAYER) as CircleLayerSpecification;
+    expect(colorAt(filled.paint?.['circle-color'], 'circle-color', 3)).toBe('rgba(75,85,99,1)');
+    expect(JSON.stringify(filled.paint?.['circle-opacity'])).not.toContain('"s"');
+    expect(filterOf(byId(filledLayers, FLOCK_LEAK_GLOW_LAYER))).toContain('["!=",["coalesce",["get","s"],4],3]');
   });
 });
 
@@ -99,8 +106,13 @@ describe('other device groups in the compare views', () => {
       const icon = JSON.stringify(others.layout?.['icon-image']);
       expect(icon).toContain('"flock-g"');
       expect(icon).toContain('"-planned"');
-      if (mode === 'hollow') expect(icon).toContain('"-hollow"');
-      else expect(icon).not.toContain('"-hollow"');
+      if (mode === 'hollow') {
+        expect(icon).toContain('"-hollow"');
+        expect(icon).toContain('"-hollow-decom"');
+      } else {
+        expect(icon).not.toContain('"-hollow"');
+        expect(icon).toContain('"-decom"');
+      }
     }
   });
 

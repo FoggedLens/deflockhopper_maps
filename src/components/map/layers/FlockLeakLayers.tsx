@@ -13,16 +13,17 @@ import { useFlockLeakStore } from '../../../store/flockLeakStore';
 import { useAppModeStore } from '../../../store/appModeStore';
 import { FLOCK_GROUPS } from '../../../lib/flockInventory';
 import { ensureFlockIcons, FLOCK_GROUP_COLOR } from './flockLeakIcons';
-import { zoomOpacityByStatus } from './flockLeakStyle';
-import { buildFlockMarkSpecs, FLOCK_STATUS_SORT_KEY, type FlockMarkMode } from './flockCompareStyle';
+import { IS_DECOMMISSIONED } from './flockLeakStyle';
+import { buildFlockMarkSpecs, FLOCK_STATUS_SORT_KEY, FLOCK_DECOMMISSIONED_COLOR, type FlockMarkMode } from './flockCompareStyle';
 import { FLOCK_LEAK_DOTS_LAYER, FLOCK_LAYER_ORDER, layersToRaise } from './flockLeakLayerIds';
 
-/** ['match', ['get','g'], 1, C1, ..., FALLBACK] from the one color table. */
+/** Gray when decommissioned, else ['match', ['get','g'], 1, C1, ...,
+ *  FALLBACK] from the one color table. */
 const groupColorExpression = (): unknown[] => [
-  'match',
-  ['get', 'g'],
-  ...FLOCK_GROUPS.flatMap((g) => [g, FLOCK_GROUP_COLOR[g]]),
-  '#9ca3af',
+  'case',
+  IS_DECOMMISSIONED,
+  FLOCK_DECOMMISSIONED_COLOR.line,
+  ['match', ['get', 'g'], ...FLOCK_GROUPS.flatMap((g) => [g, FLOCK_GROUP_COLOR[g]]), '#9ca3af'],
 ];
 
 /**
@@ -45,7 +46,7 @@ function buildDots(filter: FilterSpecification | undefined): maplibregl.CircleLa
     paint: {
       'circle-color': groupColorExpression() as never,
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 1, 4, 1.5, 7, 2.2, 8, 3.5, 9.9, 5],
-      'circle-opacity': zoomOpacityByStatus([0, 0.5, 6, 0.6, 8.5, 0.75, 9.6, 0.75, 10, 0], 0.5) as never,
+      'circle-opacity': ['interpolate', ['linear'], ['zoom'], 0, 0.5, 6, 0.6, 8.5, 0.75, 9.6, 0.75, 10, 0],
       'circle-stroke-width': 0,
     },
   };
