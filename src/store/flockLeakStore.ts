@@ -18,8 +18,14 @@ export type FlockLeakLoadPhase = 'idle' | 'loading' | 'ready' | 'error';
 /** What a tap on the Flock layer resolved to. Below z9 the tiles carry only
  *  codes, so `devices` is empty and g/s/q describe the merged point. */
 export interface FlockSelection {
+  /** The tapped spot's exact source coordinate (the device records' own
+   *  lat/lon from z9): links and distances use it. */
   lon: number;
   lat: number;
+  /** Where the map draws that spot (quantized tile geometry, drifting from
+   *  lat/lon past z14): the selection ring and popup tip sit here. */
+  markLon: number;
+  markLat: number;
   zoom: number;
   g: FlockGroup | null;
   s: FlockStatus | null;

@@ -150,7 +150,7 @@ export function FlockLeakPopup() {
 
   if (isMobile) {
     return (
-      <Marker longitude={sel.lon} latitude={sel.lat} anchor="center" style={{ pointerEvents: 'none' }}>
+      <Marker longitude={sel.markLon} latitude={sel.markLat} anchor="center" style={{ pointerEvents: 'none' }}>
         <span
           className="block w-[34px] h-[34px] rounded-full"
           style={{ boxShadow: '0 0 0 2px #fff, 0 0 0 5px rgba(0, 0, 0, 0.45)' }}
@@ -164,8 +164,8 @@ export function FlockLeakPopup() {
     // No fixed anchor: MapLibre opens it downward near the top edge, so a
     // tall device list never slides under the search bar.
     <Popup
-      longitude={sel.lon}
-      latitude={sel.lat}
+      longitude={sel.markLon}
+      latitude={sel.markLat}
       onClose={() => setSelection(null)}
       closeOnClick={false}
       className="camera-popup-maplibre"

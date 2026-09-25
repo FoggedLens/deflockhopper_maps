@@ -89,7 +89,7 @@ import { FlockLeakPopup } from './FlockLeakPopup';
 import { useFlockLeakStore } from '../../store/flockLeakStore';
 import { flockLeakTileJsonUrl, FLOCK_LEAK_SOURCE_ID, FLOCK_LEAK_POINTS_MINZOOM } from '../../services/flockLeakTilesService';
 import { planLeakTileError } from '../../utils/tileErrorPolicy';
-import { parseGroup, parseStatus, parseQuality, parseDeviceRecord, groupDevicesAtCoordinate, nearestCoordinateGroup } from '../../lib/flockInventory';
+import { parseGroup, parseStatus, parseQuality, parseDeviceRecord, groupDevicesAtCoordinate, nearestCoordinateGroup, drawnPositionOf, type FlockDeviceRecord } from '../../lib/flockInventory';
 import { nearestDistanceMeters, NEARBY_QUERY_PX } from '../../utils/flockNearby';
 
 // Both tile paths (default + filtered) render the same points layer shape;
@@ -1062,18 +1062,27 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     let devices: ReturnType<typeof parseDeviceRecord>[] = [];
     let lon = flon;
     let lat = flat;
+    // Where the ring and popup tip go. Below z9 the tapped merged point is
+    // drawn where it is; from z9 it is the drawn geometry of the target
+    // group, which drifts from the records' exact lat/lon past z14.
+    let mark = { lon: flon, lat: flat };
     if (zoom >= FLOCK_LEAK_POINTS_MINZOOM && hasFlockHitLayers(map)) {
       const clicked = parseDeviceRecord(props);
-      const nearby = map
-        .queryRenderedFeatures(box, { layers: flockHitLayers(map) })
-        .map((f) => parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>))
-        .filter((r): r is NonNullable<typeof r> => r !== null);
-      const target = nearestCoordinateGroup(nearby, lngLat.lat, lngLat.lng)
+      const nearby: Array<{ record: FlockDeviceRecord; lon: number; lat: number }> = [];
+      for (const f of map.queryRenderedFeatures(box, { layers: flockHitLayers(map) })) {
+        const record = parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>);
+        if (!record) continue;
+        const [dlon, dlat] = (f.geometry as GeoJSON.Point).coordinates;
+        nearby.push({ record, lon: dlon, lat: dlat });
+      }
+      const records = nearby.map((f) => f.record);
+      const target = nearestCoordinateGroup(records, lngLat.lat, lngLat.lng)
         ?? (clicked ? { lat: clicked.lat, lon: clicked.lon } : null);
       if (target) {
         lon = target.lon;
         lat = target.lat;
-        devices = groupDevicesAtCoordinate(nearby, target.lat, target.lon);
+        devices = groupDevicesAtCoordinate(records, target.lat, target.lon);
+        mark = drawnPositionOf(nearby, target.lat, target.lon) ?? mark;
       }
     }
     const osmLayer = isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points';
@@ -1092,6 +1101,8 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     useFlockLeakStore.getState().setSelection({
       lon,
       lat,
+      markLon: mark.lon,
+      markLat: mark.lat,
       zoom,
       g: parseGroup(props.g),
       s: parseStatus(props.s),

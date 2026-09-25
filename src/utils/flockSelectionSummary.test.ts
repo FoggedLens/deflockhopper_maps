@@ -24,6 +24,8 @@ const device = (over: Partial<FlockDeviceRecord> = {}): FlockDeviceRecord => ({
 const selection = (over: Partial<FlockSelection> = {}): FlockSelection => ({
   lon: -95.3698,
   lat: 29.7604,
+  markLon: -95.3698,
+  markLat: 29.7604,
   zoom: 15,
   g: 1,
   s: 1,

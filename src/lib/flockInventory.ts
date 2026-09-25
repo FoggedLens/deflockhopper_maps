@@ -274,6 +274,20 @@ export function nearestCoordinateGroup(
   return best ? { lat: best.lat, lon: best.lon } : null;
 }
 
+/** Where the map draws the group at an exact coordinate: the tile geometry
+ *  of one of its rendered features. The tiles quantize positions (about
+ *  0.3 m), and past the tileset's maxzoom (14) that gap is magnified, so
+ *  anything placed on the mark (the selection ring, the popup tip) uses
+ *  this, while links and distances keep the record's exact lat/lon. */
+export function drawnPositionOf(
+  features: ReadonlyArray<{ record: FlockDeviceRecord; lat: number; lon: number }>,
+  lat: number,
+  lon: number
+): { lat: number; lon: number } | null {
+  const hit = features.find((f) => f.record.lat === lat && f.record.lon === lon);
+  return hit ? { lat: hit.lat, lon: hit.lon } : null;
+}
+
 /** "2 Drone Dock · 2 Picard", in order of first appearance. */
 export function typeCountLine(records: FlockDeviceRecord[]): string {
   const counts = new Map<string, number>();

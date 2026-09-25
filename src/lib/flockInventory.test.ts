@@ -16,6 +16,7 @@ import {
   parseDeviceRecord,
   groupDevicesAtCoordinate,
   nearestCoordinateGroup,
+  drawnPositionOf,
   typeCountLine,
   cleanPointsFor,
 } from './flockInventory';
@@ -152,6 +153,20 @@ describe('groupDevicesAtCoordinate and typeCountLine', () => {
     // click on the drone's spot
     expect(nearestCoordinateGroup([...stack, drone], 37.7795, -122.5026)).toEqual({ lat: 37.7795, lon: -122.5026 });
     expect(nearestCoordinateGroup([], 0, 0)).toBeNull();
+  });
+
+  it('drawnPositionOf gives where the map draws a group, not its exact record coordinate', () => {
+    // Tile geometry is quantized (about 0.3 m), so a feature is drawn a
+    // little off its record's lat/lon; things placed on the mark need the
+    // drawn position, which past maxzoom is many pixels away.
+    const drawn = [
+      { record: at(3, 'drone', 5, 37.7795, -122.5026), lat: 37.779502, lon: -122.502597 },
+      { record: at(1, 'droneDockingStation', 5), lat: 37.779458, lon: -122.502643 },
+      { record: at(2, 'droneDockingStation', 5), lat: 37.779458, lon: -122.502643 },
+    ];
+    expect(drawnPositionOf(drawn, 37.77946, -122.50264)).toEqual({ lat: 37.779458, lon: -122.502643 });
+    expect(drawnPositionOf(drawn, 37.7795, -122.5026)).toEqual({ lat: 37.779502, lon: -122.502597 });
+    expect(drawnPositionOf(drawn, 1, 1)).toBeNull();
   });
 });
 
