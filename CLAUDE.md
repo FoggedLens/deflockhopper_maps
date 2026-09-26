@@ -61,7 +61,7 @@ The map has 5 modes, selectable via the header tabs:
 - **Map**: Camera browse view (default). Camera markers from the hourly tiles, OSM attribute filters, and the boundary overlay
 - **Route**: Camera-avoidance route planning
 - **Explore**: Dot density visualization with timeline playback
-- **Flock Leak**: Flock's own device records (the Dec 14, 2025 export published by researcher Joshua Michael) on one map, with a switch that lays the OSM cameras underneath to compare (`src/store/flockLeakStore.ts`, `src/components/panels/FlockLeakPanelContent.tsx`, `src/components/map/FlockLegendControl.tsx`). There is no swipe view (removed 2026-09-24, see the spec's sections 19 to 21)
+- **Flock Leak**: Flock's own device records (the Dec 14, 2025 export published by researcher Joshua Michael) on one map, with a switch that lays the OSM cameras underneath to compare (`src/store/flockLeakStore.ts`, `src/components/panels/FlockLeakPanelContent.tsx`, `src/components/map/FlockLegendControl.tsx`). There is no swipe view (removed 2026-09-24, see the spec's sections 19 to 21). On phones a Trip button (bottom of the left map column) opens trip mode: tap up to 10 devices (one stop per exact coordinate, z9+), the order is the shortest straight-line path from the phone's position (asked once per page load, never sent), and Open in Google Maps hands the ordered stops to Google (no origin in the link). The drawer becomes the trip bar; Done keeps the stops (saved in localStorage) and the Trip button shows the count (`src/store/tripStore.ts`, spec `docs/superpowers/specs/2026-09-25-leak-trip-design.md`)
 - **Network**: Sharing network visualization between agencies
 
 ### Critical Files
@@ -87,6 +87,10 @@ The map has 5 modes, selectable via the header tabs:
 | `src/components/panels/FlockLeakPanelContent.tsx` | Every Leak tab string; the side panel and mobile sheet: the two-segment view picker first (Flock's records, Compare with OSM; `FlockCompareControl`, also the mobile peek's control) with its one-line key, then the explainer with the researcher's links, filters, caveat, credit |
 | `src/components/map/FlockLegendControl.tsx` | Legend button in the map's left control column; a popover listing every device type and status, dimming the filtered ones |
 | `src/components/map/layers/FlockLeakLayers.tsx` | density dots plus the filled or hollow marks from flockCompareStyle; keeps itself above the OSM layers |
+| `src/store/tripStore.ts` | Leak trip: stops (max 10, one per coordinate), driving order, phone position, saved stops |
+| `src/utils/tripOrder.ts` | Exact shortest open path over at most 10 stops (Held-Karp, straight-line) |
+| `src/utils/googleMapsTripUrl.ts` | Google Maps directions link for the ordered trip (no origin, preview not navigation) |
+| `src/components/map/TripMarks.tsx` | Numbered stop chips, connector and position dot inside the map |
 | `src/components/panels/MapPanel.tsx` | Main panel container component |
 | `src/components/panels/TabbedPanel.tsx` | Tab navigation for mode panels |
 
@@ -101,6 +105,7 @@ Zustand stores expose both state and actions. Key stores:
 - `appModeStore`: Current app mode, visualization settings
 - `networkStore`: Sharing network data (fetched from the deflock-data CDN, plus optional `meta` provenance)
 - `flockLeakStore`: Leak tab view (Flock alone or the OSM comparison), type/status filters, TileJSON load state, tile failure flag
+- `tripStore`: Leak trip mode (phones), stops, driving order, phone position; stops persist in localStorage
 
 ### Directory Structure
 
@@ -110,6 +115,7 @@ src/
 │   ├── common/     # ErrorBoundary, LoadingSpinner, BottomSheet, Seo, LegacyMapLink
 │   ├── inputs/     # AddressSearch autocomplete
 │   ├── map/        # MapLibreContainer, MapSearch, CameraStats, MapLoadingScreen
+│   │               # MapSearch is a Search pill on phones that opens the bar
 │   │   └── layers/ # CameraTileLayers (default), CameraMarkerLayers (lazy),
 │   │               # DotDensityLayers, HeatmapLayers, FlockLeakLayers,
 │   │               # NetworkLayers, BoundaryOverlayLayers
