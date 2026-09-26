@@ -12,3 +12,5 @@ export { useBoundaryStore } from './boundaryStore';
 export type { BoundaryState } from './boundaryStore';
 export { useFlockLeakStore } from './flockLeakStore';
 export type { FlockLeakView, FlockSelection } from './flockLeakStore';
+export { useTripStore, TRIP_MAX_STOPS } from './tripStore';
+export type { TripStop, TripLocationStatus } from './tripStore';
