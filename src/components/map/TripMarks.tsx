@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Marker, Source, Layer } from 'react-map-gl/maplibre';
 import { useTripStore, orderedStops } from '../../store/tripStore';
 
@@ -30,6 +30,17 @@ export function TripMarks() {
     },
   }), [origin, ordered]);
 
+  // Back from Google Maps (or any tab switch) with the trip open: re-read the
+  // position so the order starts where the phone is now. Never prompts.
+  useEffect(() => {
+    if (!active) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') useTripStore.getState().refreshOrigin();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [active]);
+
   if (!active) return null;
 
   return (
@@ -46,6 +57,7 @@ export function TripMarks() {
       {origin && (
         <Marker longitude={origin.lon} latitude={origin.lat} anchor="center" style={{ pointerEvents: 'none' }}>
           <span
+            data-trip-origin
             aria-hidden="true"
             className="block w-[18px] h-[18px] rounded-full bg-[#3b82f6] border-[3px] border-white"
             style={{ boxShadow: '0 0 0 8px rgba(59, 130, 246, 0.22)' }}

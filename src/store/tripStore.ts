@@ -124,6 +124,8 @@ interface TripState {
   clear: () => void;
   setOrigin: (origin: LatLon | null) => void;
   setLocationStatus: (status: TripLocationStatus) => void;
+  /** Re-reads the position when it was already granted. Never asks. */
+  refreshOrigin: () => void;
 }
 
 const savedStops = readStoredStops(browserStorage());
@@ -144,7 +146,10 @@ export const useTripStore = create<TripState>((set, get) => {
     open: () => {
       if (get().active) return;
       set({ active: true });
-      if (get().locationStatus === 'idle') requestTripOrigin();
+      // The first open asks. Once granted, every open re-reads the position
+      // (no prompt), so a trip planned later starts from where the phone is now.
+      const status = get().locationStatus;
+      if (status === 'idle' || status === 'granted') requestTripOrigin();
     },
     close: () => {
       if (get().active) set({ active: false });
@@ -168,13 +173,17 @@ export const useTripStore = create<TripState>((set, get) => {
     },
     setOrigin: (origin) => set({ origin, order: orderKeys(origin, get().stops) }),
     setLocationStatus: (locationStatus) => set({ locationStatus }),
+    refreshOrigin: () => {
+      if (get().locationStatus === 'granted') requestTripOrigin();
+    },
   };
 });
 
 /**
- * Asks once per page load for the phone's position so the order can start
- * where the user is. Refusal, errors and timeouts leave the origin empty and
- * the order starts at stop 1.
+ * Reads the phone's position so the order can start where the user is. The
+ * browser prompts only the first time; a refusal is never asked again.
+ * Refusal, errors and timeouts clear the origin (a stale one would order the
+ * trip from the wrong place) and the order starts at stop 1.
  */
 export function requestTripOrigin(): void {
   const { setLocationStatus, setOrigin } = useTripStore.getState();
@@ -189,7 +198,10 @@ export function requestTripOrigin(): void {
       setOrigin({ lat: pos.coords.latitude, lon: pos.coords.longitude });
       setLocationStatus('granted');
     },
-    (err) => setLocationStatus(err.code === 1 ? 'denied' : 'unavailable'),
+    (err) => {
+      setOrigin(null);
+      setLocationStatus(err.code === 1 ? 'denied' : 'unavailable');
+    },
     { enableHighAccuracy: false, maximumAge: 60_000, timeout: 8_000 },
   );
 }

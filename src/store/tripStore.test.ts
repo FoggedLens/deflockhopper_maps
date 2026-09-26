@@ -119,9 +119,12 @@ describe('open, close and location', () => {
     expect(useTripStore.getState().active).toBe(false);
   });
 
-  it('uses the position when granted and asks only once per page load', () => {
+  it('uses the position when granted and refreshes it on every open', () => {
+    // A trip planned at home, driven, then planned again from the road must
+    // start from where the phone is now, not where it was first asked.
+    const positions = [{ latitude: 29.7, longitude: -95.3 }, { latitude: 29.9, longitude: -95.1 }];
     const getCurrentPosition = vi.fn((ok: PositionCallback) =>
-      ok({ coords: { latitude: 29.7, longitude: -95.3 } } as GeolocationPosition)
+      ok({ coords: positions.shift() } as GeolocationPosition)
     );
     vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } });
     useTripStore.getState().open();
@@ -129,7 +132,38 @@ describe('open, close and location', () => {
     expect(useTripStore.getState().locationStatus).toBe('granted');
     useTripStore.getState().close();
     useTripStore.getState().open();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(useTripStore.getState().origin).toEqual({ lat: 29.9, lon: -95.1 });
+  });
+
+  it('refreshes on request only once granted, never after a refusal', () => {
+    const getCurrentPosition = vi.fn((_ok: PositionCallback, fail?: PositionErrorCallback | null) =>
+      fail?.({ code: 1, message: 'denied' } as GeolocationPositionError)
+    );
+    vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } });
+    useTripStore.getState().refreshOrigin();
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    useTripStore.getState().open();
+    useTripStore.getState().close();
+    useTripStore.getState().open();
+    useTripStore.getState().refreshOrigin();
     expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(useTripStore.getState().locationStatus).toBe('denied');
+  });
+
+  it('drops a stale origin when a refresh fails', () => {
+    let fail = false;
+    const getCurrentPosition = vi.fn((ok: PositionCallback, err?: PositionErrorCallback | null) =>
+      fail ? err?.({ code: 3, message: 'timeout' } as GeolocationPositionError)
+        : ok({ coords: { latitude: 29.7, longitude: -95.3 } } as GeolocationPosition)
+    );
+    vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } });
+    useTripStore.getState().open();
+    expect(useTripStore.getState().origin).not.toBeNull();
+    fail = true;
+    useTripStore.getState().refreshOrigin();
+    expect(useTripStore.getState().origin).toBeNull();
+    expect(useTripStore.getState().locationStatus).toBe('unavailable');
   });
 
   it('records a refusal and keeps working without an origin', () => {
