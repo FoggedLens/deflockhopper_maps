@@ -1,4 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { flushSync } from 'react-dom';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { shouldCollapseSearch, type SearchCollapseReason } from '../../utils/searchPill';
 import { useMapStore } from '../../store';
 import { smartSearch, toLocation, type GeocodingResult } from '../../services/geocodingService';
 
@@ -59,12 +62,38 @@ export function MapSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  
+  // Phones: search rests as a Search pill at the top left and opens into the
+  // full bar (user's call, 2026-09-25: a header icon was too hidden).
+  const isMobile = useIsMobile();
+  const [collapsed, setCollapsed] = useState(true);
+  const showPill = isMobile && collapsed;
+
   const flyTo = useMapStore(s => s.flyTo);
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const foldIf = (reason: SearchCollapseReason) => {
+    if (isMobile && shouldCollapseSearch(reason, query, isOpen)) setCollapsed(true);
+  };
+
+  // iOS opens the keyboard only for focus() inside the tap's own handler, so
+  // the bar must mount synchronously before focusing.
+  const openSearch = () => {
+    flushSync(() => setCollapsed(false));
+    inputRef.current?.focus();
+  };
+
+  const handleClose = () => {
+    abortControllerRef.current?.abort();
+    setQuery('');
+    setResults([]);
+    setIsOpen(false);
+    setSelectedIndex(-1);
+    setIsLoading(false);
+    foldIf('close');
+  };
 
   // Perform search - only called on Enter or button click
   const performSearch = useCallback(async (searchQuery: string) => {
@@ -133,6 +162,7 @@ export function MapSearch() {
     } else if (e.key === 'Escape') {
       setIsOpen(false);
       setSelectedIndex(-1);
+      foldIf('escape');
     }
   };
 
@@ -151,6 +181,7 @@ export function MapSearch() {
     setResults([]);
     setSelectedIndex(-1);
     inputRef.current?.blur();
+    foldIf('picked');
   };
 
   const handleClear = () => {
@@ -199,6 +230,24 @@ export function MapSearch() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isFocused]);
 
+  if (showPill) {
+    return (
+      <div ref={containerRef} className="absolute top-3 left-3 z-40">
+        <button
+          type="button"
+          onClick={openSearch}
+          aria-label="Search places"
+          className="inline-flex items-center gap-2 h-[42px] pl-3 pr-4 bg-dark-900/90 backdrop-blur border border-hairline rounded-lg text-[15px] font-medium text-dark-100 shadow-[0_2px_10px_rgba(0,0,0,0.35)] active:bg-dark-800 transition-colors"
+        >
+          <svg className="w-[18px] h-[18px] text-dark-200" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+          </svg>
+          Search
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div ref={containerRef} className="absolute top-3 left-3 right-3 lg:top-4 lg:left-4 lg:right-auto z-40 lg:w-96">
       {/* Search Input */}
@@ -219,47 +268,73 @@ export function MapSearch() {
             setIsFocused(true);
             if (results.length > 0) setIsOpen(true);
           }}
-          onBlur={() => setIsFocused(false)}
+          onBlur={() => {
+            setIsFocused(false);
+            foldIf('blur');
+          }}
           placeholder="Search zip, city, or address..."
           autoComplete="off"
+          enterKeyHint="search"
           aria-label="Search locations"
-          className="w-full pl-12 pr-24 py-3.5 bg-dark-900/90 backdrop-blur border border-hairline rounded-lg text-white placeholder-dark-500 text-base text-left focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20"
+          className="w-full pl-12 pr-20 lg:pr-24 py-3.5 bg-dark-900/90 backdrop-blur border border-hairline rounded-lg text-white placeholder-dark-500 text-base text-left focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20"
         />
 
-        {/* Right side: Search button, Loading, Clear */}
+        {/* Right side. Phones: a spinner while searching and one close
+            button (the keyboard's Search key submits). Desktop: clear and
+            the arrow submit, unchanged. */}
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          {query && !isLoading && (
-            <button
-              onClick={handleClear}
-              type="button"
-              aria-label="Clear search"
-              className="p-1.5 text-gray-400 hover:text-white hover:bg-dark-700 rounded-lg transition-colors"
-              title="Clear"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-              </svg>
-            </button>
+          {isMobile ? (
+            <>
+              {isLoading && (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
+              )}
+              <button
+                onClick={handleClose}
+                type="button"
+                aria-label="Close search"
+                className="p-2 text-dark-300 active:text-white rounded-md transition-colors"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </svg>
+              </button>
+            </>
+          ) : (
+            <>
+              {query && !isLoading && (
+                <button
+                  onClick={handleClear}
+                  type="button"
+                  aria-label="Clear search"
+                  className="p-1.5 text-gray-400 hover:text-white hover:bg-dark-700 rounded-lg transition-colors"
+                  title="Clear"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                  </svg>
+                </button>
+              )}
+
+              <button
+                onClick={handleSubmit}
+                type="button"
+                disabled={isLoading || query.trim().length < 2}
+                aria-label="Search"
+                className="p-2 bg-accent hover:bg-accent-hover disabled:bg-dark-700 disabled:text-dark-400 text-white rounded-md transition-colors"
+                title="Search (Enter)"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  // Arrow "go" glyph: the field's left magnifier is the search
+                  // signifier; two magnifiers in one input read as a mistake
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" />
+                  </svg>
+                )}
+              </button>
+            </>
           )}
-          
-          <button
-            onClick={handleSubmit}
-            type="button"
-            disabled={isLoading || query.trim().length < 2}
-            aria-label="Search"
-            className="p-2 bg-accent hover:bg-accent-hover disabled:bg-dark-700 disabled:text-dark-400 text-white rounded-md transition-colors"
-            title="Search (Enter)"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              // Arrow "go" glyph — the field's left magnifier is the search
-              // signifier; two magnifiers in one input read as a mistake
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" />
-              </svg>
-            )}
-          </button>
         </div>
       </div>
 
