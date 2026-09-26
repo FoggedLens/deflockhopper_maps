@@ -87,6 +87,8 @@ import {
 } from './layers/flockLeakLayerIds';
 import { FlockLeakPopup } from './FlockLeakPopup';
 import { useFlockLeakStore } from '../../store/flockLeakStore';
+import { useTripStore, tripStopFromGroup } from '../../store/tripStore';
+import { TripMarks } from './TripMarks';
 import { flockLeakTileJsonUrl, FLOCK_LEAK_SOURCE_ID, FLOCK_LEAK_POINTS_MINZOOM } from '../../services/flockLeakTilesService';
 import { planLeakTileError } from '../../utils/tileErrorPolicy';
 import { parseGroup, parseStatus, parseQuality, parseDeviceRecord, groupDevicesAtCoordinate, nearestCoordinateGroup, drawnPositionOf, type FlockDeviceRecord } from '../../lib/flockInventory';
@@ -99,6 +101,59 @@ const CAMERA_POINT_LAYER_IDS = ['camera-tile-points', 'camera-tile-points-filter
 
 // Half-width of the pixel box used to hit-test a click against a point layer.
 const CLICK_BOX_PX = 12;
+
+/** What a tap on a Flock mark hit, with no store side effects. From z9: the
+ *  devices at the exact coordinate nearest the tap (lead device first) and
+ *  where the map draws them. Below z9: the merged point, with no devices. */
+interface FlockTapGroup {
+  lon: number;
+  lat: number;
+  markLon: number;
+  markLat: number;
+  zoom: number;
+  props: Record<string, unknown>;
+  devices: FlockDeviceRecord[];
+}
+
+function resolveFlockGroup(
+  map: maplibregl.Map,
+  feature: maplibregl.MapGeoJSONFeature,
+  point: { x: number; y: number },
+  lngLat: { lng: number; lat: number },
+): FlockTapGroup {
+  const zoom = map.getZoom();
+  const props = (feature.properties ?? {}) as Record<string, unknown>;
+  const [flon, flat] = (feature.geometry as GeoJSON.Point).coordinates;
+  const { x, y } = point;
+  const box: [[number, number], [number, number]] = [[x - CLICK_BOX_PX, y - CLICK_BOX_PX], [x + CLICK_BOX_PX, y + CLICK_BOX_PX]];
+  let devices: FlockDeviceRecord[] = [];
+  let lon = flon;
+  let lat = flat;
+  // Where the ring, popup tip and trip chip go. Below z9 the tapped merged
+  // point is drawn where it is; from z9 it is the drawn geometry of the
+  // target group, which drifts from the records' exact lat/lon past z14.
+  let mark = { lon: flon, lat: flat };
+  if (zoom >= FLOCK_LEAK_POINTS_MINZOOM && hasFlockHitLayers(map)) {
+    const clicked = parseDeviceRecord(props);
+    const nearby: Array<{ record: FlockDeviceRecord; lon: number; lat: number }> = [];
+    for (const f of map.queryRenderedFeatures(box, { layers: flockHitLayers(map) })) {
+      const record = parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>);
+      if (!record) continue;
+      const [dlon, dlat] = (f.geometry as GeoJSON.Point).coordinates;
+      nearby.push({ record, lon: dlon, lat: dlat });
+    }
+    const records = nearby.map((f) => f.record);
+    const target = nearestCoordinateGroup(records, lngLat.lat, lngLat.lng)
+      ?? (clicked ? { lat: clicked.lat, lon: clicked.lon } : null);
+    if (target) {
+      lon = target.lon;
+      lat = target.lat;
+      devices = groupDevicesAtCoordinate(records, target.lat, target.lon);
+      mark = drawnPositionOf(nearby, target.lat, target.lon) ?? mark;
+    }
+  }
+  return { lon, lat, markLon: mark.lon, markLat: mark.lat, zoom, props, devices };
+}
 
 // Map our style IDs to Protomaps flavor names (must match R2 sprites at /sprites/v4/{flavor})
 const FLAVOR_MAP: Record<MapTileStyleId, string> = {
@@ -230,6 +285,8 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
   const isLeakMode = appMode === 'leak';
   const leakView = useFlockLeakStore(s => s.view);
   const leakSourceEpoch = useFlockLeakStore(s => s.sourceEpoch);
+  // Leak trip mode (phones): taps on devices add or remove stops instead.
+  const tripActive = useTripStore(s => s.active) && isLeakMode;
   const mapModeViz = useMapModeStore(s => s.visualization);
   const setActiveView = useMapModeStore(s => s.setActiveView);
   const isHeatmapMode = isExploreMode && mapVisualization === 'heatmap';
@@ -1054,37 +1111,8 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     point: { x: number; y: number },
     lngLat: { lng: number; lat: number },
   ) => {
-    const zoom = map.getZoom();
-    const props = (feature.properties ?? {}) as Record<string, unknown>;
-    const [flon, flat] = (feature.geometry as GeoJSON.Point).coordinates;
+    const group = resolveFlockGroup(map, feature, point, lngLat);
     const { x, y } = point;
-    const box: [[number, number], [number, number]] = [[x - CLICK_BOX_PX, y - CLICK_BOX_PX], [x + CLICK_BOX_PX, y + CLICK_BOX_PX]];
-    let devices: ReturnType<typeof parseDeviceRecord>[] = [];
-    let lon = flon;
-    let lat = flat;
-    // Where the ring and popup tip go. Below z9 the tapped merged point is
-    // drawn where it is; from z9 it is the drawn geometry of the target
-    // group, which drifts from the records' exact lat/lon past z14.
-    let mark = { lon: flon, lat: flat };
-    if (zoom >= FLOCK_LEAK_POINTS_MINZOOM && hasFlockHitLayers(map)) {
-      const clicked = parseDeviceRecord(props);
-      const nearby: Array<{ record: FlockDeviceRecord; lon: number; lat: number }> = [];
-      for (const f of map.queryRenderedFeatures(box, { layers: flockHitLayers(map) })) {
-        const record = parseDeviceRecord((f.properties ?? {}) as Record<string, unknown>);
-        if (!record) continue;
-        const [dlon, dlat] = (f.geometry as GeoJSON.Point).coordinates;
-        nearby.push({ record, lon: dlon, lat: dlat });
-      }
-      const records = nearby.map((f) => f.record);
-      const target = nearestCoordinateGroup(records, lngLat.lat, lngLat.lng)
-        ?? (clicked ? { lat: clicked.lat, lon: clicked.lon } : null);
-      if (target) {
-        lon = target.lon;
-        lat = target.lat;
-        devices = groupDevicesAtCoordinate(records, target.lat, target.lon);
-        mark = drawnPositionOf(nearby, target.lat, target.lon) ?? mark;
-      }
-    }
     const osmLayer = isFilterTilesMode ? 'camera-tile-points-filtered' : 'camera-tile-points';
     const osmMapForHint = showCameraMarkers ? map : undefined;
     const osmNearby = osmMapForHint?.getLayer(osmLayer)
@@ -1099,16 +1127,16 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
           })
       : [];
     useFlockLeakStore.getState().setSelection({
-      lon,
-      lat,
-      markLon: mark.lon,
-      markLat: mark.lat,
-      zoom,
-      g: parseGroup(props.g),
-      s: parseStatus(props.s),
-      q: parseQuality(props.q),
-      devices: devices.filter((d): d is NonNullable<typeof d> => d !== null),
-      nearestOsmMeters: nearestDistanceMeters({ lon, lat }, osmNearby),
+      lon: group.lon,
+      lat: group.lat,
+      markLon: group.markLon,
+      markLat: group.markLat,
+      zoom: group.zoom,
+      g: parseGroup(group.props.g),
+      s: parseStatus(group.props.s),
+      q: parseQuality(group.props.q),
+      devices: group.devices,
+      nearestOsmMeters: nearestDistanceMeters({ lon: group.lon, lat: group.lat }, osmNearby),
     });
     setPopupInfo(null);
   }, [isFilterTilesMode, showCameraMarkers]);
@@ -1143,13 +1171,27 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     // Network mode: deck.gl handles clicks via its own pickable layers
     if (isNetworkMode) return;
 
-    // Flock Leak: a tap on a Flock mark resolves to the devices at that exact
-    // coordinate (z9+) or the merged point's codes (below z9). A tap on an
-    // OSM camera falls through to the camera popup below.
     if (isLeakMode) {
       const flockFeature = event.features?.find((f) =>
         [FLOCK_LEAK_CORE_LAYER, FLOCK_LEAK_PLANNED_LAYER, FLOCK_LEAK_OTHERS_LAYER, FLOCK_LEAK_MINOR_LAYER, FLOCK_LEAK_DOTS_LAYER].includes(f.layer.id)
       );
+      // Trip mode: a tap on a device adds or removes it as a stop, and nothing
+      // else reacts (no card, no OSM popup, no clearing). A double-tap fires
+      // two clicks; the second within 400ms is ignored so it cannot undo the
+      // first. Below z9 the tap resolves no devices and adds nothing.
+      if (tripActive) {
+        const now = Date.now();
+        if (now - lastPickTimeRef.current < 400) return;
+        lastPickTimeRef.current = now;
+        if (flockFeature) {
+          const stop = tripStopFromGroup(resolveFlockGroup(mapRef.current.getMap(), flockFeature, event.point, event.lngLat));
+          if (stop) useTripStore.getState().toggleStop(stop);
+        }
+        return;
+      }
+      // A tap on a Flock mark resolves to the devices at that exact coordinate
+      // (z9+) or the merged point's codes (below z9). A tap on an OSM camera
+      // falls through to the camera popup below.
       if (flockFeature) {
         resolveFlockClick(mapRef.current.getMap(), flockFeature, event.point, event.lngLat);
         return;
@@ -1191,7 +1233,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     }
 
     openCameraPopup(feature);
-  }, [pickingLocation, setPickedLocation, isNetworkMode, isTilesMode, isFilterTilesMode, isLeakMode, resolveFlockClick, openCameraPopup]);
+  }, [pickingLocation, setPickedLocation, isNetworkMode, isTilesMode, isFilterTilesMode, isLeakMode, tripActive, resolveFlockClick, openCameraPopup]);
 
   // Cursor handling - crosshair when adding waypoints or picking location
   const onMouseEnter = useCallback(() => {
@@ -1216,18 +1258,18 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
     }
   }, [pickingLocation]);
 
-  // While picking, disable double-tap zoom so a double-tap doesn't lurch the
-  // camera; the pick debounce in onClick handles the duplicate click events
-  // a double-tap still fires.
+  // While picking or planning a trip, disable double-tap zoom so a double-tap
+  // doesn't lurch the camera; the 400ms guard in onClick handles the
+  // duplicate click events a double-tap still fires.
   useEffect(() => {
     const map = mapRef.current?.getMap();
     if (!map) return;
-    if (pickingLocation) {
+    if (pickingLocation || tripActive) {
       map.doubleClickZoom.disable();
     } else {
       map.doubleClickZoom.enable();
     }
-  }, [pickingLocation]);
+  }, [pickingLocation, tripActive]);
 
   // Escape exits the picking sequence (keeps endpoints picked so far)
   useEffect(() => {
@@ -1589,6 +1631,7 @@ export const MapLibreView = forwardRef<MapLibreViewHandle, MapLibreViewProps>(
         />
       )}
       {isLeakMode && <FlockLeakPopup />}
+      {isLeakMode && <TripMarks />}
 
       {/* Routes (only in route mode) */}
       {appMode === 'route' && hasRoutes && (
