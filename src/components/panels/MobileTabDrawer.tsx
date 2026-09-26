@@ -23,6 +23,9 @@ import { FlockLeakPanelContent, FlockCompareKey, FLOCK_LEAK_COPY } from './Flock
 import { useFlockLeakStore } from '../../store/flockLeakStore';
 import { FlockDevicePeek } from './FlockDevicePeek';
 import { FlockSelectionDetails } from '../map/FlockLeakPopup';
+import { useTripStore } from '../../store/tripStore';
+import { TripPeek } from './TripPeek';
+import { TripSheet } from './TripSheet';
 
 /* ------------------------------------------------------------------ */
 /*  Tab definitions                                                    */
@@ -84,6 +87,11 @@ const PEEK: Partial<Record<AppMode, { title: string; desc: string; Icon?: typeof
  *  fit content, never this number per-mode. */
 const UNIFORM_PEEK_HEIGHT = 180;
 const PEEK_MODES: ReadonlySet<AppMode> = new Set(['route', 'explore', 'leak', 'network']);
+
+/** Trip mode's resting height: the count row, the hint and the Google Maps
+ *  bar. Tuned in the browser so the bar ends at least 8px above the sheet's
+ *  bottom on a 360px phone; controls ride above it via --drawer-height. */
+const TRIP_PEEK_HEIGHT = 139;
 
 /** Mode identity at peek. The whole row is the expand affordance — icon,
  *  real title, one-liner, chevron. */
@@ -195,6 +203,9 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
   const leakCompare = leakView === 'overlay';
   // A tapped Flock device takes the peek (phones get no map popup).
   const leakSelection = useFlockLeakStore(s => s.selection);
+  // Trip mode (Leak tab, phones) takes the whole sheet: the trip bar at the
+  // peek, the stop list when expanded, no tabs until Done.
+  const tripActive = useTripStore((s) => s.active) && appMode === 'leak';
 
   /* ---- country (gates US-only tabs) ---- */
   const country = useCameraStore(s => s.country);
@@ -259,6 +270,11 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leakSelection, appMode]);
 
+  // Opening a trip rests the sheet at the trip bar.
+  useEffect(() => {
+    if (tripActive) setSnapPoint('peek');
+  }, [tripActive]);
+
   const exploresPending = !cameraIsInitialized && cameraLoadPhase !== 'error';
   const showExploreSkeleton = useDelayedFlag(exploresPending);
 
@@ -269,9 +285,15 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
   // stored snap canonical by mapping the equal-height 'minimized' label to
   // 'peek' at the state boundary, so mode switches never pass through a
   // one-frame 80px 'minimized' render.
+  // The trip's floor is its peek too, mapped the same way.
   const handleSnapPointChange = useCallback((p: SnapPoint) => {
-    setSnapPoint(appMode === 'explore' && p === 'minimized' ? 'peek' : p);
-  }, [appMode]);
+    setSnapPoint((appMode === 'explore' || tripActive) && p === 'minimized' ? 'peek' : p);
+  }, [appMode, tripActive]);
+
+  const handleTripDone = useCallback(() => {
+    useTripStore.getState().close();
+    setSnapPoint('peek');
+  }, []);
 
   /* ---- tab switch ----
    * The tapped tab highlights this frame (pendingMode); the actual mode
@@ -324,14 +346,17 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
   // Map's minimized floor grows to fit the live brand strip when the index
   // has stats; without them it is exactly the pre-strip layout.
   const minimizedHeight =
-    appMode === 'map' ? (hasBrandStrip ? 160 : 108)
+    tripActive ? TRIP_PEEK_HEIGHT
+    : appMode === 'map' ? (hasBrandStrip ? 160 : 108)
     : appMode === 'explore' ? UNIFORM_PEEK_HEIGHT
     : 80;
 
   // Resting height feeds --drawer-height so map controls/attribution ride
   // above the sheet. Parked at the peek height while 'full' (controls are
   // behind the sheet then anyway; jumping them to 85vh would look broken).
-  const peekHeightForMode = PEEK_MODES.has(appMode) ? UNIFORM_PEEK_HEIGHT : minimizedHeight;
+  const peekHeightForMode = tripActive
+    ? TRIP_PEEK_HEIGHT
+    : PEEK_MODES.has(appMode) ? UNIFORM_PEEK_HEIGHT : minimizedHeight;
   const drawerRestHeight = snapPoint === 'minimized' ? minimizedHeight : peekHeightForMode;
 
   useEffect(() => {
@@ -339,7 +364,9 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
     el?.style.setProperty('--drawer-height', `${drawerRestHeight}px`);
   }, [drawerRestHeight]);
 
-  const headerContent = (
+  const headerContent = tripActive ? (
+    <TripPeek expanded={snapPoint === 'full'} onDone={handleTripDone} />
+  ) : (
     <div>
       <div className="flex items-stretch -mx-4 px-2 border-b border-hairline">
         {TABS.map(({ mode, label }) => {
@@ -585,7 +612,7 @@ export function MobileTabDrawer({ onModeChange }: MobileTabDrawerProps) {
         headerContent={headerContent}
         disableHeaderTap
       >
-        {snapPoint === 'full' && renderTabContent()}
+        {snapPoint === 'full' && (tripActive ? <TripSheet /> : renderTabContent())}
       </BottomSheet>
     </>
   );
