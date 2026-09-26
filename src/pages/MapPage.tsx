@@ -28,6 +28,8 @@ import { CameraFilterControl } from '@/components/map/CameraFilterControl';
 import { BoundaryControl } from '@/components/map/BoundaryControl';
 import { FlockLeakFilterControl } from '@/components/map/FlockLeakFilterControl';
 import { FlockLegendControl } from '@/components/map/FlockLegendControl';
+import { TripControl } from '@/components/map/TripControl';
+import { useTripStore } from '@/store/tripStore';
 import { BoundaryFeaturePopup } from '@/components/map/BoundaryFeaturePopup';
 import { MapThemeControl } from '@/components/map/MapThemeControl';
 import { CameraTileStatusPill } from '@/components/map/CameraTileStatusPill';
@@ -59,6 +61,8 @@ export function MapPage() {
   const enterTimeline = useAppModeStore(s => s.enterTimeline);
   const updateTimelineSettings = useAppModeStore(s => s.updateTimelineSettings);
   const isEmbed = useEmbedMode();
+  // Leak trip mode (phones): the map buttons step aside while it is open.
+  const tripMode = useTripStore((s) => s.active) && appMode === 'leak';
   const isExploreMode = appMode === 'explore';
   const hasAutoPlayed = useRef(false);
 
@@ -77,11 +81,20 @@ export function MapPage() {
     const leak = useFlockLeakStore.getState();
     leak.beginVisit();
     void leak.ensureTileJsonLoaded();
-    return () => useFlockLeakStore.getState().endVisit();
+    return () => {
+      useFlockLeakStore.getState().endVisit();
+      // Leaving the tab leaves trip mode; the stops are kept.
+      useTripStore.getState().close();
+    };
   }, [appMode]);
 
   const stateFilter = useCameraStore(s => s.filters.state);
   const isMobile = useIsMobile();
+
+  // Trip mode is phones only: crossing to the desktop layout closes it.
+  useEffect(() => {
+    if (!isMobile) useTripStore.getState().close();
+  }, [isMobile]);
 
   // Mode switching is a plain store update — the URL follows via useUrlSync.
   const handleSetAppMode = useCallback((mode: AppMode) => {
@@ -418,10 +431,11 @@ export function MapPage() {
             )}
             {appMode === 'network' && <NetworkLoadingPill />}
             {appMode === 'leak' && <FlockLeakStatusPill />}
-            <MapThemeControl />
-            <CameraFilterControl />
-            {appMode === 'leak' && <FlockLeakFilterControl />}
-            {appMode === 'leak' && <FlockLegendControl />}
+            {!tripMode && <MapThemeControl />}
+            {!tripMode && <CameraFilterControl />}
+            {appMode === 'leak' && !tripMode && <FlockLeakFilterControl />}
+            {appMode === 'leak' && !tripMode && <FlockLegendControl />}
+            {appMode === 'leak' && isMobile && !tripMode && <TripControl />}
             {appMode === 'map' && <BoundaryControl />}
             {appMode === 'map' && <BoundaryFeaturePopup />}
 

@@ -500,9 +500,23 @@ input[type="range"]::-moz-range-thumb {
     height: 38px;
   }
 
-  /* Flock Leak device filters: the country button's slot, above the drawer. */
-  .map-page .map-flock-filter-control {
+  /* Phones, Leak tab: Trip takes the bottom slot, nearest the thumb, so the
+     Leak buttons above it each sit one slot (46px) higher than their
+     desktop order would put them. */
+  .map-page .map-trip-control {
+    bottom: calc(var(--drawer-height, 80px) + 30px);
+    left: 12px;
+  }
+  .map-page .map-trip-control > button {
+    width: 38px;
+    height: 38px;
+  }
+  /* Comparing: the OSM filter sits right above Trip. */
+  .map-page .map-filter-control.map-filter-control-leak {
     bottom: calc(var(--drawer-height, 80px) + 76px);
+  }
+  .map-page .map-flock-filter-control {
+    bottom: calc(var(--drawer-height, 80px) + 122px);
     left: 12px;
   }
   .map-page .map-flock-filter-control .filter-trigger {
@@ -510,18 +524,19 @@ input[type="range"]::-moz-range-thumb {
     height: 38px;
   }
   .map-page .map-flock-legend-control {
-    bottom: calc(var(--drawer-height, 80px) + 122px);
+    bottom: calc(var(--drawer-height, 80px) + 168px);
     left: 12px;
   }
   .map-page .map-flock-legend-control > button {
     width: 38px;
     height: 38px;
   }
+  /* Flock's records view hides the OSM filter: both drop one slot. */
   .map-page .map-flock-filter-control.map-flock-slot-down {
-    bottom: calc(var(--drawer-height, 80px) + 30px);
+    bottom: calc(var(--drawer-height, 80px) + 76px);
   }
   .map-page .map-flock-legend-control.map-flock-slot-down {
-    bottom: calc(var(--drawer-height, 80px) + 76px);
+    bottom: calc(var(--drawer-height, 80px) + 122px);
   }
 
   /* Theme pill floats above geolocate with a small gap.

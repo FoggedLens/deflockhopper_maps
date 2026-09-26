@@ -527,7 +527,7 @@ export function CameraFilterControl() {
   );
 
   return (
-    <div ref={rootRef} className="map-filter-control absolute z-20 flex flex-col items-start">
+    <div ref={rootRef} className={`map-filter-control ${appMode === 'leak' ? 'map-filter-control-leak' : ''} absolute z-20 flex flex-col items-start`}>
       {/* Desktop popover */}
       {open && !isMobile && (
         <div className="absolute bottom-full left-0 mb-2 w-[320px] bg-dark-900/95 backdrop-blur-md rounded-xl border border-dark-600 shadow-xl shadow-black/40 overflow-hidden">
