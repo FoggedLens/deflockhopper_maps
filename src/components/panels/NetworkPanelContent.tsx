@@ -484,7 +484,7 @@ export function NetworkPanelContent() {
                 <div className="text-xs text-amber-100/90 leading-relaxed">
                   <p className="font-semibold text-amber-300 mb-1">Most of the network is hidden.</p>
                   <p>
-                    Of <span className="font-semibold text-amber-200">{headline.agencies.toLocaleString()} agencies</span> using Flock, only <span className="font-semibold text-amber-200">{headline.portals.toLocaleString()}</span> run a public transparency portal. Just{' '}
+                    Of <span className="font-semibold text-amber-200">{headline.agencies.toLocaleString()} agencies</span> using Flock, we are aware of only <span className="font-semibold text-amber-200">{headline.portals.toLocaleString()}</span> operating a public transparency portal. Just{' '}
                     {headline.disclosing === null ? (
                       // Disclosure is read from the sharing file, which lands after the agency dots
                       <span aria-hidden className={`inline-block h-3 w-8 rounded align-middle ${showDisclosingPending ? 'animate-pulse bg-amber-200/20' : ''}`} />
@@ -517,7 +517,7 @@ export function NetworkPanelContent() {
                   EyesOnFlock.com
                 </a>
                 <DataAsOf />
-                . Portal metrics (cameras, searches, etc.) are only available for agencies with a public transparency portal.
+                . Portal metrics (cameras, searches, etc.) are only available for agencies with a known public transparency portal.
               </p>
             </div>
           )}
